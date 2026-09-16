@@ -139,7 +139,7 @@ export function CalendarScreen() {
                 <View
                   style={[
                     styles.switchKnob,
-                    { left: reminder ? 20 : 2, backgroundColor: reminder ? colors.onTint2 : colors.ink3 },
+                    { left: reminder ? 20 : 2, backgroundColor: reminder ? colors.onArt : colors.ink3 },
                   ]}
                 />
               </Pressable>

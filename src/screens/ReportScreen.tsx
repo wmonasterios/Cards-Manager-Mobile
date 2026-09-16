@@ -83,7 +83,7 @@ export function ReportScreen({ navigation }: Props) {
               <View
                 style={[
                   styles.switchKnob,
-                  { left: attach ? 20 : 2, backgroundColor: attach ? colors.onTint2 : colors.ink3 },
+                  { left: attach ? 20 : 2, backgroundColor: attach ? colors.onArt : colors.ink3 },
                 ]}
               />
             </Pressable>

@@ -84,7 +84,7 @@ export function SettingsScreen({ navigation }: any) {
                   <View
                     style={[
                       styles.switchKnob,
-                      { left: r.on ? 20 : 2, backgroundColor: r.on ? colors.onTint2 : colors.ink3 },
+                      { left: r.on ? 20 : 2, backgroundColor: r.on ? colors.onArt : colors.ink3 },
                     ]}
                   />
                 </Pressable>
