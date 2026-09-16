@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { colors, radius } from '../theme';
+import { View, Text, Pressable } from 'react-native';
+import { useColors } from '../theme/ThemeContext';
+import { radius } from '../theme';
 
 type Option<T extends string> = { key: T; label: string };
 
@@ -13,17 +14,36 @@ export function Segmented<T extends string>({
   value: T;
   onChange: (v: T) => void;
 }) {
+  const colors = useColors();
   return (
-    <View style={styles.wrap}>
+    <View
+      style={{
+        flexDirection: 'row',
+        gap: 4,
+        padding: 3,
+        backgroundColor: colors.surface2,
+        borderRadius: radius.md - 2,
+      }}
+    >
       {options.map((opt) => {
         const active = opt.key === value;
         return (
           <Pressable
             key={opt.key}
             onPress={() => onChange(opt.key)}
-            style={[styles.opt, active && styles.optActive]}
+            style={{
+              flex: 1,
+              paddingVertical: 9,
+              paddingHorizontal: 6,
+              borderRadius: radius.sm,
+              alignItems: 'center',
+              backgroundColor: active ? colors.tint2 : 'transparent',
+            }}
           >
-            <Text style={[styles.label, active && styles.labelActive]} numberOfLines={1}>
+            <Text
+              numberOfLines={1}
+              style={{ fontSize: 11.5, fontWeight: '500', color: active ? colors.onTint2 : colors.ink2 }}
+            >
               {opt.label}
             </Text>
           </Pressable>
@@ -32,31 +52,3 @@ export function Segmented<T extends string>({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    flexDirection: 'row',
-    gap: 4,
-    padding: 3,
-    backgroundColor: colors.surface2,
-    borderRadius: radius.md - 2,
-  },
-  opt: {
-    flex: 1,
-    paddingVertical: 9,
-    paddingHorizontal: 6,
-    borderRadius: radius.sm,
-    alignItems: 'center',
-  },
-  optActive: {
-    backgroundColor: colors.tint2,
-  },
-  label: {
-    fontSize: 11.5,
-    fontWeight: '500',
-    color: colors.ink2,
-  },
-  labelActive: {
-    color: colors.onTint2,
-  },
-});

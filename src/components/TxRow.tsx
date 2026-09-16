@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { colors, radius } from '../theme';
+import { View, Text, Pressable } from 'react-native';
+import { useColors } from '../theme/ThemeContext';
+import { radius } from '../theme';
 import { DecoratedTransaction } from '../decorate';
 
 export function TxRow({
@@ -12,51 +13,46 @@ export function TxRow({
   onPress: () => void;
   showCard?: boolean;
 }) {
+  const colors = useColors();
   return (
-    <Pressable onPress={onPress} style={styles.row}>
-      <View style={[styles.badge, { backgroundColor: tx.catBg }]}>
-        <Text style={[styles.badgeText, { color: tx.catInk }]}>{tx.initials}</Text>
+    <Pressable
+      onPress={onPress}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingVertical: 12,
+        paddingHorizontal: 14,
+        borderTopWidth: 1,
+        borderTopColor: colors.hair,
+      }}
+    >
+      <View
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: radius.sm + 1,
+          backgroundColor: tx.catBg,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ fontSize: 11, fontWeight: '600', color: tx.catInk }}>{tx.initials}</Text>
       </View>
-      <View style={styles.mid}>
-        <Text style={styles.merchant} numberOfLines={1}>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={{ fontSize: 13.5, fontWeight: '500', color: colors.ink }} numberOfLines={1}>
           {tx.merchant}
         </Text>
-        <Text style={[styles.sub, { color: tx.subInk }]} numberOfLines={1}>
+        <Text style={{ fontSize: 11, marginTop: 2, color: tx.subInk }} numberOfLines={1}>
           {tx.sub}
         </Text>
       </View>
-      <View style={styles.right}>
-        <Text style={[styles.amount, { color: tx.amountInk }]}>{tx.amountText}</Text>
-        <Text style={styles.date} numberOfLines={1}>
+      <View style={{ alignItems: 'flex-end' }}>
+        <Text style={{ fontSize: 13.5, fontWeight: '600', color: tx.amountInk }}>{tx.amountText}</Text>
+        <Text style={{ fontSize: 10.5, color: colors.ink3, marginTop: 2 }} numberOfLines={1}>
           {showCard ? `${tx.cardShort} · ${tx.date}` : tx.date}
         </Text>
       </View>
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderTopWidth: 1,
-    borderTopColor: colors.hair,
-  },
-  badge: {
-    width: 34,
-    height: 34,
-    borderRadius: radius.sm + 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: { fontSize: 11, fontWeight: '600' },
-  mid: { flex: 1, minWidth: 0 },
-  merchant: { fontSize: 13.5, fontWeight: '500', color: colors.ink },
-  sub: { fontSize: 11, marginTop: 2 },
-  right: { alignItems: 'flex-end' },
-  amount: { fontSize: 13.5, fontWeight: '600' },
-  date: { fontSize: 10.5, color: colors.ink3, marginTop: 2 },
-});

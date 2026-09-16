@@ -1,6 +1,7 @@
 import { Card, Transaction } from './data';
-import { colors, categoryColors } from './theme';
+import { ColorTokens, getCategoryColors } from './theme';
 import { money } from './format';
+import { Dict } from './i18n/dict';
 
 export type DecoratedTransaction = Transaction & {
   amountText: string;
@@ -33,8 +34,8 @@ export type DecoratedCard = Card & {
 
 export type Payment = { amount: number; when: string };
 
-export function decorateTransaction(t: Transaction, card: Card): DecoratedTransaction {
-  const cat = categoryColors[t.category];
+export function decorateTransaction(t: Transaction, card: Card, colors: ColorTokens): DecoratedTransaction {
+  const cat = getCategoryColors(colors)[t.category];
   return {
     ...t,
     amountText: (t.amount > 0 ? '+' : '') + money(card.cur, Math.abs(t.amount)),
@@ -51,6 +52,8 @@ export function decorateCard(
   c: Card,
   paidOverride: boolean | undefined,
   payments: Payment[],
+  t: Dict,
+  colors: ColorTokens,
 ): DecoratedCard {
   const paid = paidOverride !== undefined ? paidOverride : c.balance === 0;
   const paidAmt = payments.reduce((n, p) => n + p.amount, 0);
@@ -67,17 +70,21 @@ export function decorateCard(
     statementText: fmtC(c.balance),
     paidNote:
       paidAmt > 0
-        ? `${fmtC(paidAmt)} registered · ${fmtC(remaining)} left`
-        : `${fmtC(c.limit - remaining)} available`,
+        ? `${fmtC(paidAmt)} ${t.registeredWord} · ${fmtC(remaining)} ${t.leftWord}`
+        : `${fmtC(c.limit - remaining)} ${t.availableWord}`,
     balanceText: fmtC(remaining),
     minText: fmtC(Math.max(0, c.min - paidAmt)),
     limitText: fmtC(c.limit),
     usedText: fmtC(remaining),
     availableText: fmtC(c.limit - remaining),
-    dueShort: paid ? 'Paid' : 'Due ' + c.due,
-    stateText: paid ? 'Nothing to pay' : paidAmt > 0 ? `${fmtC(paidAmt)} registered` : `Min ${fmtC(c.min)}`,
+    dueShort: paid ? t.paidWord : `${t.dueWord} ${c.due}`,
+    stateText: paid
+      ? t.nothing
+      : paidAmt > 0
+        ? `${fmtC(paidAmt)} ${t.registeredWord}`
+        : `${t.minWord} ${fmtC(c.min)}`,
     stateInk: paid ? colors.ink2 : colors.accentInk,
     barInk: usedPct > 60 ? colors.accentInk2 : colors.bar,
-    dtx: c.tx.map((t) => decorateTransaction(t, c)),
+    dtx: c.tx.map((tr) => decorateTransaction(tr, c, colors)),
   };
 }

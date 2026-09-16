@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, ColorTokens } from '../theme';
+import { useColors } from '../theme/ThemeContext';
+import { useT } from '../i18n/LocaleContext';
 import { BackButton } from '../components/BackButton';
 import { useCards } from '../context/CardsContext';
 
@@ -13,6 +15,9 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
   const { getCard } = useCards();
   const card = getCard(cardId);
   const tx = card?.dtx.find((t) => t.id === txId);
+  const colors = useColors();
+  const t = useT();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   if (!card || !tx) return null;
 
@@ -23,12 +28,12 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
       : `Posted · ${card.bank} ${card.last4}`;
 
   const rows = [
-    { label: 'Card', value: `${card.bank} ${card.product}` },
-    { label: 'Category', value: tx.category },
-    { label: 'Date', value: `${tx.date}, 2026` },
-    { label: 'Instalment plan', value: tx.plan ? `${tx.plan} · 0%` : 'Single payment' },
-    { label: 'Charged in cycle', value: card.cycleNote },
-    { label: 'Original description', value: tx.merchant.toUpperCase() },
+    { label: t.card, value: `${card.bank} ${card.product}` },
+    { label: t.category, value: tx.category },
+    { label: t.dateLabel, value: `${tx.date}, 2026` },
+    { label: t.plan, value: tx.plan ? `${tx.plan} · 0%` : t.single },
+    { label: t.inCycle, value: card.cycleNote },
+    { label: t.originalDesc, value: tx.merchant.toUpperCase() },
   ];
 
   const sourceNote = `Read from the ${card.bank} statement PDF received on ${card.cutoff}. Amounts can differ from the bank app until the next statement arrives.`;
@@ -64,14 +69,17 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
           <View style={styles.sourceCard}>
             <Text style={styles.sourceNote}>{sourceNote}</Text>
             <View style={styles.sourceActions}>
-              <Pressable onPress={() => navigation.navigate('Statements')} style={styles.sourceBtn}>
-                <Text style={styles.sourceBtnText}>Open statement</Text>
-              </Pressable>
               <Pressable
-                onPress={() => Alert.alert('Change category', 'Category editing is coming in a later update.')}
+                onPress={() => navigation.navigate('Tabs', { screen: 'Statements' })}
                 style={styles.sourceBtn}
               >
-                <Text style={styles.sourceBtnText}>Change category</Text>
+                <Text style={styles.sourceBtnText}>{t.openStatement}</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => Alert.alert(t.changeCategory, 'Category editing is coming in a later update.')}
+                style={styles.sourceBtn}
+              >
+                <Text style={styles.sourceBtnText}>{t.changeCategory}</Text>
               </Pressable>
             </View>
           </View>
@@ -81,53 +89,55 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
-  scrollContent: { paddingBottom: 40 },
-  top: { paddingTop: spacing.xxl, paddingHorizontal: spacing.xl },
-  identityRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 22 },
-  badge: { width: 54, height: 54, borderRadius: radius.xl - 2, alignItems: 'center', justifyContent: 'center' },
-  badgeText: { fontSize: 16, fontWeight: '600' },
-  merchant: { fontSize: 19, fontWeight: '500', color: colors.ink },
-  sub: { fontSize: 12, color: colors.ink3, marginTop: 4 },
-  amount: { fontSize: 40, fontWeight: '600', marginTop: 20, letterSpacing: -0.6 },
-  statusNote: { fontSize: 12.5, color: colors.ink3, marginTop: 6 },
-  section: { paddingHorizontal: spacing.xl, marginTop: spacing.xl },
-  listCard: {
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
-    overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderTopWidth: 1,
-    borderTopColor: colors.hair,
-  },
-  rowLabel: { fontSize: 13, color: colors.ink2b },
-  rowValue: { fontSize: 13, fontWeight: '500', color: colors.ink, textAlign: 'right', flexShrink: 1 },
-  sourceCard: {
-    marginTop: 12,
-    padding: 14,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface2,
-    borderWidth: 1,
-    borderColor: colors.line2,
-  },
-  sourceNote: { fontSize: 12, color: colors.ink2, lineHeight: 18 },
-  sourceActions: { flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' },
-  sourceBtn: {
-    paddingVertical: 9,
-    paddingHorizontal: 13,
-    borderRadius: radius.md - 2,
-    borderWidth: 1,
-    borderColor: colors.hair4,
-  },
-  sourceBtnText: { fontSize: 12, fontWeight: '500', color: colors.ink },
-});
+function makeStyles(colors: ColorTokens) {
+  return StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.bg },
+    scrollContent: { paddingBottom: 40 },
+    top: { paddingTop: spacing.xxl, paddingHorizontal: spacing.xl },
+    identityRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 22 },
+    badge: { width: 54, height: 54, borderRadius: radius.xl - 2, alignItems: 'center', justifyContent: 'center' },
+    badgeText: { fontSize: 16, fontWeight: '600' },
+    merchant: { fontSize: 19, fontWeight: '500', color: colors.ink },
+    sub: { fontSize: 12, color: colors.ink3, marginTop: 4 },
+    amount: { fontSize: 40, fontWeight: '600', marginTop: 20, letterSpacing: -0.6 },
+    statusNote: { fontSize: 12.5, color: colors.ink3, marginTop: 6 },
+    section: { paddingHorizontal: spacing.xl, marginTop: spacing.xl },
+    listCard: {
+      borderRadius: radius.lg,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.line,
+      overflow: 'hidden',
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      justifyContent: 'space-between',
+      gap: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      borderTopWidth: 1,
+      borderTopColor: colors.hair,
+    },
+    rowLabel: { fontSize: 13, color: colors.ink2b },
+    rowValue: { fontSize: 13, fontWeight: '500', color: colors.ink, textAlign: 'right', flexShrink: 1 },
+    sourceCard: {
+      marginTop: 12,
+      padding: 14,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surface2,
+      borderWidth: 1,
+      borderColor: colors.line2,
+    },
+    sourceNote: { fontSize: 12, color: colors.ink2, lineHeight: 18 },
+    sourceActions: { flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' },
+    sourceBtn: {
+      paddingVertical: 9,
+      paddingHorizontal: 13,
+      borderRadius: radius.md - 2,
+      borderWidth: 1,
+      borderColor: colors.hair4,
+    },
+    sourceBtnText: { fontSize: 12, fontWeight: '500', color: colors.ink },
+  });
+}

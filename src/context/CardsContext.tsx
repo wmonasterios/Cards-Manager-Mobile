@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useMemo, useState, useCallback } from 'react';
 import { CARDS, Card } from '../data';
 import { decorateCard, DecoratedCard, Payment } from '../decorate';
+import { useT } from '../i18n/LocaleContext';
+import { useColors } from '../theme/ThemeContext';
 
 type CardsContextValue = {
   cards: DecoratedCard[];
@@ -15,10 +17,12 @@ const CardsContext = createContext<CardsContextValue | null>(null);
 export function CardsProvider({ children }: { children: React.ReactNode }) {
   const [paid, setPaid] = useState<Record<string, boolean>>({});
   const [payments, setPayments] = useState<Record<string, Payment[]>>({});
+  const t = useT();
+  const colors = useColors();
 
   const cards = useMemo(
-    () => CARDS.map((c: Card) => decorateCard(c, paid[c.id], payments[c.id] ?? [])),
-    [paid, payments],
+    () => CARDS.map((c: Card) => decorateCard(c, paid[c.id], payments[c.id] ?? [], t, colors)),
+    [paid, payments, t, colors],
   );
 
   const getCard = useCallback((id: string) => cards.find((c) => c.id === id), [cards]);

@@ -2,7 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, StyleSheet } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, ColorTokens } from '../theme';
+import { useColors } from '../theme/ThemeContext';
+import { useT } from '../i18n/LocaleContext';
 import { CardArt } from '../components/CardArt';
 import { ProgressBar } from '../components/ProgressBar';
 import { TxRow } from '../components/TxRow';
@@ -20,6 +22,9 @@ export function CardDetailScreen({ route, navigation }: Props) {
   const { cardId } = route.params;
   const { getCard, togglePaid } = useCards();
   const card = getCard(cardId);
+  const colors = useColors();
+  const t = useT();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [range, setRange] = useState<RangeKey>('cycle');
   const [showAll, setShowAll] = useState(false);
@@ -31,15 +36,15 @@ export function CardDetailScreen({ route, navigation }: Props) {
   const rangeEnd = range === 'custom' ? to : TODAY;
 
   const rangeTx = useMemo(
-    () => (card ? card.dtx.filter((t) => t.iso >= rangeStart && t.iso <= rangeEnd) : []),
+    () => (card ? card.dtx.filter((tx) => tx.iso >= rangeStart && tx.iso <= rangeEnd) : []),
     [card, rangeStart, rangeEnd],
   );
   const shown = showAll ? rangeTx : rangeTx.slice(0, 5);
-  const rangeSpend = rangeTx.reduce((n, t) => n + (t.amount < 0 ? -t.amount : 0), 0);
+  const rangeSpend = rangeTx.reduce((n, tx) => n + (tx.amount < 0 ? -tx.amount : 0), 0);
 
   if (!card) return null;
 
-  const balanceLabel = card.paidAmt > 0 ? 'Balance left to pay' : 'Statement balance';
+  const balanceLabel = card.paidAmt > 0 ? t.leftToPay : t.stmtBal;
 
   return (
     <View style={styles.screen}>
@@ -47,15 +52,18 @@ export function CardDetailScreen({ route, navigation }: Props) {
         <View style={styles.topRow}>
           <BackButton onPress={() => navigation.goBack()} />
           <View style={styles.topActions}>
-            <Pressable onPress={() => navigation.navigate('Statements')} style={styles.pillBtn}>
-              <Text style={styles.pillBtnText}>Statements</Text>
+            <Pressable
+              onPress={() => navigation.navigate('Tabs', { screen: 'Statements' })}
+              style={styles.pillBtn}
+            >
+              <Text style={styles.pillBtnText}>{t.statements}</Text>
             </Pressable>
             <Pressable
               onPress={() => togglePaid(card.id)}
               style={[styles.pillBtn, styles.pillBtnAccent]}
             >
               <Text style={[styles.pillBtnText, { color: colors.accent }]}>
-                {card.paid ? 'Mark unpaid' : 'Mark as paid'}
+                {card.paid ? t.markUnpaid : t.markPaid}
               </Text>
             </Pressable>
           </View>
@@ -84,17 +92,17 @@ export function CardDetailScreen({ route, navigation }: Props) {
             <Text style={styles.tileNote}>{card.paidNote}</Text>
           </View>
           <View style={styles.tile}>
-            <Text style={styles.tileLabel}>Payment due</Text>
+            <Text style={styles.tileLabel}>{t.payDue}</Text>
             <Text style={styles.tileValue}>{card.dueShort}</Text>
             <Text style={[styles.tileNote, { color: card.stateInk }]}>{card.stateText}</Text>
           </View>
           <View style={styles.tile}>
-            <Text style={styles.tileLabel}>Minimum payment</Text>
+            <Text style={styles.tileLabel}>{t.minPay}</Text>
             <Text style={styles.tileValue}>{card.minText}</Text>
             <Text style={styles.tileNote}>Full payment {card.balanceText}</Text>
           </View>
           <View style={styles.tile}>
-            <Text style={styles.tileLabel}>Credit used</Text>
+            <Text style={styles.tileLabel}>{t.creditUsed}</Text>
             <Text style={styles.tileValue}>{card.usedPct}%</Text>
             <View style={{ marginTop: 10 }}>
               <ProgressBar pct={card.usedPct} fill={card.barInk} />
@@ -107,14 +115,14 @@ export function CardDetailScreen({ route, navigation }: Props) {
             onPress={() => navigation.navigate('Pay', { cardId: card.id })}
             style={styles.payBtn}
           >
-            <Text style={styles.payBtnText}>Register a payment</Text>
+            <Text style={styles.payBtnText}>{t.registerPay}</Text>
           </Pressable>
         </View>
 
         {card.plans.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Installment plans</Text>
+              <Text style={styles.sectionTitle}>{t.plans}</Text>
               <Text style={styles.sectionNote}>{card.plansNote}</Text>
             </View>
             <View style={{ marginTop: 10, gap: 8 }}>
@@ -144,16 +152,16 @@ export function CardDetailScreen({ route, navigation }: Props) {
 
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Transactions</Text>
+            <Text style={styles.sectionTitle}>{t.transactions}</Text>
             <Text style={styles.sectionNote}>{card.cycleNote}</Text>
           </View>
           <View style={{ marginTop: 12 }}>
             <Segmented
               options={[
-                { key: 'cycle', label: 'This cycle' },
-                { key: '3cycles', label: '3 cycles' },
-                { key: 'ytd', label: 'YTD' },
-                { key: 'custom', label: 'Range' },
+                { key: 'cycle', label: t.thisCycle },
+                { key: '3cycles', label: t.threeCycles },
+                { key: 'ytd', label: t.ytd },
+                { key: 'custom', label: t.range },
               ]}
               value={range}
               onChange={(v) => {
@@ -181,14 +189,14 @@ export function CardDetailScreen({ route, navigation }: Props) {
             </View>
           )}
           <Text style={styles.txNote}>
-            {rangeTx.length} transactions · {money('US$', rangeSpend)}
+            {rangeTx.length} {t.transactions.toLowerCase()} · {money('US$', rangeSpend)}
           </Text>
           <View style={styles.listCard}>
-            {shown.map((t) => (
+            {shown.map((tx) => (
               <TxRow
-                key={t.id}
-                tx={t}
-                onPress={() => navigation.navigate('TransactionDetail', { txId: t.id, cardId: card.id })}
+                key={tx.id}
+                tx={tx}
+                onPress={() => navigation.navigate('TransactionDetail', { txId: tx.id, cardId: card.id })}
               />
             ))}
           </View>
@@ -198,7 +206,7 @@ export function CardDetailScreen({ route, navigation }: Props) {
           {(rangeTx.length > shown.length || showAll) && rangeTx.length > 0 && (
             <Pressable onPress={() => setShowAll((v) => !v)} style={styles.moreBtn}>
               <Text style={styles.moreBtnText}>
-                {showAll ? 'Show less' : `Show all ${rangeTx.length}`}
+                {showAll ? t.showLess : `${t.showAll} ${rangeTx.length}`}
               </Text>
             </Pressable>
           )}
@@ -208,112 +216,114 @@ export function CardDetailScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
-  scrollContent: { paddingBottom: 40 },
-  topRow: {
-    paddingTop: spacing.xxl,
-    paddingHorizontal: spacing.xl,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  topActions: { flexDirection: 'row', gap: 8 },
-  pillBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.hair4,
-  },
-  pillBtnAccent: { borderColor: colors.accent },
-  pillBtnText: { fontSize: 11.5, fontWeight: '500', color: colors.ink },
-  heroWrap: { paddingHorizontal: spacing.xl, marginTop: spacing.lg },
-  hero: {
-    borderRadius: radius.xl,
-    padding: 18,
-    height: 200,
-    justifyContent: 'space-between',
-  },
-  heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  heroBank: { fontSize: 16, fontWeight: '600', color: colors.onArt },
-  heroSub: { fontSize: 12, color: 'rgba(243,245,254,0.62)', marginTop: 4 },
-  heroNetwork: { fontSize: 11, fontWeight: '500', letterSpacing: 1.4, color: 'rgba(243,245,254,0.62)' },
-  heroBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  heroLast4: { fontSize: 14, fontWeight: '500', letterSpacing: 2.2, color: colors.onArt },
-  heroCur: { fontSize: 11, color: 'rgba(243,245,254,0.62)' },
-  tiles: {
-    marginTop: 14,
-    paddingHorizontal: spacing.xl,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  tile: {
-    width: '47.5%',
-    padding: 14,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  tileLabel: { fontSize: 11.5, color: colors.ink2 },
-  tileValue: { fontSize: 22, fontWeight: '600', color: colors.ink, marginTop: 8 },
-  tileNote: { fontSize: 11, color: colors.ink3, marginTop: 4 },
-  section: { paddingHorizontal: spacing.xl, marginTop: spacing.xl },
-  sectionHeaderRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  sectionTitle: { fontSize: 16, fontWeight: '500', color: colors.ink },
-  sectionNote: { fontSize: 11.5, color: colors.ink3 },
-  payBtn: {
-    padding: 14,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    alignItems: 'center',
-  },
-  payBtnText: { fontSize: 14, fontWeight: '500', color: colors.accent },
-  planCard: {
-    padding: 13,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  planTopRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
-  planMerchant: { fontSize: 13.5, fontWeight: '500', color: colors.ink },
-  planMonthly: { fontSize: 13.5, fontWeight: '600', color: colors.ink },
-  planPer: { fontSize: 10.5, fontWeight: '400', color: colors.ink3 },
-  planSubRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  planSub: { fontSize: 11, color: colors.ink3 },
-  dateRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  dateInput: {
-    flex: 1,
-    minWidth: 0,
-    padding: 11,
-    borderRadius: radius.md - 2,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.bg,
-    color: colors.ink,
-    fontSize: 12.5,
-  },
-  txNote: { fontSize: 11.5, color: colors.ink3, marginTop: 10 },
-  listCard: {
-    marginTop: 10,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
-    overflow: 'hidden',
-  },
-  emptyNote: { padding: 18, fontSize: 12.5, color: colors.ink3 },
-  moreBtn: {
-    marginTop: 10,
-    padding: 12,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.hair4,
-    alignItems: 'center',
-  },
-  moreBtnText: { fontSize: 12.5, fontWeight: '500', color: colors.ink },
-});
+function makeStyles(colors: ColorTokens) {
+  return StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.bg },
+    scrollContent: { paddingBottom: 40 },
+    topRow: {
+      paddingTop: spacing.xxl,
+      paddingHorizontal: spacing.xl,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    topActions: { flexDirection: 'row', gap: 8 },
+    pillBtn: {
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.hair4,
+    },
+    pillBtnAccent: { borderColor: colors.accent },
+    pillBtnText: { fontSize: 11.5, fontWeight: '500', color: colors.ink },
+    heroWrap: { paddingHorizontal: spacing.xl, marginTop: spacing.lg },
+    hero: {
+      borderRadius: radius.xl,
+      padding: 18,
+      height: 200,
+      justifyContent: 'space-between',
+    },
+    heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+    heroBank: { fontSize: 16, fontWeight: '600', color: colors.onArt },
+    heroSub: { fontSize: 12, color: 'rgba(243,245,254,0.62)', marginTop: 4 },
+    heroNetwork: { fontSize: 11, fontWeight: '500', letterSpacing: 1.4, color: 'rgba(243,245,254,0.62)' },
+    heroBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+    heroLast4: { fontSize: 14, fontWeight: '500', letterSpacing: 2.2, color: colors.onArt },
+    heroCur: { fontSize: 11, color: 'rgba(243,245,254,0.62)' },
+    tiles: {
+      marginTop: 14,
+      paddingHorizontal: spacing.xl,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+    },
+    tile: {
+      width: '47.5%',
+      padding: 14,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.line,
+    },
+    tileLabel: { fontSize: 11.5, color: colors.ink2 },
+    tileValue: { fontSize: 22, fontWeight: '600', color: colors.ink, marginTop: 8 },
+    tileNote: { fontSize: 11, color: colors.ink3, marginTop: 4 },
+    section: { paddingHorizontal: spacing.xl, marginTop: spacing.xl },
+    sectionHeaderRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+    sectionTitle: { fontSize: 16, fontWeight: '500', color: colors.ink },
+    sectionNote: { fontSize: 11.5, color: colors.ink3 },
+    payBtn: {
+      padding: 14,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.accent,
+      alignItems: 'center',
+    },
+    payBtnText: { fontSize: 14, fontWeight: '500', color: colors.accent },
+    planCard: {
+      padding: 13,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.line,
+    },
+    planTopRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
+    planMerchant: { fontSize: 13.5, fontWeight: '500', color: colors.ink },
+    planMonthly: { fontSize: 13.5, fontWeight: '600', color: colors.ink },
+    planPer: { fontSize: 10.5, fontWeight: '400', color: colors.ink3 },
+    planSubRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+    planSub: { fontSize: 11, color: colors.ink3 },
+    dateRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+    dateInput: {
+      flex: 1,
+      minWidth: 0,
+      padding: 11,
+      borderRadius: radius.md - 2,
+      borderWidth: 1,
+      borderColor: colors.line,
+      backgroundColor: colors.bg,
+      color: colors.ink,
+      fontSize: 12.5,
+    },
+    txNote: { fontSize: 11.5, color: colors.ink3, marginTop: 10 },
+    listCard: {
+      marginTop: 10,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.line,
+      overflow: 'hidden',
+    },
+    emptyNote: { padding: 18, fontSize: 12.5, color: colors.ink3 },
+    moreBtn: {
+      marginTop: 10,
+      padding: 12,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.hair4,
+      alignItems: 'center',
+    },
+    moreBtnText: { fontSize: 12.5, fontWeight: '500', color: colors.ink },
+  });
+}

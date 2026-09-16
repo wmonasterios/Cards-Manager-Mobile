@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { colors } from '../theme';
+import { View } from 'react-native';
+import { useColors } from '../theme/ThemeContext';
 
 export function ProgressBar({
   pct,
-  fill = colors.bar,
-  track = colors.line2,
+  fill,
+  track,
   height = 4,
 }: {
   pct: number;
@@ -13,20 +13,26 @@ export function ProgressBar({
   track?: string;
   height?: number;
 }) {
+  const colors = useColors();
   const clamped = Math.max(0, Math.min(100, pct));
   return (
-    <View style={[styles.track, { backgroundColor: track, height, borderRadius: height }]}>
+    <View
+      style={{
+        overflow: 'hidden',
+        width: '100%',
+        backgroundColor: track ?? colors.line2,
+        height,
+        borderRadius: height,
+      }}
+    >
       <View
-        style={[
-          styles.fill,
-          { width: `${clamped}%`, backgroundColor: fill, height, borderRadius: height },
-        ]}
+        style={{
+          width: `${clamped}%`,
+          backgroundColor: fill ?? colors.bar,
+          height,
+          borderRadius: height,
+        }}
       />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  track: { overflow: 'hidden', width: '100%' },
-  fill: {},
-});

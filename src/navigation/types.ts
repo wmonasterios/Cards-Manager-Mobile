@@ -1,8 +1,21 @@
-export type RootStackParamList = {
+import { NavigatorScreenParams } from '@react-navigation/native';
+
+export type TabParamList = {
   Home: undefined;
+  Calendar: undefined;
+  Insights: undefined;
+  Statements: undefined;
+  Settings: undefined;
+};
+
+export type RootStackParamList = {
+  Tabs: NavigatorScreenParams<TabParamList> | undefined;
+  Onboarding: undefined;
   CardDetail: { cardId: string };
   Transactions: { initialQuery?: string };
   TransactionDetail: { txId: string; cardId: string };
   Pay: { cardId: string };
-  Statements: undefined;
+  Best: undefined;
+  Report: undefined;
+  Fix: undefined;
 };
