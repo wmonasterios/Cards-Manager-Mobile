@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -11,6 +11,7 @@ import { ProgressBar } from '../components/ProgressBar';
 import { TxRow } from '../components/TxRow';
 import { Segmented } from '../components/Segmented';
 import { BackButton } from '../components/BackButton';
+import { DateField } from '../components/DateField';
 import { useCards } from '../context/CardsContext';
 import { money } from '../format';
 
@@ -18,6 +19,10 @@ type Props = NativeStackScreenProps<RootStackParamList, 'CardDetail'>;
 
 const TODAY = '2026-09-14';
 type RangeKey = 'cycle' | '3cycles' | 'ytd' | 'custom';
+
+function toIso(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 export function CardDetailScreen({ route, navigation }: Props) {
   const { cardId } = route.params;
@@ -29,12 +34,18 @@ export function CardDetailScreen({ route, navigation }: Props) {
 
   const [range, setRange] = useState<RangeKey>('cycle');
   const [showAll, setShowAll] = useState(false);
-  const [from, setFrom] = useState('2026-07-01');
-  const [to, setTo] = useState(TODAY);
+  const [fromDate, setFromDate] = useState(new Date(2026, 6, 1));
+  const [toDate, setToDate] = useState(new Date(2026, 8, 14));
 
   const rangeStart =
-    range === 'cycle' ? '2026-08-14' : range === '3cycles' ? '2026-06-14' : range === 'ytd' ? '2026-01-01' : from;
-  const rangeEnd = range === 'custom' ? to : TODAY;
+    range === 'cycle'
+      ? '2026-08-14'
+      : range === '3cycles'
+        ? '2026-06-14'
+        : range === 'ytd'
+          ? '2026-01-01'
+          : toIso(fromDate);
+  const rangeEnd = range === 'custom' ? toIso(toDate) : TODAY;
 
   const rangeTx = useMemo(
     () => (card ? card.dtx.filter((tx) => tx.iso >= rangeStart && tx.iso <= rangeEnd) : []),
@@ -173,19 +184,17 @@ export function CardDetailScreen({ route, navigation }: Props) {
           </View>
           {range === 'custom' && (
             <View style={styles.dateRow}>
-              <TextInput
-                value={from}
-                onChangeText={setFrom}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.ink3}
-                style={styles.dateInput}
+              <DateField
+                label="From"
+                value={fromDate}
+                onChange={setFromDate}
+                maximumDate={toDate}
               />
-              <TextInput
-                value={to}
-                onChangeText={setTo}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.ink3}
-                style={styles.dateInput}
+              <DateField
+                label="To"
+                value={toDate}
+                onChange={setToDate}
+                minimumDate={fromDate}
               />
             </View>
           )}
@@ -295,18 +304,7 @@ function makeStyles(colors: ColorTokens) {
     planPer: { fontSize: 10.5, fontWeight: '400', color: colors.ink3 },
     planSubRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
     planSub: { fontSize: 11, color: colors.ink3 },
-    dateRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
-    dateInput: {
-      flex: 1,
-      minWidth: 0,
-      padding: 11,
-      borderRadius: radius.md - 2,
-      borderWidth: 1,
-      borderColor: colors.line,
-      backgroundColor: colors.bg,
-      color: colors.ink,
-      fontSize: 12.5,
-    },
+    dateRow: { flexDirection: 'row', gap: 12, marginTop: 10 },
     txNote: { fontSize: 11.5, color: colors.ink3, marginTop: 10 },
     listCard: {
       marginTop: 10,
