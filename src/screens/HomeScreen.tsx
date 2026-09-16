@@ -13,7 +13,7 @@ const CARD_HEIGHT = 214;
 const CARD_STEP = 86;
 
 export function HomeScreen({ navigation }: any) {
-  const { cards } = useCards();
+  const { cards, isDemo } = useCards();
   const colors = useColors();
   const t = useT();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -23,9 +23,11 @@ export function HomeScreen({ navigation }: any) {
   const stackHeight = CARD_HEIGHT + (cards.length - 1) * CARD_STEP;
   const recent = useMemo(() => cards.flatMap((c) => c.dtx).slice(0, 4), [cards]);
 
-  const nextDueText = unpaid.length
-    ? 'Banco Aliado due in 4 days — US$ 171.01 minimum'
-    : 'Everything is paid this cycle';
+  const nextDueText = !unpaid.length
+    ? 'Everything is paid this cycle'
+    : isDemo
+      ? 'Banco Aliado due in 4 days — US$ 171.01 minimum'
+      : `${unpaid.length} card${unpaid.length > 1 ? 's' : ''} with a balance due`;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -47,7 +49,7 @@ export function HomeScreen({ navigation }: any) {
               <Text style={styles.iconBtnText}>{'⌕'}</Text>
             </Pressable>
             <Pressable
-              onPress={() => navigation.navigate('Statements')}
+              onPress={() => navigation.navigate(isDemo ? 'Statements' : 'AddCard')}
               style={[styles.iconBtn, styles.iconBtnAccent]}
               hitSlop={6}
             >
@@ -56,12 +58,23 @@ export function HomeScreen({ navigation }: any) {
           </View>
         </View>
 
-        <View style={styles.dueBanner}>
-          <View style={styles.dueDot} />
-          <Text style={styles.dueText}>{nextDueText}</Text>
-        </View>
+        {cards.length > 0 && (
+          <View style={styles.dueBanner}>
+            <View style={styles.dueDot} />
+            <Text style={styles.dueText}>{nextDueText}</Text>
+          </View>
+        )}
 
-        <View style={[styles.stack, { height: stackHeight }]}>
+        {cards.length === 0 && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateTitle}>No cards yet</Text>
+            <Text style={styles.emptyStateBody}>
+              Tap the + button above to add your first card.
+            </Text>
+          </View>
+        )}
+
+        <View style={[styles.stack, { height: cards.length ? stackHeight : 0 }]}>
           {cards.map((c, i) => (
             <Pressable
               key={c.id}
@@ -87,27 +100,31 @@ export function HomeScreen({ navigation }: any) {
           ))}
         </View>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{t.latest}</Text>
-          <Pressable onPress={() => navigation.navigate('Transactions', {})} hitSlop={6}>
-            <Text style={styles.seeAll}>{t.seeAll}</Text>
-          </Pressable>
-        </View>
-        <View style={styles.listCard}>
-          {recent.map((tx) => (
-            <TxRow
-              key={tx.id}
-              tx={tx}
-              showCard
-              onPress={() =>
-                navigation.navigate('TransactionDetail', {
-                  txId: tx.id,
-                  cardId: cards.find((c) => c.dtx.some((x) => x.id === tx.id))?.id ?? cards[0].id,
-                })
-              }
-            />
-          ))}
-        </View>
+        {cards.length > 0 && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{t.latest}</Text>
+              <Pressable onPress={() => navigation.navigate('Transactions', {})} hitSlop={6}>
+                <Text style={styles.seeAll}>{t.seeAll}</Text>
+              </Pressable>
+            </View>
+            <View style={styles.listCard}>
+              {recent.map((tx) => (
+                <TxRow
+                  key={tx.id}
+                  tx={tx}
+                  showCard
+                  onPress={() =>
+                    navigation.navigate('TransactionDetail', {
+                      txId: tx.id,
+                      cardId: cards.find((c) => c.dtx.some((x) => x.id === tx.id))?.id ?? cards[0].id,
+                    })
+                  }
+                />
+              ))}
+            </View>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -161,6 +178,18 @@ function makeStyles(colors: ColorTokens) {
     },
     dueDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accentInk2 },
     dueText: { fontSize: 12.5, fontWeight: '500', color: colors.accentInk, flexShrink: 1 },
+    emptyState: {
+      marginTop: 18,
+      marginHorizontal: spacing.xl,
+      padding: 24,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: colors.hair4,
+      alignItems: 'center',
+    },
+    emptyStateTitle: { fontSize: 15, fontWeight: '500', color: colors.ink },
+    emptyStateBody: { fontSize: 12.5, color: colors.ink3, marginTop: 6, textAlign: 'center' },
     stack: { marginTop: 18, paddingHorizontal: spacing.lg, position: 'relative' },
     stackSlot: { position: 'absolute', left: spacing.lg, right: spacing.lg, height: CARD_HEIGHT },
     cardArt: {

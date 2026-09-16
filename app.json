@@ -27,7 +27,9 @@
     "extra": {
       "eas": {
         "projectId": "9171c902-aff1-4ca1-a115-3fc3ae3809ee"
-      }
+      },
+      "supabaseUrl": "https://glteomfpqyguzctdopsp.supabase.co",
+      "supabaseAnonKey": "sb_publishable_7HnBXmK0jVIkk1H7WNWuDA_wH_LOH7h"
     },
     "owner": "wmonasterios",
     "updates": {

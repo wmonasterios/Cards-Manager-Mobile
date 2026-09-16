@@ -2,7 +2,6 @@ import React, { createContext, useContext, useMemo, useCallback } from 'react';
 import { usePersistedState } from '../storage/usePersistedState';
 
 type Settings = {
-  signedIn: boolean;
   reminder: boolean;
   notifyNew: boolean;
   weekly: boolean;
@@ -11,7 +10,6 @@ type Settings = {
 };
 
 const DEFAULT_SETTINGS: Settings = {
-  signedIn: true,
   reminder: true,
   notifyNew: true,
   weekly: false,
@@ -20,7 +18,6 @@ const DEFAULT_SETTINGS: Settings = {
 };
 
 type AppSettingsValue = Settings & {
-  toggleSignedIn: () => void;
   toggleReminder: () => void;
   toggleNotifyNew: () => void;
   toggleWeekly: () => void;
@@ -42,7 +39,6 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
   const value = useMemo(
     () => ({
       ...settings,
-      toggleSignedIn: () => toggle('signedIn'),
       toggleReminder: () => toggle('reminder'),
       toggleNotifyNew: () => toggle('notifyNew'),
       toggleWeekly: () => toggle('weekly'),

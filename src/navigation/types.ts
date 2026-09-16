@@ -18,4 +18,6 @@ export type RootStackParamList = {
   Best: undefined;
   Report: undefined;
   Fix: undefined;
+  Auth: undefined;
+  AddCard: undefined;
 };

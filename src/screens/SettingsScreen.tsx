@@ -8,6 +8,8 @@ import { useAppTheme, ThemeMode } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { Segmented } from '../components/Segmented';
 import { useAppSettings } from '../context/AppSettingsContext';
+import { useAuth } from '../context/AuthContext';
+import { useCards } from '../context/CardsContext';
 import * as Clipboard from 'expo-clipboard';
 
 const INBOX = 'w.monasterios.7f3a@in.cardsmanager.app';
@@ -18,10 +20,23 @@ export function SettingsScreen({ navigation }: any) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const settings = useAppSettings();
+  const { session, signOut } = useAuth();
+  const { isDemo } = useCards();
   const [copied, setCopied] = React.useState(false);
 
-  const accountEmail = settings.signedIn ? 'w.monasterios@gmail.com' : t.signedOut;
-  const accountInitials = settings.signedIn ? 'WM' : '–';
+  const accountEmail = session ? session.user.email ?? t.signedOut : t.signedOut;
+  const accountInitials = session?.user.email ? session.user.email.slice(0, 2).toUpperCase() : '–';
+
+  const handleAccountAction = () => {
+    if (session) {
+      Alert.alert(lang === 'es' ? 'Cerrar sesión' : 'Sign out', lang === 'es' ? '¿Seguro que quieres cerrar sesión?' : 'Are you sure you want to sign out?', [
+        { text: lang === 'es' ? 'Cancelar' : 'Cancel', style: 'cancel' },
+        { text: t.signOut, style: 'destructive', onPress: () => signOut() },
+      ]);
+    } else {
+      navigation.navigate('Auth');
+    }
+  };
 
   const toggles = [
     { label: t.reminders, sub: t.remindersSub, on: settings.reminder, toggle: settings.toggleReminder },
@@ -52,10 +67,23 @@ export function SettingsScreen({ navigation }: any) {
                 {accountEmail}
               </Text>
             </View>
-            <Pressable onPress={settings.toggleSignedIn} style={styles.accentPill}>
-              <Text style={styles.accentPillText}>{settings.signedIn ? t.signOut : t.signIn}</Text>
+            <Pressable onPress={handleAccountAction} style={styles.accentPill}>
+              <Text style={styles.accentPillText}>{session ? t.signOut : (lang === 'es' ? 'Iniciar sesión' : 'Sign in')}</Text>
             </Pressable>
           </View>
+          {isDemo && (
+            <Text style={styles.demoNote}>
+              {lang === 'es'
+                ? 'Modo demo: estás viendo datos de ejemplo. Crea una cuenta para agregar tus tarjetas reales.'
+                : 'Demo mode: you are viewing example data. Create an account to add your real cards.'}
+            </Text>
+          )}
+          {!isDemo && (
+            <Pressable onPress={() => navigation.navigate('AddCard')} style={styles.addCardBtn}>
+              <Ionicons name="add-circle-outline" size={18} color={colors.accent} />
+              <Text style={styles.addCardBtnText}>{lang === 'es' ? 'Agregar una tarjeta' : 'Add a card'}</Text>
+            </Pressable>
+          )}
 
           <Text style={styles.groupLabel}>{t.language.toUpperCase()}</Text>
           <View style={{ marginTop: 10 }}>
@@ -196,6 +224,19 @@ function makeStyles(colors: ColorTokens) {
       borderColor: colors.accent,
     },
     accentPillText: { fontSize: 11.5, fontWeight: '500', color: colors.accent },
+    demoNote: { fontSize: 11.5, color: colors.ink3, marginTop: 10, lineHeight: 16 },
+    addCardBtn: {
+      marginTop: 10,
+      padding: 13,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.accent,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    addCardBtnText: { fontSize: 13, fontWeight: '500', color: colors.accent },
     groupLabel: { fontSize: 11, fontWeight: '500', color: colors.ink3, letterSpacing: 1, marginTop: 24 },
     listCard: {
       marginTop: 10,

@@ -12,6 +12,8 @@ import { PayScreen } from '../screens/PayScreen';
 import { BestScreen } from '../screens/BestScreen';
 import { ReportScreen } from '../screens/ReportScreen';
 import { FixScreen } from '../screens/FixScreen';
+import { AuthScreen } from '../screens/AuthScreen';
+import { AddCardScreen } from '../screens/AddCardScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -36,6 +38,8 @@ export function RootNavigator() {
       <Stack.Screen name="Best" component={BestScreen} />
       <Stack.Screen name="Report" component={ReportScreen} options={{ presentation: 'modal' }} />
       <Stack.Screen name="Fix" component={FixScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen name="Auth" component={AuthScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen name="AddCard" component={AddCardScreen} options={{ presentation: 'modal' }} />
     </Stack.Navigator>
   );
 }

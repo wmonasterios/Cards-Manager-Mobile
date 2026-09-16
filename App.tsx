@@ -7,6 +7,7 @@ import { CardsProvider, useCards } from './src/context/CardsContext';
 import { LocaleProvider } from './src/i18n/LocaleContext';
 import { ThemeProvider, useAppTheme } from './src/theme/ThemeContext';
 import { AppSettingsProvider, useAppSettings } from './src/context/AppSettingsContext';
+import { AuthProvider } from './src/context/AuthContext';
 
 function AppContent() {
   const { colors, isDark } = useAppTheme();
@@ -53,7 +54,9 @@ export default function App() {
       <ThemeProvider>
         <LocaleProvider>
           <AppSettingsProvider>
-            <Root />
+            <AuthProvider>
+              <Root />
+            </AuthProvider>
           </AppSettingsProvider>
         </LocaleProvider>
       </ThemeProvider>
