@@ -17,14 +17,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    let settled = false;
+    const finish = (nextSession: Session | null) => {
+      if (settled) return;
+      settled = true;
+      setSession(nextSession);
       setLoading(false);
-    });
+    };
+
+    // Never let a stalled or failed session check block the whole app from rendering.
+    const timeout = setTimeout(() => finish(null), 4000);
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        clearTimeout(timeout);
+        finish(data.session);
+      })
+      .catch(() => {
+        clearTimeout(timeout);
+        finish(null);
+      });
+
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
     });
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      clearTimeout(timeout);
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string) => {

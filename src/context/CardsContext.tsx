@@ -48,15 +48,21 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
 
   const loadReal = useCallback(async () => {
     if (!userId) return;
-    const [cardsRows, paymentsRows] = await Promise.all([listCards(userId), listPayments(userId)]);
-    setDbCards(cardsRows);
-    const byCard: Record<string, Payment[]> = {};
-    for (const p of paymentsRows) {
-      const list = byCard[p.card_id] ?? (byCard[p.card_id] = []);
-      list.push({ amount: Number(p.amount), when: p.note || shortDate(p.paid_on) });
+    try {
+      const [cardsRows, paymentsRows] = await Promise.all([listCards(userId), listPayments(userId)]);
+      setDbCards(cardsRows);
+      const byCard: Record<string, Payment[]> = {};
+      for (const p of paymentsRows) {
+        const list = byCard[p.card_id] ?? (byCard[p.card_id] = []);
+        list.push({ amount: Number(p.amount), when: p.note || shortDate(p.paid_on) });
+      }
+      setDbPayments(byCard);
+    } catch {
+      setDbCards([]);
+      setDbPayments({});
+    } finally {
+      setRealLoaded(true);
     }
-    setDbPayments(byCard);
-    setRealLoaded(true);
   }, [userId]);
 
   useEffect(() => {
