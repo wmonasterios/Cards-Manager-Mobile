@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import { radius, spacing, ColorTokens } from '../theme';
 import { useColors } from '../theme/ThemeContext';
@@ -106,7 +107,7 @@ export function StatementsScreen({ navigation }: any) {
         : (lang === 'es' ? 'Dos caminos: envías el PDF, o el correo del banco lo hace por ti.' : 'Two ways in: send the PDF yourself, or let the bank email do it for you.');
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.top}>
           {stage !== 'idle' && <BackButton onPress={() => setStage('idle')} />}
@@ -228,7 +229,7 @@ export function StatementsScreen({ navigation }: any) {
           </View>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

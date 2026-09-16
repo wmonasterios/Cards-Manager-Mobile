@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { radius, spacing, ColorTokens } from '../theme';
@@ -56,7 +57,7 @@ export function TransactionsScreen({ route, navigation }: Props) {
   };
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.top}>
           <BackButton onPress={() => navigation.goBack()} />
@@ -115,7 +116,7 @@ export function TransactionsScreen({ route, navigation }: Props) {
           {!!query && results.length === 0 && <Text style={styles.emptyNote}>{t.noMatch}</Text>}
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

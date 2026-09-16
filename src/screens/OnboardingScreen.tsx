@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { radius, spacing, ColorTokens } from '../theme';
@@ -39,7 +40,7 @@ export function OnboardingScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.kicker}>{t.firstRun.toUpperCase()}</Text>
         <Text style={styles.title}>{t.onbTitle}</Text>
@@ -66,14 +67,14 @@ export function OnboardingScreen({ navigation }: Props) {
           <Text style={styles.skipBtnText}>{t.skip}</Text>
         </Pressable>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 function makeStyles(colors: ColorTokens) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.bg },
-    scrollContent: { paddingTop: 76, paddingHorizontal: 24, paddingBottom: 40 },
+    scrollContent: { paddingTop: 24, paddingHorizontal: 24, paddingBottom: 40 },
     kicker: { fontSize: 11, fontWeight: '500', letterSpacing: 1.4, color: colors.ink3 },
     title: { fontSize: 32, fontWeight: '500', color: colors.ink, marginTop: 14, letterSpacing: -0.4, lineHeight: 38 },
     sub: { fontSize: 13, color: colors.ink2, marginTop: 12, lineHeight: 20, maxWidth: 320 },

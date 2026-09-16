@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { radius, spacing, ColorTokens } from '../theme';
@@ -47,7 +48,7 @@ export function CardDetailScreen({ route, navigation }: Props) {
   const balanceLabel = card.paidAmt > 0 ? t.leftToPay : t.stmtBal;
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.topRow}>
           <BackButton onPress={() => navigation.goBack()} />
@@ -212,7 +213,7 @@ export function CardDetailScreen({ route, navigation }: Props) {
           )}
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
