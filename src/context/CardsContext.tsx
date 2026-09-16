@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useMemo, useState, useCallback } from 'react';
+import React, { createContext, useContext, useMemo, useCallback } from 'react';
 import { CARDS, Card } from '../data';
 import { decorateCard, DecoratedCard, Payment } from '../decorate';
 import { useT } from '../i18n/LocaleContext';
 import { useColors } from '../theme/ThemeContext';
+import { usePersistedState } from '../storage/usePersistedState';
 
 type CardsContextValue = {
   cards: DecoratedCard[];
@@ -10,13 +11,17 @@ type CardsContextValue = {
   togglePaid: (id: string) => void;
   addPayment: (id: string, amount: number, when: string) => void;
   paymentHistory: (id: string) => Payment[];
+  loaded: boolean;
 };
 
 const CardsContext = createContext<CardsContextValue | null>(null);
 
 export function CardsProvider({ children }: { children: React.ReactNode }) {
-  const [paid, setPaid] = useState<Record<string, boolean>>({});
-  const [payments, setPayments] = useState<Record<string, Payment[]>>({});
+  const [paid, setPaid, paidLoaded] = usePersistedState<Record<string, boolean>>('cards.paid', {});
+  const [payments, setPayments, paymentsLoaded] = usePersistedState<Record<string, Payment[]>>(
+    'cards.payments',
+    {},
+  );
   const t = useT();
   const colors = useColors();
 
@@ -27,23 +32,36 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
 
   const getCard = useCallback((id: string) => cards.find((c) => c.id === id), [cards]);
 
-  const togglePaid = useCallback((id: string) => {
-    setPaid((prev) => ({ ...prev, [id]: !(prev[id] ?? CARDS.find((c) => c.id === id)?.balance === 0) }));
-  }, []);
+  const togglePaid = useCallback(
+    (id: string) => {
+      setPaid((prev) => ({ ...prev, [id]: !(prev[id] ?? CARDS.find((c) => c.id === id)?.balance === 0) }));
+    },
+    [setPaid],
+  );
 
-  const addPayment = useCallback((id: string, amount: number, when: string) => {
-    setPayments((prev) => ({ ...prev, [id]: [...(prev[id] ?? []), { amount, when }] }));
-    const card = CARDS.find((c) => c.id === id);
-    if (card && amount >= card.balance - 0.01) {
-      setPaid((prev) => ({ ...prev, [id]: true }));
-    }
-  }, []);
+  const addPayment = useCallback(
+    (id: string, amount: number, when: string) => {
+      setPayments((prev) => ({ ...prev, [id]: [...(prev[id] ?? []), { amount, when }] }));
+      const card = CARDS.find((c) => c.id === id);
+      if (card && amount >= card.balance - 0.01) {
+        setPaid((prev) => ({ ...prev, [id]: true }));
+      }
+    },
+    [setPayments, setPaid],
+  );
 
   const paymentHistory = useCallback((id: string) => payments[id] ?? [], [payments]);
 
   const value = useMemo(
-    () => ({ cards, getCard, togglePaid, addPayment, paymentHistory }),
-    [cards, getCard, togglePaid, addPayment, paymentHistory],
+    () => ({
+      cards,
+      getCard,
+      togglePaid,
+      addPayment,
+      paymentHistory,
+      loaded: paidLoaded && paymentsLoaded,
+    }),
+    [cards, getCard, togglePaid, addPayment, paymentHistory, paidLoaded, paymentsLoaded],
   );
 
   return <CardsContext.Provider value={value}>{children}</CardsContext.Provider>;

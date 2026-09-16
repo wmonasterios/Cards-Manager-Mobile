@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, { createContext, useContext, useMemo } from 'react';
 import { useColorScheme } from 'react-native';
 import { darkColors, lightColors, ColorTokens } from './index';
+import { usePersistedState } from '../storage/usePersistedState';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -14,7 +15,7 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = useState<ThemeMode>('dark');
+  const [mode, setMode] = usePersistedState<ThemeMode>('themeMode', 'dark');
   const systemScheme = useColorScheme();
 
   const isDark = mode === 'system' ? systemScheme !== 'light' : mode === 'dark';

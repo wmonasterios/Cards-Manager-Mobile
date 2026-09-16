@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useMemo, useState, useCallback } from 'react';
+import React, { createContext, useContext, useMemo } from 'react';
 import { dict, Dict, Lang } from './dict';
+import { usePersistedState } from '../storage/usePersistedState';
 
 type LocaleContextValue = {
   lang: Lang;
@@ -10,9 +11,9 @@ type LocaleContextValue = {
 const LocaleContext = createContext<LocaleContextValue | null>(null);
 
 export function LocaleProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLang] = useState<Lang>('en');
+  const [lang, setLang] = usePersistedState<Lang>('lang', 'en');
   const t = dict[lang];
-  const value = useMemo(() => ({ lang, t, setLang }), [lang, t]);
+  const value = useMemo(() => ({ lang, t, setLang }), [lang, t, setLang]);
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
 }
 
