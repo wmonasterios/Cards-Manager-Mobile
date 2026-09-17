@@ -102,7 +102,7 @@ export function StatementsScreen({ navigation }: any) {
                   : 'PDF upload and a dedicated inbox arrive with real statement parsing.'}
               </Text>
             </View>
-            <Pressable onPress={() => navigation.navigate('AddCard')} style={styles.saveBtn}>
+            <Pressable onPress={() => navigation.navigate('AddCard')} style={[styles.saveBtn, { marginTop: 12 }]}>
               <Text style={styles.saveBtnText}>{lang === 'es' ? 'Agregar una tarjeta' : 'Add a card'}</Text>
             </Pressable>
           </View>

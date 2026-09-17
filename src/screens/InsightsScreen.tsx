@@ -40,6 +40,11 @@ export function InsightsScreen({ navigation }: any) {
     lang === 'es'
       ? 'Las cuotas suman US$ 310 al mes por los próximos cuatro meses. Dos planes terminan en octubre y liberan US$ 231.90.'
       : 'Instalments add US$ 310 a month for the next four months. Two plans end in October, freeing US$ 231.90.';
+  const cardTip = isDemo
+    ? t.cardTip
+    : lang === 'es'
+      ? 'Compara tus tarjetas y descubre cuál te conviene en cada categoría'
+      : 'Compare your cards to see which one earns the most per category';
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -85,7 +90,7 @@ export function InsightsScreen({ navigation }: any) {
           <Pressable onPress={() => navigation.navigate('Best')} style={styles.bestBanner}>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.bestTitle}>{t.whichCard}</Text>
-              <Text style={styles.bestTip}>{t.cardTip}</Text>
+              <Text style={styles.bestTip}>{cardTip}</Text>
             </View>
             <Text style={styles.bestChevron}>{'›'}</Text>
           </Pressable>
