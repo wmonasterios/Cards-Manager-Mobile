@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useMemo, useCallback, useState, useEffect } from 'react';
+import React, { createContext, useContext, useMemo, useCallback, useState, useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
 import { CARDS, Card } from '../data';
 import { decorateCard, DecoratedCard, Payment } from '../decorate';
 import { useT } from '../i18n/LocaleContext';
@@ -74,9 +75,9 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       }
       setDbPayments(byCard);
     } catch {
-      setDbCards([]);
-      setDbPayments({});
-      setDbTransactions([]);
+      // A failed refresh should never blank out data already on screen — leave the
+      // previous cards/payments/transactions as-is so a transient network hiccup
+      // doesn't look like the user's cards were deleted.
     } finally {
       setRealLoaded(true);
     }
@@ -92,6 +93,19 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       setDbTransactions([]);
       setRealLoaded(false);
     }
+  }, [userId, loadReal]);
+
+  // Re-sync whenever the app comes back to the foreground, so a stale or failed
+  // background refresh never leaves the screen showing outdated data.
+  const appState = useRef(AppState.currentState);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (appState.current.match(/inactive|background/) && next === 'active' && userId) {
+        loadReal();
+      }
+      appState.current = next;
+    });
+    return () => sub.remove();
   }, [userId, loadReal]);
 
   const baseCards: Card[] = useMemo(
