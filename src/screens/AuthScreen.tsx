@@ -15,12 +15,15 @@ type Mode = 'signin' | 'signup';
 export function AuthScreen({ navigation }: Props) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, confirmSignup, resendConfirmation } = useAuth();
 
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [awaitingCode, setAwaitingCode] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [resending, setResending] = useState(false);
 
   const submit = async () => {
     if (!email.trim() || !password) {
@@ -28,19 +31,80 @@ export function AuthScreen({ navigation }: Props) {
       return;
     }
     setBusy(true);
-    const { error } = mode === 'signin' ? await signIn(email.trim(), password) : await signUp(email.trim(), password);
+    const result = mode === 'signin' ? await signIn(email.trim(), password) : await signUp(email.trim(), password);
     setBusy(false);
-    if (error) {
-      Alert.alert('Could not sign in', error);
+    if (result.error) {
+      Alert.alert('Could not sign in', result.error);
       return;
     }
-    if (mode === 'signup') {
-      Alert.alert('Account created', 'Check your email to confirm your account, then sign in.');
-      setMode('signin');
+    if (mode === 'signup' && 'needsConfirmation' in result && result.needsConfirmation) {
+      setAwaitingCode(true);
       return;
     }
     navigation.goBack();
   };
+
+  const submitCode = async () => {
+    if (!code.trim()) {
+      Alert.alert('Enter the code from your email.');
+      return;
+    }
+    setBusy(true);
+    const { error } = await confirmSignup(email.trim(), code.trim());
+    setBusy(false);
+    if (error) {
+      Alert.alert('Could not confirm your account', error);
+      return;
+    }
+    navigation.goBack();
+  };
+
+  const resendCode = async () => {
+    setResending(true);
+    const { error } = await resendConfirmation(email.trim());
+    setResending(false);
+    if (error) {
+      Alert.alert('Could not resend the code', error);
+      return;
+    }
+    Alert.alert('Code sent', 'Check your email for a new code.');
+  };
+
+  if (awaitingCode) {
+    return (
+      <SafeAreaView style={styles.screen} edges={['top']}>
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <View style={styles.top}>
+            <BackButton onPress={() => setAwaitingCode(false)} />
+            <Text style={styles.title}>Confirm your email</Text>
+            <Text style={styles.sub}>
+              We emailed a 6-digit code to {email.trim()}. Enter it below to finish creating your account.
+            </Text>
+
+            <Text style={styles.label}>CODE</Text>
+            <TextInput
+              value={code}
+              onChangeText={setCode}
+              placeholder="123456"
+              placeholderTextColor={colors.ink3}
+              keyboardType="number-pad"
+              autoComplete="one-time-code"
+              maxLength={6}
+              style={styles.input}
+            />
+
+            <Pressable onPress={submitCode} disabled={busy} style={[styles.submitBtn, busy && { opacity: 0.6 }]}>
+              {busy ? <ActivityIndicator color={colors.accent} /> : <Text style={styles.submitBtnText}>Confirm</Text>}
+            </Pressable>
+
+            <Pressable onPress={resendCode} disabled={resending} hitSlop={8} style={{ marginTop: 16 }}>
+              <Text style={styles.resendText}>{resending ? 'Sending…' : 'Resend code'}</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -127,5 +191,6 @@ function makeStyles(colors: ColorTokens) {
       alignItems: 'center',
     },
     submitBtnText: { fontSize: 14, fontWeight: '500', color: colors.accent },
+    resendText: { fontSize: 12.5, fontWeight: '500', color: colors.ink2, textAlign: 'center' },
   });
 }

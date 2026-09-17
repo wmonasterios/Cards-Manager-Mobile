@@ -5,10 +5,31 @@ import { supabase } from '../supabase/client';
 type AuthContextValue = {
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string) => Promise<{ error: string | null; needsConfirmation: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  confirmSignup: (email: string, code: string) => Promise<{ error: string | null }>;
+  resendConfirmation: (email: string) => Promise<{ error: string | null }>;
 };
+
+const AUTH_TIMEOUT_MS = 12000;
+const TIMEOUT_MESSAGE = 'Network timeout. Check your connection and try again.';
+
+function withTimeout<T>(promise: PromiseLike<T>, ms = AUTH_TIMEOUT_MS): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(TIMEOUT_MESSAGE)), ms);
+    Promise.resolve(promise).then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -49,21 +70,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
-    return { error: error?.message ?? null };
+    try {
+      const { data, error } = await withTimeout(supabase.auth.signUp({ email, password }));
+      if (error) return { error: error.message, needsConfirmation: false };
+      return { error: null, needsConfirmation: !data.session };
+    } catch (e: any) {
+      return { error: e?.message ?? TIMEOUT_MESSAGE, needsConfirmation: false };
+    }
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error?.message ?? null };
+    try {
+      const { error } = await withTimeout(supabase.auth.signInWithPassword({ email, password }));
+      return { error: error?.message ?? null };
+    } catch (e: any) {
+      return { error: e?.message ?? TIMEOUT_MESSAGE };
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await withTimeout(supabase.auth.signOut());
+    } catch {
+      // Best-effort: local session state is cleared via onAuthStateChange regardless.
+    }
+  };
+
+  const confirmSignup = async (email: string, code: string) => {
+    try {
+      const { error } = await withTimeout(supabase.auth.verifyOtp({ email, token: code, type: 'signup' }));
+      return { error: error?.message ?? null };
+    } catch (e: any) {
+      return { error: e?.message ?? TIMEOUT_MESSAGE };
+    }
+  };
+
+  const resendConfirmation = async (email: string) => {
+    try {
+      const { error } = await withTimeout(supabase.auth.resend({ type: 'signup', email }));
+      return { error: error?.message ?? null };
+    } catch (e: any) {
+      return { error: e?.message ?? TIMEOUT_MESSAGE };
+    }
   };
 
   const value = useMemo(
-    () => ({ session, loading, signUp, signIn, signOut }),
+    () => ({ session, loading, signUp, signIn, signOut, confirmSignup, resendConfirmation }),
     [session, loading],
   );
 
