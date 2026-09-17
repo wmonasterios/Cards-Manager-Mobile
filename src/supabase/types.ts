@@ -48,8 +48,47 @@ export type DbStatement = {
   source: 'upload' | 'email';
   status: 'pending' | 'parsed' | 'needs_review' | 'applied' | 'failed';
   storage_path: string | null;
-  parsed: Record<string, unknown> | null;
+  parsed: ParsedStatement | null;
   error_message: string | null;
   received_at: string;
   applied_at: string | null;
+};
+
+export type DbTransaction = {
+  id: string;
+  user_id: string;
+  card_id: string;
+  statement_id: string | null;
+  occurred_on: string;
+  merchant: string;
+  description: string | null;
+  amount: number;
+  category: string | null;
+  dedup_key: string;
+  created_at: string;
+};
+
+export type ParsedTransaction = {
+  date: string;
+  merchant: string;
+  amount: number;
+  category?: string | null;
+};
+
+export type ParsedStatement = {
+  bank: string;
+  product?: string | null;
+  network?: string | null;
+  last4?: string | null;
+  currency?: string;
+  balance: number;
+  credit_limit?: number | null;
+  minimum_payment: number;
+  cutoff_date: string;
+  due_date: string;
+  full_payment_due_date?: string | null;
+  full_payment_amount?: number | null;
+  transactions: ParsedTransaction[];
+  confidence?: 'high' | 'medium' | 'low';
+  notes?: string | null;
 };

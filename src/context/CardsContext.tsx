@@ -5,8 +5,16 @@ import { useT } from '../i18n/LocaleContext';
 import { useColors } from '../theme/ThemeContext';
 import { usePersistedState } from '../storage/usePersistedState';
 import { useAuth } from './AuthContext';
-import { listCards, listPayments, createCard, updateCard, addPaymentRow, dbCardToCard } from '../supabase/cardsApi';
-import { DbCard, NewDbCard } from '../supabase/types';
+import {
+  listCards,
+  listPayments,
+  listTransactions,
+  createCard,
+  updateCard,
+  addPaymentRow,
+  dbCardToCard,
+} from '../supabase/cardsApi';
+import { DbCard, DbTransaction, NewDbCard } from '../supabase/types';
 
 function shortDate(iso: string) {
   return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
@@ -38,9 +46,10 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
     {},
   );
 
-  // Real mode: cards and payments the signed-in user owns in Supabase.
+  // Real mode: cards, payments and transactions the signed-in user owns in Supabase.
   const [dbCards, setDbCards] = useState<DbCard[]>([]);
   const [dbPayments, setDbPayments] = useState<Record<string, Payment[]>>({});
+  const [dbTransactions, setDbTransactions] = useState<DbTransaction[]>([]);
   const [realLoaded, setRealLoaded] = useState(false);
 
   const t = useT();
@@ -49,8 +58,13 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
   const loadReal = useCallback(async () => {
     if (!userId) return;
     try {
-      const [cardsRows, paymentsRows] = await Promise.all([listCards(userId), listPayments(userId)]);
+      const [cardsRows, paymentsRows, transactionRows] = await Promise.all([
+        listCards(userId),
+        listPayments(userId),
+        listTransactions(userId),
+      ]);
       setDbCards(cardsRows);
+      setDbTransactions(transactionRows);
       const byCard: Record<string, Payment[]> = {};
       for (const p of paymentsRows) {
         const list = byCard[p.card_id] ?? (byCard[p.card_id] = []);
@@ -60,6 +74,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
     } catch {
       setDbCards([]);
       setDbPayments({});
+      setDbTransactions([]);
     } finally {
       setRealLoaded(true);
     }
@@ -72,13 +87,14 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
     } else {
       setDbCards([]);
       setDbPayments({});
+      setDbTransactions([]);
       setRealLoaded(false);
     }
   }, [userId, loadReal]);
 
   const baseCards: Card[] = useMemo(
-    () => (isDemo ? CARDS : dbCards.map(dbCardToCard)),
-    [isDemo, dbCards],
+    () => (isDemo ? CARDS : dbCards.map((c) => dbCardToCard(c, dbTransactions))),
+    [isDemo, dbCards, dbTransactions],
   );
 
   const paidMap = useMemo(

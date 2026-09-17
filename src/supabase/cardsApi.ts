@@ -1,6 +1,10 @@
 import { supabase } from './client';
-import { DbCard, DbPayment, NewDbCard } from './types';
-import { Card } from '../data';
+import { DbCard, DbPayment, DbTransaction, NewDbCard } from './types';
+import { Card, Category, Transaction } from '../data';
+
+const KNOWN_CATEGORIES: Category[] = [
+  'Groceries', 'Dining', 'Travel', 'Tech', 'Fuel', 'Health', 'Services', 'Payment', 'Other',
+];
 
 function shortDate(iso: string | null): string {
   if (!iso) return '';
@@ -8,7 +12,22 @@ function shortDate(iso: string | null): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export function dbCardToCard(row: DbCard): Card {
+function dbTransactionToTransaction(row: DbTransaction): Transaction {
+  const category = (KNOWN_CATEGORIES as string[]).includes(row.category ?? '')
+    ? (row.category as Category)
+    : 'Other';
+  return {
+    id: row.id,
+    merchant: row.merchant,
+    sub: row.description ?? '',
+    date: shortDate(row.occurred_on),
+    iso: row.occurred_on,
+    amount: Number(row.amount),
+    category,
+  };
+}
+
+export function dbCardToCard(row: DbCard, transactions: DbTransaction[] = []): Card {
   return {
     id: row.id,
     bank: row.bank,
@@ -24,7 +43,10 @@ export function dbCardToCard(row: DbCard): Card {
     plansNote: '',
     cycleNote: '',
     plans: [],
-    tx: [],
+    tx: transactions
+      .filter((t) => t.card_id === row.id)
+      .sort((a, b) => (a.occurred_on < b.occurred_on ? 1 : -1))
+      .map(dbTransactionToTransaction),
   };
 }
 
@@ -71,6 +93,16 @@ export async function listPayments(userId: string): Promise<DbPayment[]> {
     .select('*')
     .eq('user_id', userId)
     .order('paid_on', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function listTransactions(userId: string): Promise<DbTransaction[]> {
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('user_id', userId)
+    .order('occurred_on', { ascending: false });
   if (error) throw error;
   return data ?? [];
 }

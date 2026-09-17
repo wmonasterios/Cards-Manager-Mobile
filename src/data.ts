@@ -8,7 +8,8 @@ export type Category =
   | 'Fuel'
   | 'Health'
   | 'Services'
-  | 'Payment';
+  | 'Payment'
+  | 'Other';
 
 export type Transaction = {
   id: string;

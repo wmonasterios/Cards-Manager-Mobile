@@ -72,6 +72,7 @@ export function getCategoryColors(c: ColorTokens): Record<string, { bg: string; 
     Health: { bg: c.line2, ink: c.tintInk3, initials: 'HE' },
     Services: { bg: c.tint, ink: c.accentInk, initials: 'SE' },
     Payment: { bg: c.tint, ink: c.accentInk2, initials: 'PY' },
+    Other: { bg: c.line, ink: c.ink2, initials: 'OT' },
   };
 }
 

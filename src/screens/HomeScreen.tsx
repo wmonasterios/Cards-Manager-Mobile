@@ -49,7 +49,7 @@ export function HomeScreen({ navigation }: any) {
               <Text style={styles.iconBtnText}>{'⌕'}</Text>
             </Pressable>
             <Pressable
-              onPress={() => navigation.navigate(isDemo ? 'Statements' : 'AddCard')}
+              onPress={() => navigation.navigate('Statements')}
               style={[styles.iconBtn, styles.iconBtnAccent]}
               hitSlop={6}
             >
