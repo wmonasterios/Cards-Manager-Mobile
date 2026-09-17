@@ -5,6 +5,7 @@ import { radius, spacing, ColorTokens } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { Segmented } from '../components/Segmented';
+import { useCards } from '../context/CardsContext';
 
 type Period = 'Week' | 'Month' | 'Year';
 
@@ -25,6 +26,7 @@ export function InsightsScreen({ navigation }: any) {
   const { lang, t } = useLocale();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { isDemo } = useCards();
   const [period, setPeriod] = useState<Period>('Month');
 
   const periodRange =
@@ -43,36 +45,40 @@ export function InsightsScreen({ navigation }: any) {
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.top}>
-          <View style={styles.periodWrap}>
-            <Segmented
-              options={[
-                { key: 'Week', label: t.week },
-                { key: 'Month', label: t.month },
-                { key: 'Year', label: t.year },
-              ]}
-              value={period}
-              onChange={setPeriod}
-            />
-          </View>
-          <Text style={styles.periodRange}>{periodRange}</Text>
-          <Text style={styles.periodTotal}>{periodTotal}</Text>
-          <Text style={styles.periodNote}>{periodNote}</Text>
+          {isDemo && (
+            <>
+              <View style={styles.periodWrap}>
+                <Segmented
+                  options={[
+                    { key: 'Week', label: t.week },
+                    { key: 'Month', label: t.month },
+                    { key: 'Year', label: t.year },
+                  ]}
+                  value={period}
+                  onChange={setPeriod}
+                />
+              </View>
+              <Text style={styles.periodRange}>{periodRange}</Text>
+              <Text style={styles.periodTotal}>{periodTotal}</Text>
+              <Text style={styles.periodNote}>{periodNote}</Text>
 
-          <View style={styles.chartCard}>
-            <View style={styles.chartRow}>
-              {BARS.map((b) => (
-                <View key={b.label} style={styles.barCol}>
-                  <View
-                    style={[
-                      styles.bar,
-                      { height: `${b.pct}%`, backgroundColor: b.pct === 100 ? colors.accent : colors.line },
-                    ]}
-                  />
-                  <Text style={styles.barLabel}>{b.label}</Text>
+              <View style={styles.chartCard}>
+                <View style={styles.chartRow}>
+                  {BARS.map((b) => (
+                    <View key={b.label} style={styles.barCol}>
+                      <View
+                        style={[
+                          styles.bar,
+                          { height: `${b.pct}%`, backgroundColor: b.pct === 100 ? colors.accent : colors.line },
+                        ]}
+                      />
+                      <Text style={styles.barLabel}>{b.label}</Text>
+                    </View>
+                  ))}
                 </View>
-              ))}
-            </View>
-          </View>
+              </View>
+            </>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -85,31 +91,46 @@ export function InsightsScreen({ navigation }: any) {
           </Pressable>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t.byCategory}</Text>
-          <View style={styles.listCard}>
-            {CATEGORIES.map((c) => (
-              <View key={c.name} style={styles.catRow}>
-                <View style={styles.catBadge}>
-                  <Text style={styles.catBadgeText}>{c.initials}</Text>
-                </View>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.catName}>{c.name}</Text>
-                  <View style={styles.catBarTrack}>
-                    <View style={[styles.catBarFill, { width: `${c.pct}%` }]} />
+        {isDemo ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t.byCategory}</Text>
+            <View style={styles.listCard}>
+              {CATEGORIES.map((c) => (
+                <View key={c.name} style={styles.catRow}>
+                  <View style={styles.catBadge}>
+                    <Text style={styles.catBadgeText}>{c.initials}</Text>
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.catName}>{c.name}</Text>
+                    <View style={styles.catBarTrack}>
+                      <View style={[styles.catBarFill, { width: `${c.pct}%` }]} />
+                    </View>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.catAmount}>{c.amount}</Text>
+                    <Text style={styles.catCount}>{c.count}</Text>
                   </View>
                 </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.catAmount}>{c.amount}</Text>
-                  <Text style={styles.catCount}>{c.count}</Text>
-                </View>
-              </View>
-            ))}
+              ))}
+            </View>
+            <View style={styles.noteCard}>
+              <Text style={styles.noteText}>{insightNote}</Text>
+            </View>
           </View>
-          <View style={styles.noteCard}>
-            <Text style={styles.noteText}>{insightNote}</Text>
+        ) : (
+          <View style={styles.section}>
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyTitle}>
+                {lang === 'es' ? 'Los insights llegan pronto' : 'Insights are coming soon'}
+              </Text>
+              <Text style={styles.emptyBody}>
+                {lang === 'es'
+                  ? 'Cuando el parseo de estados de cuenta esté listo, aquí verás tu gasto real por categoría.'
+                  : 'Once real statement parsing is live, your real spending by category will show up here.'}
+              </Text>
+            </View>
           </View>
-        </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -192,5 +213,15 @@ function makeStyles(colors: ColorTokens) {
       borderColor: colors.line2,
     },
     noteText: { fontSize: 12, color: colors.ink2, lineHeight: 18 },
+    emptyCard: {
+      padding: 20,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: colors.hair4,
+      alignItems: 'center',
+    },
+    emptyTitle: { fontSize: 14, fontWeight: '500', color: colors.ink },
+    emptyBody: { fontSize: 12.5, color: colors.ink2, marginTop: 6, textAlign: 'center', lineHeight: 18 },
   });
 }

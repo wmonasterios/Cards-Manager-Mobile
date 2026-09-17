@@ -6,6 +6,7 @@ import { radius, spacing, ColorTokens } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { BackButton } from '../components/BackButton';
+import { useCards } from '../context/CardsContext';
 
 type UploadStage = 'idle' | 'parsing' | 'review';
 
@@ -69,11 +70,46 @@ export function StatementsScreen({ navigation }: any) {
   const { lang, t } = useLocale();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { isDemo } = useCards();
   const [stage, setStage] = useState<UploadStage>('idle');
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => () => clearTimeout(timer.current), []);
+
+  if (!isDemo) {
+    return (
+      <SafeAreaView style={styles.screen} edges={['top']}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.top}>
+            <Text style={[styles.title, { marginTop: 0 }]}>
+              {lang === 'es' ? 'Estados de cuenta' : 'Statements'}
+            </Text>
+            <Text style={styles.sub}>
+              {lang === 'es'
+                ? 'Todavía no podemos leer tus estados de cuenta automáticamente. Por ahora, agrega o actualiza tus tarjetas a mano.'
+                : "We can't read your statements automatically yet. For now, add or update your cards by hand."}
+            </Text>
+          </View>
+          <View style={styles.section}>
+            <View style={styles.uploadBtn}>
+              <Text style={styles.uploadBtnTitle}>
+                {lang === 'es' ? 'Próximamente' : 'Coming soon'}
+              </Text>
+              <Text style={styles.uploadBtnBody}>
+                {lang === 'es'
+                  ? 'La carga de PDF y el correo dedicado llegarán con el parseo real de estados de cuenta.'
+                  : 'PDF upload and a dedicated inbox arrive with real statement parsing.'}
+              </Text>
+            </View>
+            <Pressable onPress={() => navigation.navigate('AddCard')} style={styles.saveBtn}>
+              <Text style={styles.saveBtnText}>{lang === 'es' ? 'Agregar una tarjeta' : 'Add a card'}</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   const startParse = () => {
     setStage('parsing');

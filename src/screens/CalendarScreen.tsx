@@ -36,13 +36,40 @@ export function CalendarScreen() {
   const { lang, t } = useLocale();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { cards } = useCards();
+  const { cards, isDemo } = useCards();
   const { reminder, toggleReminder } = useAppSettings();
   const [selectedDay, setSelectedDay] = useState(25);
 
   const unpaid = cards.filter((c) => !c.paid);
   const usdTotal = unpaid.reduce((n, c) => n + c.remaining, 0);
   const monthDueText = `${unpaid.length} ${lang === 'es' ? 'pagos' : 'payments'} · ${money('US$', usdTotal)} ${lang === 'es' ? 'en total' : 'total'}`;
+
+  const dueDays = isDemo ? DUE_DAYS : {};
+  const upcoming = isDemo
+    ? UPCOMING[lang]
+    : unpaid.map((c) => ({
+        day: '',
+        mon: '',
+        card: `${c.bank} ${c.product}`.trim(),
+        note: c.dueShort,
+        amount: c.balanceText,
+        min: c.minText,
+        due: true,
+      }));
+
+  const firstUnpaid = unpaid[0];
+  const previewTitle = isDemo
+    ? 'Banco Aliado · due in 3 days'
+    : firstUnpaid
+      ? `${firstUnpaid.bank} · ${firstUnpaid.dueShort}`
+      : lang === 'es'
+        ? 'No tienes pagos pendientes'
+        : "You're all caught up";
+  const previewBody = isDemo
+    ? `US$ 3,420.10 full · US$ 171.01 minimum · reminders ${reminder ? 'On' : 'Off'}`
+    : firstUnpaid
+      ? `${firstUnpaid.balanceText} · ${lang === 'es' ? 'mínimo' : 'min'} ${firstUnpaid.minText} · reminders ${reminder ? 'On' : 'Off'}`
+      : `reminders ${reminder ? 'On' : 'Off'}`;
 
   const cells: (number | null)[] = [
     ...Array(FIRST_WEEKDAY).fill(null),
@@ -69,7 +96,7 @@ export function CalendarScreen() {
             <View style={styles.grid}>
               {cells.map((n, i) => {
                 if (n === null) return <View key={i} style={styles.cell} />;
-                const due = DUE_DAYS[n];
+                const due = dueDays[n];
                 const sel = selectedDay === n;
                 return (
                   <Pressable
@@ -99,30 +126,40 @@ export function CalendarScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t.upcoming}</Text>
-          <View style={{ marginTop: 10, gap: 8 }}>
-            {UPCOMING[lang].map((u, i) => (
-              <View key={i} style={styles.upRow}>
-                <View style={styles.upDateCol}>
-                  <Text style={styles.upDay}>{u.day}</Text>
-                  <Text style={styles.upMon}>{u.mon}</Text>
+          {upcoming.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>
+                {lang === 'es' ? 'No tienes pagos pendientes.' : 'No upcoming payments.'}
+              </Text>
+            </View>
+          ) : (
+            <View style={{ marginTop: 10, gap: 8 }}>
+              {upcoming.map((u, i) => (
+                <View key={i} style={styles.upRow}>
+                  {u.day ? (
+                    <View style={styles.upDateCol}>
+                      <Text style={styles.upDay}>{u.day}</Text>
+                      <Text style={styles.upMon}>{u.mon}</Text>
+                    </View>
+                  ) : null}
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.upCard} numberOfLines={1}>
+                      {u.card}
+                    </Text>
+                    <Text style={[styles.upNote, { color: u.due ? colors.accentInk : colors.ink2 }]} numberOfLines={1}>
+                      {u.note}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.upAmount}>{u.amount}</Text>
+                    <Text style={styles.upMin}>
+                      {t.minWord.toLowerCase()} {u.min}
+                    </Text>
+                  </View>
                 </View>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.upCard} numberOfLines={1}>
-                    {u.card}
-                  </Text>
-                  <Text style={[styles.upNote, { color: u.due ? colors.accentInk : colors.ink2 }]} numberOfLines={1}>
-                    {u.note}
-                  </Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.upAmount}>{u.amount}</Text>
-                  <Text style={styles.upMin}>
-                    {t.minWord.toLowerCase()} {u.min}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -146,10 +183,8 @@ export function CalendarScreen() {
             </View>
             <View style={styles.previewCard}>
               <Text style={styles.previewKicker}>{t.notifPreview.toUpperCase()}</Text>
-              <Text style={styles.previewTitle}>Banco Aliado · due in 3 days</Text>
-              <Text style={styles.previewBody}>
-                US$ 3,420.10 full · US$ 171.01 minimum · reminders {reminder ? 'On' : 'Off'}
-              </Text>
+              <Text style={styles.previewTitle}>{previewTitle}</Text>
+              <Text style={styles.previewBody}>{previewBody}</Text>
             </View>
           </View>
         </View>
@@ -182,6 +217,16 @@ function makeStyles(colors: ColorTokens) {
     dayDot: { width: 4, height: 4, borderRadius: 2 },
     section: { paddingHorizontal: spacing.xl, marginTop: spacing.xl },
     sectionTitle: { fontSize: 16, fontWeight: '500', color: colors.ink },
+    emptyCard: {
+      marginTop: 10,
+      padding: 16,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: colors.hair4,
+      alignItems: 'center',
+    },
+    emptyText: { fontSize: 12.5, color: colors.ink3 },
     upRow: {
       padding: 14,
       borderRadius: radius.lg,
