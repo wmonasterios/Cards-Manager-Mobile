@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { radius, spacing, ColorTokens } from '../theme';
 import { useColors } from '../theme/ThemeContext';
-import { useT } from '../i18n/LocaleContext';
+import { useLocale } from '../i18n/LocaleContext';
 import { CardArt } from '../components/CardArt';
 import { ProgressBar } from '../components/ProgressBar';
 import { TxRow } from '../components/TxRow';
@@ -26,16 +26,44 @@ function toIso(d: Date) {
 
 export function CardDetailScreen({ route, navigation }: Props) {
   const { cardId } = route.params;
-  const { getCard, togglePaid } = useCards();
+  const { getCard, togglePaid, isDemo, deleteCard } = useCards();
   const card = getCard(cardId);
   const colors = useColors();
-  const t = useT();
+  const { lang, t } = useLocale();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [range, setRange] = useState<RangeKey>('cycle');
   const [showAll, setShowAll] = useState(false);
   const [fromDate, setFromDate] = useState(new Date(2026, 6, 1));
   const [toDate, setToDate] = useState(new Date(2026, 8, 14));
+  const [deleting, setDeleting] = useState(false);
+
+  const confirmDelete = () => {
+    if (!card) return;
+    Alert.alert(
+      lang === 'es' ? '¿Eliminar esta tarjeta?' : 'Delete this card?',
+      lang === 'es'
+        ? 'Se borran permanentemente la tarjeta, sus transacciones, pagos y estados de cuenta. No se puede deshacer.'
+        : 'This permanently deletes the card, its transactions, payments and statements. This cannot be undone.',
+      [
+        { text: lang === 'es' ? 'Cancelar' : 'Cancel', style: 'cancel' },
+        {
+          text: lang === 'es' ? 'Eliminar' : 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteCard(card.id);
+              navigation.navigate('Tabs', { screen: 'Home' });
+            } catch (err: any) {
+              setDeleting(false);
+              Alert.alert(lang === 'es' ? 'No se pudo eliminar' : 'Could not delete', err?.message ?? String(err));
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const rangeStart =
     range === 'cycle'
@@ -221,6 +249,18 @@ export function CardDetailScreen({ route, navigation }: Props) {
             </Pressable>
           )}
         </View>
+
+        {!isDemo && (
+          <View style={styles.section}>
+            <Pressable onPress={confirmDelete} disabled={deleting} style={styles.deleteBtn}>
+              {deleting ? (
+                <ActivityIndicator color={colors.accentInk2} />
+              ) : (
+                <Text style={styles.deleteBtnText}>{lang === 'es' ? 'Eliminar tarjeta' : 'Delete card'}</Text>
+              )}
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -324,5 +364,13 @@ function makeStyles(colors: ColorTokens) {
       alignItems: 'center',
     },
     moreBtnText: { fontSize: 12.5, fontWeight: '500', color: colors.ink },
+    deleteBtn: {
+      padding: 14,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.accentLine,
+      alignItems: 'center',
+    },
+    deleteBtnText: { fontSize: 13.5, fontWeight: '500', color: colors.accentInk2 },
   });
 }

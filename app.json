@@ -3,6 +3,7 @@
     "name": "cards-manager-mobile",
     "slug": "cards-manager-mobile",
     "version": "1.0.0",
+    "scheme": "cardsmanager",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",

@@ -87,6 +87,23 @@ export async function archiveCard(cardId: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function deleteCardCompletely(cardId: string): Promise<void> {
+  const { data: statements } = await supabase
+    .from('statements')
+    .select('storage_path')
+    .eq('card_id', cardId);
+  const paths = (statements ?? [])
+    .map((s) => s.storage_path)
+    .filter((p): p is string => !!p);
+  if (paths.length > 0) {
+    await supabase.storage.from('statements').remove(paths);
+  }
+  await supabase.from('statements').delete().eq('card_id', cardId);
+  // Payments and transactions cascade-delete with the card.
+  const { error } = await supabase.from('cards').delete().eq('id', cardId);
+  if (error) throw error;
+}
+
 export async function listPayments(userId: string): Promise<DbPayment[]> {
   const { data, error } = await supabase
     .from('payments')

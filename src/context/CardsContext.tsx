@@ -13,6 +13,7 @@ import {
   updateCard,
   addPaymentRow,
   dbCardToCard,
+  deleteCardCompletely,
 } from '../supabase/cardsApi';
 import { DbCard, DbTransaction, NewDbCard } from '../supabase/types';
 
@@ -29,6 +30,7 @@ type CardsContextValue = {
   loaded: boolean;
   isDemo: boolean;
   addRealCard: (input: NewDbCard) => Promise<void>;
+  deleteCard: (id: string) => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -153,6 +155,15 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
     [userId, loadReal],
   );
 
+  const deleteCard = useCallback(
+    async (id: string) => {
+      if (isDemo) return;
+      await deleteCardCompletely(id);
+      await loadReal();
+    },
+    [isDemo, loadReal],
+  );
+
   const value = useMemo(
     () => ({
       cards,
@@ -163,6 +174,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       loaded: authLoading ? false : isDemo ? demoPaidLoaded && demoPaymentsLoaded : realLoaded,
       isDemo,
       addRealCard,
+      deleteCard,
       refresh: loadReal,
     }),
     [
@@ -177,6 +189,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       demoPaymentsLoaded,
       realLoaded,
       addRealCard,
+      deleteCard,
       loadReal,
     ],
   );

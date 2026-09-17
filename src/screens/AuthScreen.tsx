@@ -15,7 +15,7 @@ type Mode = 'signin' | 'signup';
 export function AuthScreen({ navigation }: Props) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { signIn, signUp, confirmSignup, resendConfirmation } = useAuth();
+  const { signIn, signUp, confirmSignup, resendConfirmation, signInWithGoogle } = useAuth();
 
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
@@ -24,6 +24,18 @@ export function AuthScreen({ navigation }: Props) {
   const [awaitingCode, setAwaitingCode] = useState(false);
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
+
+  const handleGoogle = async () => {
+    setGoogleBusy(true);
+    const { error } = await signInWithGoogle();
+    setGoogleBusy(false);
+    if (error) {
+      Alert.alert('Could not sign in with Google', error);
+      return;
+    }
+    navigation.goBack();
+  };
 
   const submit = async () => {
     if (!email.trim() || !password) {
@@ -158,6 +170,20 @@ export function AuthScreen({ navigation }: Props) {
               <Text style={styles.submitBtnText}>{mode === 'signin' ? 'Sign in' : 'Create account'}</Text>
             )}
           </Pressable>
+
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <Pressable onPress={handleGoogle} disabled={googleBusy} style={[styles.googleBtn, googleBusy && { opacity: 0.6 }]}>
+            {googleBusy ? (
+              <ActivityIndicator color={colors.ink} />
+            ) : (
+              <Text style={styles.googleBtnText}>Continue with Google</Text>
+            )}
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -192,5 +218,18 @@ function makeStyles(colors: ColorTokens) {
     },
     submitBtnText: { fontSize: 14, fontWeight: '500', color: colors.accent },
     resendText: { fontSize: 12.5, fontWeight: '500', color: colors.ink2, textAlign: 'center' },
+    dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 22 },
+    dividerLine: { flex: 1, height: 1, backgroundColor: colors.line },
+    dividerText: { fontSize: 11.5, color: colors.ink3 },
+    googleBtn: {
+      marginTop: 22,
+      padding: 14,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.line,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+    },
+    googleBtnText: { fontSize: 14, fontWeight: '500', color: colors.ink },
   });
 }
