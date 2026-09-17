@@ -13,15 +13,14 @@ import { useCards } from '../context/CardsContext';
 type Props = NativeStackScreenProps<RootStackParamList, 'Transactions'>;
 
 const CHIPS: Record<'en' | 'es', string[]> = {
-  en: ['Groceries', 'Instalment', 'Payment', 'Panamá'],
-  es: ['Super', 'Cuotas', 'Pagos', 'Panamá'],
+  en: ['Groceries', 'Instalment', 'Payment'],
+  es: ['Super', 'Cuotas', 'Pagos'],
 };
 // Chip label -> the substring it actually filters on (matches the mockup's behaviour).
 const CHIP_QUERY: Record<string, string> = {
   Groceries: 'Groceries', Super: 'Groceries',
   Instalment: 'Instalment', Cuotas: 'Instalment',
   Payment: 'Payment', Pagos: 'Payment',
-  'Panamá': 'Panamá',
 };
 
 export function TransactionsScreen({ route, navigation }: Props) {
@@ -44,7 +43,9 @@ export function TransactionsScreen({ route, navigation }: Props) {
 
   const note = query
     ? `${results.length} ${results.length === 1 ? 'match' : 'matches'} for “${query}”`
-    : t.searchPh + ' — 4 cards, this cycle and the last six statements';
+    : lang === 'es'
+      ? `${cards.length} ${cards.length === 1 ? 'tarjeta' : 'tarjetas'} · este ciclo`
+      : `${cards.length} ${cards.length === 1 ? 'card' : 'cards'} · this cycle`;
 
   const pickChip = (label: string) => {
     if (activeChip === label) {

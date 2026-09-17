@@ -169,7 +169,6 @@ export function StatementsScreen({ navigation }: any) {
                   <Text style={styles.copyBtnText}>{copied ? t.copied : t.copy}</Text>
                 </Pressable>
               </View>
-              <Text style={styles.sendersNote}>{t.senders}: BAC, Banco Aliado, Davibank</Text>
             </View>
 
             <Text style={styles.historyTitle}>{t.stmtHistory}</Text>
@@ -317,7 +316,6 @@ function makeStyles(colors: ColorTokens) {
       borderColor: colors.accent,
     },
     copyBtnText: { fontSize: 11, fontWeight: '500', color: colors.accent },
-    sendersNote: { fontSize: 11, color: colors.ink3, marginTop: 10 },
     historyTitle: { fontSize: 16, fontWeight: '500', color: colors.ink, marginTop: 22 },
     listCard: {
       marginTop: 10,

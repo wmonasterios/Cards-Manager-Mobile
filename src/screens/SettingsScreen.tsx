@@ -158,7 +158,6 @@ export function SettingsScreen({ navigation }: any) {
                 <Text style={styles.copyBtnText}>{copied ? t.copied : t.copy}</Text>
               </Pressable>
             </View>
-            <Text style={styles.sendersNote}>{t.senders}: BAC, Banco Aliado, Davibank</Text>
             <View style={styles.dataActions}>
               <Pressable
                 onPress={() => Alert.alert(lang === 'es' ? '312 transacciones exportadas a CSV' : '312 transactions exported to CSV')}
@@ -296,7 +295,6 @@ function makeStyles(colors: ColorTokens) {
       borderColor: colors.accent,
     },
     copyBtnText: { fontSize: 11, fontWeight: '500', color: colors.accent },
-    sendersNote: { fontSize: 11, color: colors.ink3, marginTop: 10 },
     dataActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
     dataBtn: {
       paddingVertical: 10,
