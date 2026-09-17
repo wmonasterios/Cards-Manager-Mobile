@@ -29,6 +29,14 @@ jobs:
       - name: Publish update
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: >
-          eas update --branch preview --non-interactive
-          --message "${{ github.event.inputs.message || github.event.head_commit.message || 'Update' }}"
+          INPUT_MESSAGE: ${{ github.event.inputs.message }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          MSG="$INPUT_MESSAGE"
+          if [ -z "$MSG" ]; then
+            MSG=$(printf '%s' "$COMMIT_MESSAGE" | head -1)
+          fi
+          if [ -z "$MSG" ]; then
+            MSG="Update"
+          fi
+          eas update --branch preview --non-interactive --message "$MSG"
