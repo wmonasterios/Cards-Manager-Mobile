@@ -19,7 +19,14 @@ import { BackButton } from '../components/BackButton';
 import { DateField } from '../components/DateField';
 import { useCards } from '../context/CardsContext';
 import { useAuth } from '../context/AuthContext';
-import { uploadStatementPdf, parseStatement, applyStatement, listNeedsReviewStatements } from '../supabase/statementsApi';
+import {
+  readPdfForUpload,
+  findStatementByHash,
+  uploadStatementPdf,
+  parseStatement,
+  applyStatement,
+  listNeedsReviewStatements,
+} from '../supabase/statementsApi';
 import { DbStatement, ParsedStatement } from '../supabase/types';
 
 type UploadStage = 'idle' | 'parsing' | 'review';
@@ -108,6 +115,25 @@ function RealStatementsFlow({ navigation }: any) {
     loadHistory();
   }, [userId]);
 
+  const confirmDuplicateUpload = (existing: DbStatement): Promise<boolean> =>
+    new Promise((resolve) => {
+      const dateLabel = new Date(existing.received_at).toLocaleDateString(
+        lang === 'es' ? 'es-PA' : 'en-US',
+        { day: 'numeric', month: 'short' },
+      );
+      Alert.alert(
+        lang === 'es' ? 'Ya subiste este PDF' : "You've already uploaded this PDF",
+        lang === 'es'
+          ? `Este mismo archivo se subió el ${dateLabel} (${existing.bank ?? 'banco desconocido'} · ${statusLabel(existing.status, lang)}). ¿Procesarlo de nuevo de todas formas?`
+          : `This exact file was uploaded on ${dateLabel} (${existing.bank ?? 'unknown bank'} · ${statusLabel(existing.status, lang)}). Process it again anyway?`,
+        [
+          { text: lang === 'es' ? 'Cancelar' : 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+          { text: lang === 'es' ? 'Procesar de nuevo' : 'Process again', onPress: () => resolve(true) },
+        ],
+        { cancelable: true, onDismiss: () => resolve(false) },
+      );
+    });
+
   const pickAndUpload = async () => {
     if (!userId) return;
     const result = await DocumentPicker.getDocumentAsync({
@@ -120,7 +146,15 @@ function RealStatementsFlow({ navigation }: any) {
     setStage('uploading');
     setErrorMsg('');
     try {
-      const statement = await uploadStatementPdf(userId, asset.uri, asset.name ?? 'statement.pdf');
+      const { base64, hash } = await readPdfForUpload(asset.uri);
+      const existing = await findStatementByHash(userId, hash);
+      if (existing) {
+        setStage('idle');
+        const proceed = await confirmDuplicateUpload(existing);
+        if (!proceed) return;
+        setStage('uploading');
+      }
+      const statement = await uploadStatementPdf(userId, base64, asset.name ?? 'statement.pdf', hash);
       setStatementId(statement.id);
       setStage('parsing');
       const parsed = await parseStatement(statement.id);

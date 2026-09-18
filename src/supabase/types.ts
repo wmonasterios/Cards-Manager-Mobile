@@ -48,6 +48,7 @@ export type DbStatement = {
   source: 'upload' | 'email';
   status: 'pending' | 'parsed' | 'needs_review' | 'applied' | 'failed';
   storage_path: string | null;
+  file_hash: string | null;
   parsed: ParsedStatement | null;
   error_message: string | null;
   received_at: string;

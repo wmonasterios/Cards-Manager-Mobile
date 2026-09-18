@@ -1,16 +1,35 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Crypto from 'expo-crypto';
 import { decode } from 'base64-arraybuffer';
 import { supabase } from './client';
 import { DbStatement, ParsedStatement } from './types';
 
-export async function uploadStatementPdf(
-  userId: string,
-  fileUri: string,
-  fileName: string,
-): Promise<DbStatement> {
+export async function readPdfForUpload(fileUri: string): Promise<{ base64: string; hash: string }> {
   const base64 = await FileSystem.readAsStringAsync(fileUri, {
     encoding: FileSystem.EncodingType.Base64,
   });
+  const hash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, base64);
+  return { base64, hash };
+}
+
+export async function findStatementByHash(userId: string, hash: string): Promise<DbStatement | null> {
+  const { data, error } = await supabase
+    .from('statements')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('file_hash', hash)
+    .order('received_at', { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  return data?.[0] ?? null;
+}
+
+export async function uploadStatementPdf(
+  userId: string,
+  base64: string,
+  fileName: string,
+  hash: string,
+): Promise<DbStatement> {
   const path = `${userId}/${Date.now()}-${fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
 
   const { error: uploadError } = await supabase.storage
@@ -20,7 +39,7 @@ export async function uploadStatementPdf(
 
   const { data, error } = await supabase
     .from('statements')
-    .insert({ user_id: userId, source: 'upload', status: 'pending', storage_path: path })
+    .insert({ user_id: userId, source: 'upload', status: 'pending', storage_path: path, file_hash: hash })
     .select('*')
     .single();
   if (error) throw error;
