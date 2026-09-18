@@ -20,6 +20,7 @@ function dbTransactionToTransaction(row: DbTransaction): Transaction {
     iso: row.occurred_on,
     amount: Number(row.amount),
     category,
+    statementId: row.statement_id ?? undefined,
   };
 }
 

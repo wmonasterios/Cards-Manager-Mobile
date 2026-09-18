@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '../theme/ThemeContext';
 import { radius } from '../theme';
 import { DecoratedTransaction } from '../decorate';
@@ -37,7 +38,7 @@ export function TxRow({
           justifyContent: 'center',
         }}
       >
-        <Text style={{ fontSize: 11, fontWeight: '600', color: tx.catInk }}>{tx.initials}</Text>
+        <Ionicons name={tx.catIcon as any} size={16} color={tx.catInk} />
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={{ fontSize: 13.5, fontWeight: '500', color: colors.ink }} numberOfLines={1}>

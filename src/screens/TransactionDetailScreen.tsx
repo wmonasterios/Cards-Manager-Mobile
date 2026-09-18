@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Alert, Modal, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, Modal, ActivityIndicator, Linking, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { radius, spacing, ColorTokens, getCategoryColors } from '../theme';
@@ -9,6 +10,7 @@ import { useLocale } from '../i18n/LocaleContext';
 import { BackButton } from '../components/BackButton';
 import { useCards } from '../context/CardsContext';
 import { ALL_CATEGORIES, Category } from '../data';
+import { getStatementPdfUrl } from '../supabase/statementsApi';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TransactionDetail'>;
 
@@ -21,8 +23,28 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
   const { lang, t } = useLocale();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [openingStatement, setOpeningStatement] = useState(false);
 
   if (!card || !tx) return null;
+
+  const openStatement = async () => {
+    if (!tx.statementId) {
+      navigation.navigate('Tabs', { screen: 'Statements' });
+      return;
+    }
+    setOpeningStatement(true);
+    try {
+      const url = await getStatementPdfUrl(tx.statementId);
+      await Linking.openURL(url);
+    } catch (err: any) {
+      Alert.alert(
+        lang === 'es' ? 'No se pudo abrir el PDF' : 'Could not open the PDF',
+        err?.message ?? String(err),
+      );
+    } finally {
+      setOpeningStatement(false);
+    }
+  };
 
   const openCategoryPicker = () => {
     if (isDemo) {
@@ -77,7 +99,7 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
           <BackButton onPress={() => navigation.goBack()} />
           <View style={styles.identityRow}>
             <View style={[styles.badge, { backgroundColor: tx.catBg }]}>
-              <Text style={[styles.badgeText, { color: tx.catInk }]}>{tx.initials}</Text>
+              <Ionicons name={tx.catIcon as any} size={22} color={tx.catInk} />
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.merchant}>{tx.merchant}</Text>
@@ -101,11 +123,12 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
           <View style={styles.sourceCard}>
             <Text style={styles.sourceNote}>{sourceNote}</Text>
             <View style={styles.sourceActions}>
-              <Pressable
-                onPress={() => navigation.navigate('Tabs', { screen: 'Statements' })}
-                style={styles.sourceBtn}
-              >
-                <Text style={styles.sourceBtnText}>{t.openStatement}</Text>
+              <Pressable onPress={openStatement} disabled={openingStatement} style={styles.sourceBtn}>
+                {openingStatement ? (
+                  <ActivityIndicator color={colors.ink} />
+                ) : (
+                  <Text style={styles.sourceBtnText}>{t.openStatement}</Text>
+                )}
               </Pressable>
               <Pressable onPress={openCategoryPicker} style={styles.sourceBtn}>
                 <Text style={styles.sourceBtnText}>{t.changeCategory}</Text>
@@ -129,7 +152,7 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
                   style={[styles.modalRow, active && { borderColor: colors.accent }]}
                 >
                   <View style={[styles.modalBadge, { backgroundColor: catColors.bg }]}>
-                    <Text style={[styles.modalBadgeText, { color: catColors.ink }]}>{catColors.initials}</Text>
+                    <Ionicons name={catColors.icon as any} size={16} color={catColors.ink} />
                   </View>
                   <Text style={styles.modalRowText}>{cat}</Text>
                   {active && <Text style={styles.modalCheck}>{'✓'}</Text>}

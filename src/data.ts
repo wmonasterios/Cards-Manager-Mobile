@@ -25,6 +25,7 @@ export type Transaction = {
   category: Category;
   plan?: string;
   declined?: boolean;
+  statementId?: string;
 };
 
 export type InstalmentPlan = {

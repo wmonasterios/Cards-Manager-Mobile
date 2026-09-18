@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { radius, spacing, ColorTokens, getCategoryColors } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
@@ -140,14 +141,16 @@ export function InsightsScreen({ navigation }: any) {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t.byCategory}</Text>
             <View style={styles.listCard}>
-              {CATEGORIES.map((c) => (
+              {CATEGORIES.map((c) => {
+                const catColors = getCategoryColors(colors)[c.name] ?? getCategoryColors(colors).Other;
+                return (
                 <Pressable
                   key={c.name}
                   style={styles.catRow}
                   onPress={() => navigation.navigate('Transactions', { initialQuery: c.name })}
                 >
-                  <View style={styles.catBadge}>
-                    <Text style={styles.catBadgeText}>{c.initials}</Text>
+                  <View style={[styles.catBadge, { backgroundColor: catColors.bg }]}>
+                    <Ionicons name={catColors.icon as any} size={16} color={catColors.ink} />
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={styles.catName}>{c.name}</Text>
@@ -160,7 +163,8 @@ export function InsightsScreen({ navigation }: any) {
                     <Text style={styles.catCount}>{c.count}</Text>
                   </View>
                 </Pressable>
-              ))}
+                );
+              })}
             </View>
             <View style={styles.noteCard}>
               <Text style={styles.noteText}>{insightNote}</Text>
@@ -234,7 +238,7 @@ export function InsightsScreen({ navigation }: any) {
                         onPress={() => navigation.navigate('Transactions', { initialQuery: c.name })}
                       >
                         <View style={[styles.catBadge, { backgroundColor: catColors.bg }]}>
-                          <Text style={[styles.catBadgeText, { color: catColors.ink }]}>{catColors.initials}</Text>
+                          <Ionicons name={catColors.icon as any} size={16} color={catColors.ink} />
                         </View>
                         <View style={{ flex: 1, minWidth: 0 }}>
                           <Text style={styles.catName}>{c.name}</Text>

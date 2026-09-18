@@ -10,6 +10,7 @@ export type DecoratedTransaction = Transaction & {
   catBg: string;
   catInk: string;
   initials: string;
+  catIcon: string;
   cardShort: string;
 };
 
@@ -44,6 +45,7 @@ export function decorateTransaction(t: Transaction, card: Card, colors: ColorTok
     catBg: cat.bg,
     catInk: cat.ink,
     initials: cat.initials,
+    catIcon: cat.icon,
     cardShort: card.bank + ' ' + card.last4.slice(-4),
   };
 }

@@ -67,6 +67,22 @@ export async function applyStatement(
   return data;
 }
 
+export async function getStatementPdfUrl(statementId: string): Promise<string> {
+  const { data: statement, error } = await supabase
+    .from('statements')
+    .select('storage_path')
+    .eq('id', statementId)
+    .single();
+  if (error) throw error;
+  if (!statement?.storage_path) throw new Error('This statement has no file to open.');
+
+  const { data, error: signError } = await supabase.storage
+    .from('statements')
+    .createSignedUrl(statement.storage_path, 60 * 5);
+  if (signError) throw signError;
+  return data.signedUrl;
+}
+
 export async function listNeedsReviewStatements(userId: string): Promise<DbStatement[]> {
   const { data, error } = await supabase
     .from('statements')

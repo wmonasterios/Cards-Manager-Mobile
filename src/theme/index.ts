@@ -62,17 +62,19 @@ export const lightColors: ColorTokens = {
 // Default export kept for call sites that only ever run in dark mode (rare).
 export const colors = darkColors;
 
-export function getCategoryColors(c: ColorTokens): Record<string, { bg: string; ink: string; initials: string }> {
+export function getCategoryColors(
+  c: ColorTokens,
+): Record<string, { bg: string; ink: string; initials: string; icon: string }> {
   return {
-    Groceries: { bg: c.line, ink: c.tintInk2, initials: 'GR' },
-    Dining: { bg: c.tint, ink: c.accentInk, initials: 'DI' },
-    Travel: { bg: c.line2, ink: c.tintInk3, initials: 'TR' },
-    Tech: { bg: c.tint2, ink: c.tintInk, initials: 'TE' },
-    Fuel: { bg: c.line, ink: c.tintInk2, initials: 'FU' },
-    Health: { bg: c.line2, ink: c.tintInk3, initials: 'HE' },
-    Services: { bg: c.tint, ink: c.accentInk, initials: 'SE' },
-    Payment: { bg: c.tint, ink: c.accentInk2, initials: 'PY' },
-    Other: { bg: c.line, ink: c.ink2, initials: 'OT' },
+    Groceries: { bg: c.line, ink: c.tintInk2, initials: 'GR', icon: 'basket-outline' },
+    Dining: { bg: c.tint, ink: c.accentInk, initials: 'DI', icon: 'restaurant-outline' },
+    Travel: { bg: c.line2, ink: c.tintInk3, initials: 'TR', icon: 'airplane-outline' },
+    Tech: { bg: c.tint2, ink: c.tintInk, initials: 'TE', icon: 'laptop-outline' },
+    Fuel: { bg: c.line, ink: c.tintInk2, initials: 'FU', icon: 'car-outline' },
+    Health: { bg: c.line2, ink: c.tintInk3, initials: 'HE', icon: 'medkit-outline' },
+    Services: { bg: c.tint, ink: c.accentInk, initials: 'SE', icon: 'construct-outline' },
+    Payment: { bg: c.tint, ink: c.accentInk2, initials: 'PY', icon: 'card-outline' },
+    Other: { bg: c.line, ink: c.ink2, initials: 'OT', icon: 'ellipsis-horizontal-outline' },
   };
 }
 
