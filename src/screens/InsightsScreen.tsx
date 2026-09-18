@@ -81,12 +81,6 @@ export function InsightsScreen({ navigation }: any) {
     lang === 'es'
       ? 'Las cuotas suman US$ 310 al mes por los próximos cuatro meses. Dos planes terminan en octubre y liberan US$ 231.90.'
       : 'Instalments add US$ 310 a month for the next four months. Two plans end in October, freeing US$ 231.90.';
-  const cardTip = isDemo
-    ? t.cardTip
-    : lang === 'es'
-      ? 'Compara tus tarjetas y descubre cuál te conviene en cada categoría'
-      : 'Compare your cards to see which one earns the most per category';
-
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -125,16 +119,6 @@ export function InsightsScreen({ navigation }: any) {
               </View>
             </>
           )}
-        </View>
-
-        <View style={styles.section}>
-          <Pressable onPress={() => navigation.navigate('Best')} style={styles.bestBanner}>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.bestTitle}>{t.whichCard}</Text>
-              <Text style={styles.bestTip}>{cardTip}</Text>
-            </View>
-            <Text style={styles.bestChevron}>{'›'}</Text>
-          </Pressable>
         </View>
 
         {isDemo ? (
@@ -289,19 +273,6 @@ function makeStyles(colors: ColorTokens) {
     bar: { width: '100%', maxWidth: 26, borderRadius: 5 },
     barLabel: { fontSize: 10, color: colors.ink3 },
     section: { paddingHorizontal: spacing.xl, marginTop: spacing.lg + 2 },
-    bestBanner: {
-      padding: 16,
-      borderRadius: radius.xl,
-      backgroundColor: colors.tint,
-      borderWidth: 1,
-      borderColor: colors.tint2,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-    },
-    bestTitle: { fontSize: 14, fontWeight: '500', color: colors.onTint2 },
-    bestTip: { fontSize: 11.5, color: colors.accentInk, marginTop: 5 },
-    bestChevron: { color: colors.accentInk, fontSize: 16 },
     sectionTitle: { fontSize: 16, fontWeight: '500', color: colors.ink },
     listCard: {
       marginTop: 10,
