@@ -76,6 +76,22 @@ function fromIso(iso: string | null | undefined): Date {
   return iso ? new Date(iso + 'T00:00:00') : new Date();
 }
 
+function statementDateLabel(s: DbStatement, lang: 'en' | 'es'): string {
+  const cutoff = s.parsed?.cutoff_date;
+  if (cutoff) {
+    const cutoffLabel = fromIso(cutoff).toLocaleDateString(lang === 'es' ? 'es-PA' : 'en-US', {
+      day: 'numeric',
+      month: 'short',
+    });
+    return lang === 'es' ? `Corte ${cutoffLabel}` : `Cutoff ${cutoffLabel}`;
+  }
+  const uploadedLabel = new Date(s.received_at).toLocaleDateString(lang === 'es' ? 'es-PA' : 'en-US', {
+    day: 'numeric',
+    month: 'short',
+  });
+  return lang === 'es' ? `Subido ${uploadedLabel}` : `Uploaded ${uploadedLabel}`;
+}
+
 function statusLabel(status: DbStatement['status'], lang: 'en' | 'es') {
   const map: Record<DbStatement['status'], [string, string]> = {
     pending: ['Processing', 'Procesando'],
@@ -406,10 +422,7 @@ function RealStatementsFlow({ navigation }: any) {
                         {s.bank ?? (lang === 'es' ? 'Banco desconocido' : 'Unknown bank')}
                       </Text>
                       <Text style={styles.historyRowSub} numberOfLines={1}>
-                        {new Date(s.received_at).toLocaleDateString(lang === 'es' ? 'es-PA' : 'en-US', {
-                          day: 'numeric',
-                          month: 'short',
-                        })}
+                        {statementDateLabel(s, lang)}
                       </Text>
                     </View>
                     <Text
