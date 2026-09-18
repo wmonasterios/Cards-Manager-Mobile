@@ -50,7 +50,10 @@ export function LockGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
-      if (appState.current.match(/inactive|background/) && next === 'active' && faceLock) {
+      // Only 'background' means the app was truly hidden (home button, app switch).
+      // The Face ID / passcode sheet itself briefly reports 'inactive', which must
+      // NOT re-trigger a prompt or every successful unlock immediately asks again.
+      if (appState.current === 'background' && next === 'active' && faceLock && !authenticating.current) {
         setLocked(true);
         tryUnlock();
       }
