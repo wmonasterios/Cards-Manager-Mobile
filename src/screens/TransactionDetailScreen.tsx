@@ -1,16 +1,17 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Alert, Modal, ActivityIndicator, Linking, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, Modal, ActivityIndicator, Linking, TextInput, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { radius, spacing, ColorTokens, getCategoryColors } from '../theme';
+import { radius, spacing, ColorTokens, getCategoryColors, categoryLabel } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { BackButton } from '../components/BackButton';
 import { useCards } from '../context/CardsContext';
 import { ALL_CATEGORIES, Category } from '../data';
 import { getStatementPdfUrl } from '../supabase/statementsApi';
+import { recordSuggestionFeedback } from '../supabase/cardsApi';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TransactionDetail'>;
 
@@ -24,6 +25,7 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [openingStatement, setOpeningStatement] = useState(false);
+  const [categoryQuery, setCategoryQuery] = useState('');
 
   if (!card || !tx) return null;
 
@@ -51,12 +53,17 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
       Alert.alert(t.changeCategory, lang === 'es' ? 'Crea una cuenta para editar categorías.' : 'Create an account to edit categories.');
       return;
     }
+    setCategoryQuery('');
     setPickerOpen(true);
   };
 
   const pickCategory = (category: Category) => {
     setPickerOpen(false);
-    if (category === tx.category) return;
+    const wasSuggestion = tx.categorySource === 'suggestion';
+    if (category === tx.category) {
+      if (wasSuggestion) recordSuggestionFeedback(tx.merchant, 'confirm');
+      return;
+    }
     Alert.alert(
       lang === 'es' ? '¿Aplicar a todas?' : 'Apply to all?',
       lang === 'es'
@@ -65,15 +72,25 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
       [
         {
           text: lang === 'es' ? 'Solo esta' : 'Just this one',
-          onPress: () => updateTxCategory(tx.id, tx.merchant, category, false),
+          onPress: () => {
+            updateTxCategory(tx.id, tx.merchant, category, false);
+            if (wasSuggestion) recordSuggestionFeedback(tx.merchant, 'reject');
+          },
         },
         {
           text: lang === 'es' ? 'Todas' : 'All of them',
-          onPress: () => updateTxCategory(tx.id, tx.merchant, category, true),
+          onPress: () => {
+            updateTxCategory(tx.id, tx.merchant, category, true);
+            if (wasSuggestion) recordSuggestionFeedback(tx.merchant, 'reject');
+          },
         },
       ],
     );
   };
+
+  const filteredCategories = ALL_CATEGORIES.filter((cat) =>
+    categoryLabel(cat).toLowerCase().includes(categoryQuery.trim().toLowerCase()),
+  );
 
   const statusNote = tx.declined
     ? `Declined by ${card.bank} — over limit`
@@ -83,7 +100,7 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
 
   const rows = [
     { label: t.card, value: `${card.bank} ${card.product}` },
-    { label: t.category, value: tx.category },
+    { label: t.category, value: categoryLabel(tx.category) },
     { label: t.dateLabel, value: `${tx.date}, 2026` },
     { label: t.plan, value: tx.plan ? `${tx.plan} · 0%` : t.single },
     { label: t.inCycle, value: card.cycleNote },
@@ -142,23 +159,32 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
         <Pressable style={styles.modalBackdrop} onPress={() => setPickerOpen(false)}>
           <Pressable style={styles.modalSheet} onPress={() => {}}>
             <Text style={styles.modalTitle}>{t.changeCategory}</Text>
-            {ALL_CATEGORIES.map((cat) => {
-              const catColors = getCategoryColors(colors)[cat];
-              const active = cat === tx.category;
-              return (
-                <Pressable
-                  key={cat}
-                  onPress={() => pickCategory(cat)}
-                  style={[styles.modalRow, active && { borderColor: colors.accent }]}
-                >
-                  <View style={[styles.modalBadge, { backgroundColor: catColors.bg }]}>
-                    <Ionicons name={catColors.icon as any} size={16} color={catColors.ink} />
-                  </View>
-                  <Text style={styles.modalRowText}>{cat}</Text>
-                  {active && <Text style={styles.modalCheck}>{'✓'}</Text>}
-                </Pressable>
-              );
-            })}
+            <TextInput
+              value={categoryQuery}
+              onChangeText={setCategoryQuery}
+              placeholder={lang === 'es' ? 'Buscar categoría' : 'Search category'}
+              placeholderTextColor={colors.ink3}
+              style={styles.modalSearch}
+            />
+            <ScrollView style={styles.modalList} keyboardShouldPersistTaps="handled">
+              {filteredCategories.map((cat) => {
+                const catColors = getCategoryColors(colors)[cat];
+                const active = cat === tx.category;
+                return (
+                  <Pressable
+                    key={cat}
+                    onPress={() => pickCategory(cat)}
+                    style={[styles.modalRow, active && { borderColor: colors.accent }]}
+                  >
+                    <View style={[styles.modalBadge, { backgroundColor: catColors.bg }]}>
+                      <Ionicons name={catColors.icon as any} size={16} color={catColors.ink} />
+                    </View>
+                    <Text style={styles.modalRowText}>{categoryLabel(cat)}</Text>
+                    {active && <Text style={styles.modalCheck}>{'✓'}</Text>}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
@@ -227,14 +253,26 @@ function makeStyles(colors: ColorTokens) {
       borderTopRightRadius: radius.xl,
       padding: spacing.xl,
       paddingBottom: spacing.xxl,
-      gap: 8,
+      maxHeight: '80%',
     },
-    modalTitle: { fontSize: 16, fontWeight: '500', color: colors.ink, marginBottom: 6 },
+    modalTitle: { fontSize: 16, fontWeight: '500', color: colors.ink, marginBottom: 10 },
+    modalSearch: {
+      borderWidth: 1,
+      borderColor: colors.line,
+      borderRadius: radius.md - 2,
+      paddingVertical: 9,
+      paddingHorizontal: 12,
+      fontSize: 13,
+      color: colors.ink,
+      marginBottom: 10,
+    },
+    modalList: { gap: 8 },
     modalRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
       padding: 12,
+      marginBottom: 8,
       borderRadius: radius.lg,
       borderWidth: 1,
       borderColor: colors.line,

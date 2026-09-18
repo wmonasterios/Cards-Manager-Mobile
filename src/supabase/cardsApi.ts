@@ -11,7 +11,7 @@ function shortDate(iso: string | null): string {
 function dbTransactionToTransaction(row: DbTransaction): Transaction {
   const category = (ALL_CATEGORIES as string[]).includes(row.category ?? '')
     ? (row.category as Category)
-    : 'Other';
+    : 'other';
   return {
     id: row.id,
     merchant: row.merchant,
@@ -21,6 +21,7 @@ function dbTransactionToTransaction(row: DbTransaction): Transaction {
     amount: Number(row.amount),
     category,
     statementId: row.statement_id ?? undefined,
+    categorySource: row.category_source ?? undefined,
   };
 }
 
@@ -129,17 +130,27 @@ export async function updateTransactionCategory(
   category: Category,
   applyToAllWithMerchant: boolean,
 ): Promise<void> {
+  // Always remember this as the user's personal chain override, so future
+  // statements categorize the same chain this way from the start.
+  await supabase.rpc('set_user_merchant_override', { p_merchant_raw: merchant, p_category_id: category });
+
   if (applyToAllWithMerchant) {
-    const { error } = await supabase
-      .from('transactions')
-      .update({ category })
-      .eq('user_id', userId)
-      .ilike('merchant', merchant);
+    const { error } = await supabase.rpc('bulk_recategorize_by_chain', {
+      p_merchant_raw: merchant,
+      p_category_id: category,
+    });
     if (error) throw error;
   } else {
-    const { error } = await supabase.from('transactions').update({ category }).eq('id', txId);
+    const { error } = await supabase
+      .from('transactions')
+      .update({ category, category_source: 'manual' })
+      .eq('id', txId);
     if (error) throw error;
   }
+}
+
+export async function recordSuggestionFeedback(merchant: string, action: 'confirm' | 'reject'): Promise<void> {
+  await supabase.rpc('record_suggestion_feedback', { p_merchant_raw: merchant, p_action: action });
 }
 
 export async function addPaymentRow(

@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { radius, spacing, ColorTokens, getCategoryColors } from '../theme';
+import { radius, spacing, ColorTokens, getCategoryColors, categoryLabel } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { Segmented } from '../components/Segmented';
@@ -17,11 +17,11 @@ const BARS = [
 ];
 
 const CATEGORIES = [
-  { name: 'Groceries', amount: 'US$ 359.70', count: '4 transactions', pct: 100, initials: 'GR' },
-  { name: 'Tech', amount: 'US$ 210.90', count: '3 instalments', pct: 59, initials: 'TE' },
-  { name: 'Travel', amount: 'US$ 142.00', count: '1 instalment', pct: 39, initials: 'TR' },
-  { name: 'Dining', amount: 'US$ 62.40', count: '1 transaction', pct: 17, initials: 'DI' },
-  { name: 'Health', amount: 'US$ 41.80', count: '1 transaction', pct: 12, initials: 'HE' },
+  { name: 'groceries', amount: 'US$ 359.70', count: '4 transactions', pct: 100 },
+  { name: 'home', amount: 'US$ 210.90', count: '3 instalments', pct: 59 },
+  { name: 'travel', amount: 'US$ 142.00', count: '1 instalment', pct: 39 },
+  { name: 'dining', amount: 'US$ 62.40', count: '1 transaction', pct: 17 },
+  { name: 'health', amount: 'US$ 41.80', count: '1 transaction', pct: 12 },
 ];
 
 export function InsightsScreen({ navigation }: any) {
@@ -126,7 +126,7 @@ export function InsightsScreen({ navigation }: any) {
             <Text style={styles.sectionTitle}>{t.byCategory}</Text>
             <View style={styles.listCard}>
               {CATEGORIES.map((c) => {
-                const catColors = getCategoryColors(colors)[c.name] ?? getCategoryColors(colors).Other;
+                const catColors = getCategoryColors(colors)[c.name] ?? getCategoryColors(colors).other;
                 return (
                 <Pressable
                   key={c.name}
@@ -137,7 +137,7 @@ export function InsightsScreen({ navigation }: any) {
                     <Ionicons name={catColors.icon as any} size={16} color={catColors.ink} />
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={styles.catName}>{c.name}</Text>
+                    <Text style={styles.catName}>{categoryLabel(c.name)}</Text>
                     <View style={styles.catBarTrack}>
                       <View style={[styles.catBarFill, { width: `${c.pct}%` }]} />
                     </View>
@@ -214,7 +214,7 @@ export function InsightsScreen({ navigation }: any) {
               ) : (
                 <View style={styles.listCard}>
                   {categoryBreakdown.rows.map((c) => {
-                    const catColors = getCategoryColors(colors)[c.name] ?? getCategoryColors(colors).Other;
+                    const catColors = getCategoryColors(colors)[c.name] ?? getCategoryColors(colors).other;
                     return (
                       <Pressable
                         key={c.name}
@@ -225,7 +225,7 @@ export function InsightsScreen({ navigation }: any) {
                           <Ionicons name={catColors.icon as any} size={16} color={catColors.ink} />
                         </View>
                         <View style={{ flex: 1, minWidth: 0 }}>
-                          <Text style={styles.catName}>{c.name}</Text>
+                          <Text style={styles.catName}>{categoryLabel(c.name)}</Text>
                           <View style={styles.catBarTrack}>
                             <View style={[styles.catBarFill, { width: `${c.pct}%` }]} />
                           </View>

@@ -1,18 +1,40 @@
 import { cardArt } from './theme';
 
 export type Category =
-  | 'Groceries'
-  | 'Dining'
-  | 'Travel'
-  | 'Tech'
-  | 'Fuel'
-  | 'Health'
-  | 'Services'
-  | 'Payment'
-  | 'Other';
+  | 'dining'
+  | 'groceries'
+  | 'transport'
+  | 'fuel'
+  | 'shopping'
+  | 'home'
+  | 'clothing'
+  | 'beauty'
+  | 'pharmacy'
+  | 'health'
+  | 'entertainment'
+  | 'subscriptions'
+  | 'recreation'
+  | 'kids'
+  | 'education'
+  | 'travel'
+  | 'hotels'
+  | 'insurance'
+  | 'utilities'
+  | 'government'
+  | 'housing'
+  | 'fees'
+  | 'payment'
+  | 'transfer'
+  | 'cash'
+  | 'topup'
+  | 'taxes'
+  | 'other';
 
 export const ALL_CATEGORIES: Category[] = [
-  'Groceries', 'Dining', 'Travel', 'Tech', 'Fuel', 'Health', 'Services', 'Payment', 'Other',
+  'dining', 'groceries', 'transport', 'fuel', 'shopping', 'home', 'clothing', 'beauty',
+  'pharmacy', 'health', 'entertainment', 'subscriptions', 'recreation', 'kids', 'education',
+  'travel', 'hotels', 'insurance', 'utilities', 'government', 'housing', 'fees', 'payment',
+  'transfer', 'cash', 'topup', 'taxes', 'other',
 ];
 
 export type Transaction = {
@@ -26,6 +48,7 @@ export type Transaction = {
   plan?: string;
   declined?: boolean;
   statementId?: string;
+  categorySource?: string;
 };
 
 export type InstalmentPlan = {
@@ -103,15 +126,15 @@ export const CARDS: Card[] = [
       { merchant: 'Copa Airlines', plan: '5 of 6', rate: '0% interest', monthly: 142.0, remaining: 142.0, pct: 83 },
     ],
     tx: [
-      tx('Riba Smith', 'Groceries · Panamá', 'Sep 12', -184.22, 'Groceries'),
-      tx('Copa Airlines', 'Instalment 5/6 · Travel', 'Sep 10', -142.0, 'Travel', { plan: '5 of 6' }),
-      tx('Cervecería La Rana', 'Dining · Panamá', 'Sep 8', -62.4, 'Dining'),
-      tx('Samsung Store', 'Instalment 3/12 · Tech', 'Sep 4', -89.9, 'Tech', { plan: '3 of 12' }),
-      tx('Delta Fuel', 'Declined — over limit', 'Sep 2', -55.0, 'Fuel', { declined: true }),
-      tx('Payment received', 'Transfer · Banco Aliado', 'Aug 31', 900.0, 'Payment'),
-      tx('Riba Smith', 'Groceries · Panamá', 'Aug 12', -166.9, 'Groceries'),
-      tx('PriceSmart', 'Groceries · Panamá', 'Jul 22', -241.15, 'Groceries'),
-      tx('Copa Airlines', 'Instalment 2/6 · Travel', 'Jun 10', -142.0, 'Travel', { plan: '2 of 6' }),
+      tx('Riba Smith', 'Groceries · Panamá', 'Sep 12', -184.22, 'groceries'),
+      tx('Copa Airlines', 'Instalment 5/6 · Travel', 'Sep 10', -142.0, 'travel', { plan: '5 of 6' }),
+      tx('Cervecería La Rana', 'Dining · Panamá', 'Sep 8', -62.4, 'dining'),
+      tx('Samsung Store', 'Instalment 3/12 · Tech', 'Sep 4', -89.9, 'home', { plan: '3 of 12' }),
+      tx('Delta Fuel', 'Declined — over limit', 'Sep 2', -55.0, 'fuel', { declined: true }),
+      tx('Payment received', 'Transfer · Banco Aliado', 'Aug 31', 900.0, 'payment'),
+      tx('Riba Smith', 'Groceries · Panamá', 'Aug 12', -166.9, 'groceries'),
+      tx('PriceSmart', 'Groceries · Panamá', 'Jul 22', -241.15, 'groceries'),
+      tx('Copa Airlines', 'Instalment 2/6 · Travel', 'Jun 10', -142.0, 'travel', { plan: '2 of 6' }),
     ],
   },
   {
@@ -132,12 +155,12 @@ export const CARDS: Card[] = [
       { merchant: 'Apple Store', plan: '2 of 9', rate: '0% interest', monthly: 78.3, remaining: 548.1, pct: 22 },
     ],
     tx: [
-      tx('Super 99', 'Groceries · Panamá', 'Sep 11', -96.35, 'Groceries'),
-      tx('Apple Store', 'Instalment 2/9 · Tech', 'Sep 6', -78.3, 'Tech', { plan: '2 of 9' }),
-      tx('Farmacias Arrocha', 'Health · Panamá', 'Sep 3', -41.8, 'Health'),
-      tx('Netflix', 'Services · recurring', 'Sep 1', -15.99, 'Services'),
-      tx('Do it Center', 'Tech · Panamá', 'Aug 8', -128.4, 'Tech'),
-      tx('Netflix', 'Services · recurring', 'Jul 1', -15.99, 'Services'),
+      tx('Super 99', 'Groceries · Panamá', 'Sep 11', -96.35, 'groceries'),
+      tx('Apple Store', 'Instalment 2/9 · Tech', 'Sep 6', -78.3, 'home', { plan: '2 of 9' }),
+      tx('Farmacias Arrocha', 'Health · Panamá', 'Sep 3', -41.8, 'health'),
+      tx('Netflix', 'Services · recurring', 'Sep 1', -15.99, 'utilities'),
+      tx('Do it Center', 'Tech · Panamá', 'Aug 8', -128.4, 'home'),
+      tx('Netflix', 'Services · recurring', 'Jul 1', -15.99, 'utilities'),
     ],
   },
   {
@@ -158,10 +181,10 @@ export const CARDS: Card[] = [
       { merchant: 'Novey', plan: '4 of 12', rate: '1.2% monthly', monthly: 168.4, remaining: 1347.2, pct: 33 },
     ],
     tx: [
-      tx('Super Xtra', 'Groceries · Panamá', 'Sep 9', -312.4, 'Groceries'),
-      tx('Novey', 'Instalment 4/12 · Tech', 'Sep 5', -168.4, 'Tech', { plan: '4 of 12' }),
-      tx('Delta', 'Fuel · Panamá', 'Sep 2', -98.0, 'Fuel'),
-      tx('El Machetazo', 'Groceries · Panamá', 'Jun 30', -74.2, 'Groceries'),
+      tx('Super Xtra', 'Groceries · Panamá', 'Sep 9', -312.4, 'groceries'),
+      tx('Novey', 'Instalment 4/12 · Tech', 'Sep 5', -168.4, 'home', { plan: '4 of 12' }),
+      tx('Delta', 'Fuel · Panamá', 'Sep 2', -98.0, 'fuel'),
+      tx('El Machetazo', 'Groceries · Panamá', 'Jun 30', -74.2, 'groceries'),
     ],
   },
   {
@@ -179,7 +202,7 @@ export const CARDS: Card[] = [
     plansNote: 'None',
     cycleNote: '5 Aug – 4 Sep',
     plans: [],
-    tx: [tx('Payment received', 'Transfer · BAC', 'Sep 1', 420.0, 'Payment')],
+    tx: [tx('Payment received', 'Transfer · BAC', 'Sep 1', 420.0, 'payment')],
   },
 ];
 

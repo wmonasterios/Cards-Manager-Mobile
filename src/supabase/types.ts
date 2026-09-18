@@ -65,6 +65,7 @@ export type DbTransaction = {
   description: string | null;
   amount: number;
   category: string | null;
+  category_source: string | null;
   dedup_key: string;
   created_at: string;
 };

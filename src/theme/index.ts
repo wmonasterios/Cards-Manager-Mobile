@@ -62,20 +62,62 @@ export const lightColors: ColorTokens = {
 // Default export kept for call sites that only ever run in dark mode (rare).
 export const colors = darkColors;
 
+const CATEGORY_ICONS: Record<string, string> = {
+  dining: 'restaurant-outline',
+  groceries: 'basket-outline',
+  transport: 'car-outline',
+  fuel: 'flame-outline',
+  shopping: 'bag-handle-outline',
+  home: 'storefront-outline',
+  clothing: 'shirt-outline',
+  beauty: 'cut-outline',
+  pharmacy: 'medkit-outline',
+  health: 'pulse-outline',
+  entertainment: 'film-outline',
+  subscriptions: 'repeat-outline',
+  recreation: 'trophy-outline',
+  kids: 'happy-outline',
+  education: 'school-outline',
+  travel: 'airplane-outline',
+  hotels: 'bed-outline',
+  insurance: 'shield-checkmark-outline',
+  utilities: 'flash-outline',
+  government: 'business-outline',
+  housing: 'home-outline',
+  fees: 'receipt-outline',
+  payment: 'card-outline',
+  transfer: 'swap-horizontal-outline',
+  cash: 'cash-outline',
+  topup: 'add-circle-outline',
+  taxes: 'document-text-outline',
+  other: 'ellipsis-horizontal-outline',
+};
+
+const CATEGORY_ORDER = Object.keys(CATEGORY_ICONS);
+
 export function getCategoryColors(
   c: ColorTokens,
-): Record<string, { bg: string; ink: string; initials: string; icon: string }> {
-  return {
-    Groceries: { bg: c.line, ink: c.tintInk2, initials: 'GR', icon: 'basket-outline' },
-    Dining: { bg: c.tint, ink: c.accentInk, initials: 'DI', icon: 'restaurant-outline' },
-    Travel: { bg: c.line2, ink: c.tintInk3, initials: 'TR', icon: 'airplane-outline' },
-    Tech: { bg: c.tint2, ink: c.tintInk, initials: 'TE', icon: 'laptop-outline' },
-    Fuel: { bg: c.line, ink: c.tintInk2, initials: 'FU', icon: 'car-outline' },
-    Health: { bg: c.line2, ink: c.tintInk3, initials: 'HE', icon: 'medkit-outline' },
-    Services: { bg: c.tint, ink: c.accentInk, initials: 'SE', icon: 'construct-outline' },
-    Payment: { bg: c.tint, ink: c.accentInk2, initials: 'PY', icon: 'card-outline' },
-    Other: { bg: c.line, ink: c.ink2, initials: 'OT', icon: 'ellipsis-horizontal-outline' },
-  };
+): Record<string, { bg: string; ink: string; icon: string }> {
+  const pairs = [
+    { bg: c.line, ink: c.tintInk2 },
+    { bg: c.tint, ink: c.accentInk },
+    { bg: c.line2, ink: c.tintInk3 },
+    { bg: c.tint2, ink: c.tintInk },
+    { bg: c.tint, ink: c.accentInk2 },
+    { bg: c.line, ink: c.ink2 },
+  ];
+  const result: Record<string, { bg: string; ink: string; icon: string }> = {};
+  CATEGORY_ORDER.forEach((id, i) => {
+    result[id] = { ...pairs[i % pairs.length], icon: CATEGORY_ICONS[id] };
+  });
+  return result;
+}
+
+// A category id is a single lowercase word (e.g. "dining"); the display label is
+// just that capitalized, so no separate translation table is needed.
+export function categoryLabel(id: string): string {
+  if (!id) return id;
+  return id.charAt(0).toUpperCase() + id.slice(1);
 }
 
 // Kept for the few call sites that need it before a theme is resolvable.

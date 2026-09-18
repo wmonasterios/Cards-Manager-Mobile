@@ -15,12 +15,12 @@ import { Category } from '../data';
 type Props = NativeStackScreenProps<RootStackParamList, 'Best'>;
 
 const CATS: { key: Category; en: string; es: string }[] = [
-  { key: 'Groceries', en: 'Groceries', es: 'Super' },
-  { key: 'Dining', en: 'Dining', es: 'Restaurantes' },
-  { key: 'Fuel', en: 'Fuel', es: 'Combustible' },
-  { key: 'Travel', en: 'Travel', es: 'Viajes' },
-  { key: 'Tech', en: 'Tech', es: 'Tecnología' },
-  { key: 'Health', en: 'Health', es: 'Salud' },
+  { key: 'groceries', en: 'Groceries', es: 'Super' },
+  { key: 'dining', en: 'Dining', es: 'Restaurantes' },
+  { key: 'fuel', en: 'Fuel', es: 'Combustible' },
+  { key: 'travel', en: 'Travel', es: 'Viajes' },
+  { key: 'home', en: 'Home', es: 'Hogar' },
+  { key: 'health', en: 'Health', es: 'Salud' },
 ];
 
 export function BestScreen({ navigation }: Props) {
@@ -28,7 +28,7 @@ export function BestScreen({ navigation }: Props) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { cards } = useCards();
-  const [cat, setCat] = useState<Category>('Groceries');
+  const [cat, setCat] = useState<Category>('groceries');
 
   const ranked = useMemo(
     () =>

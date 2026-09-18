@@ -9,7 +9,6 @@ export type DecoratedTransaction = Transaction & {
   subInk: string;
   catBg: string;
   catInk: string;
-  initials: string;
   catIcon: string;
   cardShort: string;
 };
@@ -36,7 +35,8 @@ export type DecoratedCard = Card & {
 export type Payment = { amount: number; when: string };
 
 export function decorateTransaction(t: Transaction, card: Card, colors: ColorTokens): DecoratedTransaction {
-  const cat = getCategoryColors(colors)[t.category];
+  const categoryColors = getCategoryColors(colors);
+  const cat = categoryColors[t.category] ?? categoryColors.other;
   return {
     ...t,
     amountText: (t.amount > 0 ? '+' : '') + money(card.cur, Math.abs(t.amount)),
@@ -44,7 +44,6 @@ export function decorateTransaction(t: Transaction, card: Card, colors: ColorTok
     subInk: t.declined ? colors.accentInk2 : colors.ink3,
     catBg: cat.bg,
     catInk: cat.ink,
-    initials: cat.initials,
     catIcon: cat.icon,
     cardShort: card.bank + ' ' + card.last4.slice(-4),
   };
