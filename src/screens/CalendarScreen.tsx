@@ -8,10 +8,6 @@ import { useCards } from '../context/CardsContext';
 import { useAppSettings } from '../context/AppSettingsContext';
 import { money } from '../format';
 
-const DUE_DAYS: Record<number, string> = { 18: 'aliado', 22: 'bac2', 25: 'bac' };
-const DAYS_IN_MONTH = 30;
-const FIRST_WEEKDAY = (new Date(2026, 8, 1).getDay() + 6) % 7; // Monday-first index
-
 const UPCOMING: Record<'en' | 'es', { day: string; mon: string; card: string; note: string; amount: string; min: string; due: boolean }[]> = {
   en: [
     { day: '18', mon: 'Sep', card: 'Banco Aliado Visa Infinite', note: 'In 4 days · full payment', amount: 'US$ 3,420.10', min: 'US$ 171.01', due: true },
@@ -32,30 +28,65 @@ const WEEKDAY_LABELS: Record<'en' | 'es', string[]> = {
   es: ['L', 'M', 'M', 'J', 'V', 'S', 'D'],
 };
 
+const MONTH_ABBR_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+type DayEvent = { card: string; note: string; amount: string; min: string; due: boolean };
+
 export function CalendarScreen() {
   const { lang, t } = useLocale();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { cards, isDemo } = useCards();
   const { reminder, toggleReminder } = useAppSettings();
-  const [selectedDay, setSelectedDay] = useState(25);
+
+  const today = useMemo(() => new Date(), []);
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7; // Monday-first index
+  const monthLabel = today.toLocaleDateString(lang === 'es' ? 'es-PA' : 'en-US', { month: 'long', year: 'numeric' });
+
+  const [selectedDay, setSelectedDay] = useState(today.getDate());
 
   const unpaid = cards.filter((c) => !c.paid);
   const usdTotal = unpaid.reduce((n, c) => n + c.remaining, 0);
   const monthDueText = `${unpaid.length} ${lang === 'es' ? 'pagos' : 'payments'} · ${money('US$', usdTotal)} ${lang === 'es' ? 'en total' : 'total'}`;
 
-  const dueDays = isDemo ? DUE_DAYS : {};
-  const upcoming = isDemo
-    ? UPCOMING[lang]
-    : unpaid.map((c) => ({
-        day: '',
-        mon: '',
-        card: `${c.bank} ${c.product}`.trim(),
-        note: c.dueShort,
-        amount: c.balanceText,
-        min: c.minText,
-        due: true,
-      }));
+  const eventsByDay = useMemo(() => {
+    const map: Record<number, DayEvent[]> = {};
+    const add = (day: number, event: DayEvent) => {
+      (map[day] ?? (map[day] = [])).push(event);
+    };
+    if (isDemo) {
+      const currentMonAbbr = MONTH_ABBR_EN[month];
+      for (const u of UPCOMING[lang]) {
+        if (u.mon !== currentMonAbbr) continue;
+        add(Number(u.day), { card: u.card, note: u.note, amount: u.amount, min: u.min, due: u.due });
+      }
+    } else {
+      for (const c of unpaid) {
+        if (!c.dueIso) continue;
+        const d = new Date(c.dueIso + 'T00:00:00');
+        if (d.getFullYear() !== year || d.getMonth() !== month) continue;
+        add(d.getDate(), {
+          card: `${c.bank} ${c.product}`.trim(),
+          note: c.dueShort,
+          amount: c.balanceText,
+          min: c.minText,
+          due: true,
+        });
+      }
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDemo, unpaid, lang, month, year]);
+
+  const dayEvents = eventsByDay[selectedDay] ?? [];
+  const isToday = selectedDay === today.getDate();
+  const selectedDateLabel = new Date(year, month, selectedDay).toLocaleDateString(
+    lang === 'es' ? 'es-PA' : 'en-US',
+    { day: 'numeric', month: 'long' },
+  );
 
   const firstUnpaid = unpaid[0];
   const previewTitle = isDemo
@@ -72,8 +103,8 @@ export function CalendarScreen() {
       : `reminders ${reminder ? 'On' : 'Off'}`;
 
   const cells: (number | null)[] = [
-    ...Array(FIRST_WEEKDAY).fill(null),
-    ...Array.from({ length: DAYS_IN_MONTH }, (_, i) => i + 1),
+    ...Array(firstWeekday).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
 
   return (
@@ -82,7 +113,7 @@ export function CalendarScreen() {
         <View style={styles.top}>
           <Text style={styles.title}>{t.calendarTitle}</Text>
           <Text style={styles.sub}>
-            {lang === 'es' ? 'Septiembre 2026' : 'September 2026'} · {monthDueText}
+            {monthLabel} · {monthDueText}
           </Text>
 
           <View style={styles.calendarCard}>
@@ -96,7 +127,7 @@ export function CalendarScreen() {
             <View style={styles.grid}>
               {cells.map((n, i) => {
                 if (n === null) return <View key={i} style={styles.cell} />;
-                const due = dueDays[n];
+                const due = eventsByDay[n]?.length > 0;
                 const sel = selectedDay === n;
                 return (
                   <Pressable
@@ -125,23 +156,19 @@ export function CalendarScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t.upcoming}</Text>
-          {upcoming.length === 0 ? (
+          <Text style={styles.sectionTitle}>
+            {isToday ? (lang === 'es' ? 'Hoy' : 'Today') : selectedDateLabel}
+          </Text>
+          {dayEvents.length === 0 ? (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyText}>
-                {lang === 'es' ? 'No tienes pagos pendientes.' : 'No upcoming payments.'}
+                {lang === 'es' ? 'No hay pagos este día.' : 'No payments this day.'}
               </Text>
             </View>
           ) : (
             <View style={{ marginTop: 10, gap: 8 }}>
-              {upcoming.map((u, i) => (
+              {dayEvents.map((u, i) => (
                 <View key={i} style={styles.upRow}>
-                  {u.day ? (
-                    <View style={styles.upDateCol}>
-                      <Text style={styles.upDay}>{u.day}</Text>
-                      <Text style={styles.upMon}>{u.mon}</Text>
-                    </View>
-                  ) : null}
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={styles.upCard} numberOfLines={1}>
                       {u.card}
@@ -237,9 +264,6 @@ function makeStyles(colors: ColorTokens) {
       alignItems: 'center',
       gap: 12,
     },
-    upDateCol: { width: 44, alignItems: 'center' },
-    upDay: { fontSize: 16, fontWeight: '600', color: colors.ink },
-    upMon: { fontSize: 10, color: colors.ink3, marginTop: 3 },
     upCard: { fontSize: 13.5, fontWeight: '500', color: colors.ink },
     upNote: { fontSize: 11, marginTop: 3 },
     upAmount: { fontSize: 14, fontWeight: '600', color: colors.ink },
