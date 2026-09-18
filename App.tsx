@@ -8,6 +8,8 @@ import { LocaleProvider } from './src/i18n/LocaleContext';
 import { ThemeProvider, useAppTheme } from './src/theme/ThemeContext';
 import { AppSettingsProvider, useAppSettings } from './src/context/AppSettingsContext';
 import { AuthProvider } from './src/context/AuthContext';
+import { LockGate } from './src/components/LockGate';
+import { NotificationsSync } from './src/components/NotificationsSync';
 
 function AppContent() {
   const { colors, isDark } = useAppTheme();
@@ -32,9 +34,11 @@ function AppContent() {
   };
 
   return (
-    <NavigationContainer theme={navTheme}>
-      <RootNavigator />
-    </NavigationContainer>
+    <LockGate>
+      <NavigationContainer theme={navTheme}>
+        <RootNavigator />
+      </NavigationContainer>
+    </LockGate>
   );
 }
 
@@ -43,6 +47,7 @@ function Root() {
   return (
     <CardsProvider>
       <AppContent />
+      <NotificationsSync />
       <StatusBar style={isDark ? 'light' : 'dark'} />
     </CardsProvider>
   );

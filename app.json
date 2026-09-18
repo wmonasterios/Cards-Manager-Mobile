@@ -35,6 +35,7 @@
     "owner": "wmonasterios",
     "updates": {
       "url": "https://u.expo.dev/9171c902-aff1-4ca1-a115-3fc3ae3809ee"
-    }
+    },
+    "plugins": ["expo-local-authentication", "expo-notifications"]
   }
 }

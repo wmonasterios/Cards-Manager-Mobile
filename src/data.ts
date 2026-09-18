@@ -44,6 +44,7 @@ export type Card = {
   min: number;
   due: string;
   cutoff: string;
+  dueIso?: string;
   plansNote: string;
   cycleNote: string;
   plans: InstalmentPlan[];
