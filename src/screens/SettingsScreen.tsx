@@ -78,13 +78,6 @@ export function SettingsScreen({ navigation }: any) {
                 : 'Demo mode: you are viewing example data. Create an account to add your real cards.'}
             </Text>
           )}
-          {!isDemo && (
-            <Pressable onPress={() => navigation.navigate('AddCard')} style={styles.addCardBtn}>
-              <Ionicons name="add-circle-outline" size={18} color={colors.accent} />
-              <Text style={styles.addCardBtnText}>{lang === 'es' ? 'Agregar una tarjeta' : 'Add a card'}</Text>
-            </Pressable>
-          )}
-
           <Text style={styles.groupLabel}>{t.language.toUpperCase()}</Text>
           <View style={{ marginTop: 10 }}>
             <Segmented
@@ -224,18 +217,6 @@ function makeStyles(colors: ColorTokens) {
     },
     accentPillText: { fontSize: 11.5, fontWeight: '500', color: colors.accent },
     demoNote: { fontSize: 11.5, color: colors.ink3, marginTop: 10, lineHeight: 16 },
-    addCardBtn: {
-      marginTop: 10,
-      padding: 13,
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: colors.accent,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-    },
-    addCardBtnText: { fontSize: 13, fontWeight: '500', color: colors.accent },
     groupLabel: { fontSize: 11, fontWeight: '500', color: colors.ink3, letterSpacing: 1, marginTop: 24 },
     listCard: {
       marginTop: 10,
