@@ -141,7 +141,11 @@ export function InsightsScreen({ navigation }: any) {
             <Text style={styles.sectionTitle}>{t.byCategory}</Text>
             <View style={styles.listCard}>
               {CATEGORIES.map((c) => (
-                <View key={c.name} style={styles.catRow}>
+                <Pressable
+                  key={c.name}
+                  style={styles.catRow}
+                  onPress={() => navigation.navigate('Transactions', { initialQuery: c.name })}
+                >
                   <View style={styles.catBadge}>
                     <Text style={styles.catBadgeText}>{c.initials}</Text>
                   </View>
@@ -155,7 +159,7 @@ export function InsightsScreen({ navigation }: any) {
                     <Text style={styles.catAmount}>{c.amount}</Text>
                     <Text style={styles.catCount}>{c.count}</Text>
                   </View>
-                </View>
+                </Pressable>
               ))}
             </View>
             <View style={styles.noteCard}>
@@ -224,7 +228,11 @@ export function InsightsScreen({ navigation }: any) {
                   {categoryBreakdown.rows.map((c) => {
                     const catColors = getCategoryColors(colors)[c.name] ?? getCategoryColors(colors).Other;
                     return (
-                      <View key={c.name} style={styles.catRow}>
+                      <Pressable
+                        key={c.name}
+                        style={styles.catRow}
+                        onPress={() => navigation.navigate('Transactions', { initialQuery: c.name })}
+                      >
                         <View style={[styles.catBadge, { backgroundColor: catColors.bg }]}>
                           <Text style={[styles.catBadgeText, { color: catColors.ink }]}>{catColors.initials}</Text>
                         </View>
@@ -240,7 +248,7 @@ export function InsightsScreen({ navigation }: any) {
                             {c.pct}% · {c.count} {c.count === 1 ? (lang === 'es' ? 'transacción' : 'transaction') : (lang === 'es' ? 'transacciones' : 'transactions')}
                           </Text>
                         </View>
-                      </View>
+                      </Pressable>
                     );
                   })}
                 </View>

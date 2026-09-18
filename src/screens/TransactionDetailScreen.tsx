@@ -1,26 +1,57 @@
-import React, { useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, ScrollView, Pressable, Alert, Modal, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { radius, spacing, ColorTokens } from '../theme';
+import { radius, spacing, ColorTokens, getCategoryColors } from '../theme';
 import { useColors } from '../theme/ThemeContext';
-import { useT } from '../i18n/LocaleContext';
+import { useLocale } from '../i18n/LocaleContext';
 import { BackButton } from '../components/BackButton';
 import { useCards } from '../context/CardsContext';
+import { ALL_CATEGORIES, Category } from '../data';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TransactionDetail'>;
 
 export function TransactionDetailScreen({ route, navigation }: Props) {
   const { txId, cardId } = route.params;
-  const { getCard } = useCards();
+  const { getCard, isDemo, updateTxCategory } = useCards();
   const card = getCard(cardId);
   const tx = card?.dtx.find((t) => t.id === txId);
   const colors = useColors();
-  const t = useT();
+  const { lang, t } = useLocale();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   if (!card || !tx) return null;
+
+  const openCategoryPicker = () => {
+    if (isDemo) {
+      Alert.alert(t.changeCategory, lang === 'es' ? 'Crea una cuenta para editar categorías.' : 'Create an account to edit categories.');
+      return;
+    }
+    setPickerOpen(true);
+  };
+
+  const pickCategory = (category: Category) => {
+    setPickerOpen(false);
+    if (category === tx.category) return;
+    Alert.alert(
+      lang === 'es' ? '¿Aplicar a todas?' : 'Apply to all?',
+      lang === 'es'
+        ? `¿Categorizar así todas las transacciones pasadas y futuras de "${tx.merchant}"?`
+        : `Categorize all past and future transactions from "${tx.merchant}" this way?`,
+      [
+        {
+          text: lang === 'es' ? 'Solo esta' : 'Just this one',
+          onPress: () => updateTxCategory(tx.id, tx.merchant, category, false),
+        },
+        {
+          text: lang === 'es' ? 'Todas' : 'All of them',
+          onPress: () => updateTxCategory(tx.id, tx.merchant, category, true),
+        },
+      ],
+    );
+  };
 
   const statusNote = tx.declined
     ? `Declined by ${card.bank} — over limit`
@@ -76,16 +107,38 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
               >
                 <Text style={styles.sourceBtnText}>{t.openStatement}</Text>
               </Pressable>
-              <Pressable
-                onPress={() => Alert.alert(t.changeCategory, 'Category editing is coming in a later update.')}
-                style={styles.sourceBtn}
-              >
+              <Pressable onPress={openCategoryPicker} style={styles.sourceBtn}>
                 <Text style={styles.sourceBtnText}>{t.changeCategory}</Text>
               </Pressable>
             </View>
           </View>
         </View>
       </ScrollView>
+
+      <Modal visible={pickerOpen} transparent animationType="fade" onRequestClose={() => setPickerOpen(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setPickerOpen(false)}>
+          <Pressable style={styles.modalSheet} onPress={() => {}}>
+            <Text style={styles.modalTitle}>{t.changeCategory}</Text>
+            {ALL_CATEGORIES.map((cat) => {
+              const catColors = getCategoryColors(colors)[cat];
+              const active = cat === tx.category;
+              return (
+                <Pressable
+                  key={cat}
+                  onPress={() => pickCategory(cat)}
+                  style={[styles.modalRow, active && { borderColor: colors.accent }]}
+                >
+                  <View style={[styles.modalBadge, { backgroundColor: catColors.bg }]}>
+                    <Text style={[styles.modalBadgeText, { color: catColors.ink }]}>{catColors.initials}</Text>
+                  </View>
+                  <Text style={styles.modalRowText}>{cat}</Text>
+                  {active && <Text style={styles.modalCheck}>{'✓'}</Text>}
+                </Pressable>
+              );
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -140,5 +193,38 @@ function makeStyles(colors: ColorTokens) {
       borderColor: colors.hair4,
     },
     sourceBtnText: { fontSize: 12, fontWeight: '500', color: colors.ink },
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalSheet: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: radius.xl,
+      borderTopRightRadius: radius.xl,
+      padding: spacing.xl,
+      paddingBottom: spacing.xxl,
+      gap: 8,
+    },
+    modalTitle: { fontSize: 16, fontWeight: '500', color: colors.ink, marginBottom: 6 },
+    modalRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      padding: 12,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.line,
+    },
+    modalBadge: {
+      width: 32,
+      height: 32,
+      borderRadius: radius.sm + 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    modalBadgeText: { fontSize: 10.5, fontWeight: '600' },
+    modalRowText: { flex: 1, fontSize: 14, fontWeight: '500', color: colors.ink },
+    modalCheck: { color: colors.accent, fontSize: 15, fontWeight: '600' },
   });
 }

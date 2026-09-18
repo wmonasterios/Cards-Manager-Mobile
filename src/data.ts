@@ -11,6 +11,10 @@ export type Category =
   | 'Payment'
   | 'Other';
 
+export const ALL_CATEGORIES: Category[] = [
+  'Groceries', 'Dining', 'Travel', 'Tech', 'Fuel', 'Health', 'Services', 'Payment', 'Other',
+];
+
 export type Transaction = {
   id: string;
   merchant: string;

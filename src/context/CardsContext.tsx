@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
-import { CARDS, Card } from '../data';
+import { CARDS, Card, Category } from '../data';
 import { decorateCard, DecoratedCard, Payment } from '../decorate';
 import { useT } from '../i18n/LocaleContext';
 import { useColors } from '../theme/ThemeContext';
@@ -15,6 +15,7 @@ import {
   addPaymentRow,
   dbCardToCard,
   deleteCardCompletely,
+  updateTransactionCategory,
 } from '../supabase/cardsApi';
 import { DbCard, DbTransaction, NewDbCard } from '../supabase/types';
 
@@ -32,6 +33,7 @@ type CardsContextValue = {
   isDemo: boolean;
   addRealCard: (input: NewDbCard) => Promise<void>;
   deleteCard: (id: string) => Promise<void>;
+  updateTxCategory: (txId: string, merchant: string, category: Category, applyToAllWithMerchant: boolean) => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -178,6 +180,15 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
     [isDemo, loadReal],
   );
 
+  const updateTxCategory = useCallback(
+    async (txId: string, merchant: string, category: Category, applyToAllWithMerchant: boolean) => {
+      if (isDemo || !userId) return;
+      await updateTransactionCategory(userId, txId, merchant, category, applyToAllWithMerchant);
+      await loadReal();
+    },
+    [isDemo, userId, loadReal],
+  );
+
   const value = useMemo(
     () => ({
       cards,
@@ -189,6 +200,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       isDemo,
       addRealCard,
       deleteCard,
+      updateTxCategory,
       refresh: loadReal,
     }),
     [
@@ -204,6 +216,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       realLoaded,
       addRealCard,
       deleteCard,
+      updateTxCategory,
       loadReal,
     ],
   );

@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import React, { useMemo, useRef, useState } from 'react';
+import { View, Text, ScrollView, Pressable, PanResponder, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { radius, spacing, ColorTokens } from '../theme';
 import { useColors } from '../theme/ThemeContext';
@@ -40,13 +40,35 @@ export function CalendarScreen() {
   const { reminder, toggleReminder } = useAppSettings();
 
   const today = useMemo(() => new Date(), []);
-  const year = today.getFullYear();
-  const month = today.getMonth();
+  const [monthOffset, setMonthOffset] = useState(0);
+  const viewDate = useMemo(() => new Date(today.getFullYear(), today.getMonth() + monthOffset, 1), [today, monthOffset]);
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const isCurrentMonth = monthOffset === 0;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7; // Monday-first index
-  const monthLabel = today.toLocaleDateString(lang === 'es' ? 'es-PA' : 'en-US', { month: 'long', year: 'numeric' });
+  const monthLabel = viewDate.toLocaleDateString(lang === 'es' ? 'es-PA' : 'en-US', { month: 'long', year: 'numeric' });
 
   const [selectedDay, setSelectedDay] = useState(today.getDate());
+
+  const goToMonth = (offset: number) => {
+    setMonthOffset(offset);
+    setSelectedDay(offset === 0 ? today.getDate() : 1);
+  };
+
+  const monthOffsetRef = useRef(monthOffset);
+  monthOffsetRef.current = monthOffset;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gesture) =>
+        Math.abs(gesture.dx) > 20 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5,
+      onPanResponderRelease: (_, gesture) => {
+        if (gesture.dx <= -40) goToMonth(monthOffsetRef.current + 1);
+        else if (gesture.dx >= 40) goToMonth(monthOffsetRef.current - 1);
+      },
+    }),
+  ).current;
 
   const unpaid = cards.filter((c) => !c.paid);
   const usdTotal = unpaid.reduce((n, c) => n + c.remaining, 0);
@@ -82,7 +104,7 @@ export function CalendarScreen() {
   }, [isDemo, unpaid, lang, month, year]);
 
   const dayEvents = eventsByDay[selectedDay] ?? [];
-  const isToday = selectedDay === today.getDate();
+  const isToday = isCurrentMonth && selectedDay === today.getDate();
   const selectedDateLabel = new Date(year, month, selectedDay).toLocaleDateString(
     lang === 'es' ? 'es-PA' : 'en-US',
     { day: 'numeric', month: 'long' },
@@ -112,11 +134,18 @@ export function CalendarScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.top}>
           <Text style={styles.title}>{t.calendarTitle}</Text>
-          <Text style={styles.sub}>
-            {monthLabel} · {monthDueText}
-          </Text>
+          <View style={styles.monthNavRow}>
+            <Pressable onPress={() => goToMonth(monthOffset - 1)} hitSlop={10} style={styles.monthNavBtn}>
+              <Text style={styles.monthNavIcon}>{'‹'}</Text>
+            </Pressable>
+            <Text style={styles.monthLabel}>{monthLabel}</Text>
+            <Pressable onPress={() => goToMonth(monthOffset + 1)} hitSlop={10} style={styles.monthNavBtn}>
+              <Text style={styles.monthNavIcon}>{'›'}</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.sub}>{monthDueText}</Text>
 
-          <View style={styles.calendarCard}>
+          <View style={styles.calendarCard} {...panResponder.panHandlers}>
             <View style={styles.weekRow}>
               {WEEKDAY_LABELS[lang].map((d, i) => (
                 <Text key={i} style={styles.weekLabel}>
@@ -226,7 +255,24 @@ function makeStyles(colors: ColorTokens) {
     scrollContent: { paddingBottom: 40 },
     top: { paddingTop: spacing.xxl, paddingHorizontal: spacing.xl },
     title: { fontSize: 26, fontWeight: '500', color: colors.ink, letterSpacing: -0.3 },
-    sub: { fontSize: 12.5, color: colors.ink2, marginTop: 8 },
+    sub: { fontSize: 12.5, color: colors.ink2, marginTop: 2 },
+    monthNavRow: {
+      marginTop: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    monthNavBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.hair4,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    monthNavIcon: { fontSize: 16, color: colors.ink, fontWeight: '600' },
+    monthLabel: { fontSize: 15, fontWeight: '500', color: colors.ink },
     calendarCard: {
       marginTop: 18,
       padding: 14,

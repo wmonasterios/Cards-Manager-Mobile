@@ -1,10 +1,6 @@
 import { supabase } from './client';
 import { DbCard, DbPayment, DbTransaction, NewDbCard } from './types';
-import { Card, Category, Transaction } from '../data';
-
-const KNOWN_CATEGORIES: Category[] = [
-  'Groceries', 'Dining', 'Travel', 'Tech', 'Fuel', 'Health', 'Services', 'Payment', 'Other',
-];
+import { ALL_CATEGORIES, Card, Category, Transaction } from '../data';
 
 function shortDate(iso: string | null): string {
   if (!iso) return '';
@@ -13,7 +9,7 @@ function shortDate(iso: string | null): string {
 }
 
 function dbTransactionToTransaction(row: DbTransaction): Transaction {
-  const category = (KNOWN_CATEGORIES as string[]).includes(row.category ?? '')
+  const category = (ALL_CATEGORIES as string[]).includes(row.category ?? '')
     ? (row.category as Category)
     : 'Other';
   return {
@@ -123,6 +119,26 @@ export async function listTransactions(userId: string): Promise<DbTransaction[]>
     .order('occurred_on', { ascending: false });
   if (error) throw error;
   return data ?? [];
+}
+
+export async function updateTransactionCategory(
+  userId: string,
+  txId: string,
+  merchant: string,
+  category: Category,
+  applyToAllWithMerchant: boolean,
+): Promise<void> {
+  if (applyToAllWithMerchant) {
+    const { error } = await supabase
+      .from('transactions')
+      .update({ category })
+      .eq('user_id', userId)
+      .ilike('merchant', merchant);
+    if (error) throw error;
+  } else {
+    const { error } = await supabase.from('transactions').update({ category }).eq('id', txId);
+    if (error) throw error;
+  }
 }
 
 export async function addPaymentRow(
