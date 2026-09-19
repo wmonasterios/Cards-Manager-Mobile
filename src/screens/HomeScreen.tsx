@@ -9,7 +9,9 @@ import { TxRow } from '../components/TxRow';
 import { useCards } from '../context/CardsContext';
 import { money } from '../format';
 
-const CARD_HEIGHT = 214;
+// Exported so CardDetailScreen's hero can match this size exactly — the
+// grow animation depends on origin and destination being the same size.
+export const CARD_HEIGHT = 214;
 const CARD_STEP = 86;
 
 export function HomeScreen({ navigation }: any) {

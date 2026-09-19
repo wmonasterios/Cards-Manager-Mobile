@@ -8,6 +8,7 @@ import { radius, spacing, ColorTokens } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { CardArt } from '../components/CardArt';
+import { CARD_HEIGHT } from './HomeScreen';
 import { ProgressBar } from '../components/ProgressBar';
 import { TxRow } from '../components/TxRow';
 import { Segmented } from '../components/Segmented';
@@ -370,10 +371,10 @@ function makeStyles(colors: ColorTokens) {
     },
     pillBtnAccent: { borderColor: colors.accent },
     pillBtnText: { fontSize: 11.5, fontWeight: '500', color: colors.ink },
-    heroWrap: { paddingHorizontal: spacing.xl, marginTop: spacing.lg },
+    heroWrap: { paddingHorizontal: spacing.lg, marginTop: spacing.lg },
     hero: {
       borderRadius: radius.xl,
-      height: 200,
+      height: CARD_HEIGHT,
       overflow: 'hidden',
     },
     heroArt: {
