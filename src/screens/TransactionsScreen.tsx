@@ -1,27 +1,36 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { radius, spacing, ColorTokens } from '../theme';
+import { radius, spacing, ColorTokens, categoryLabel } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { TxRow } from '../components/TxRow';
 import { BackButton } from '../components/BackButton';
+import { Segmented } from '../components/Segmented';
+import { DateField } from '../components/DateField';
 import { useCards } from '../context/CardsContext';
+import { money } from '../format';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Transactions'>;
 
-const CHIPS: Record<'en' | 'es', string[]> = {
-  en: ['Groceries', 'Instalment', 'Payment'],
-  es: ['Super', 'Cuotas', 'Pagos'],
-};
-// Chip label -> the substring it actually filters on (matches the mockup's behaviour).
-const CHIP_QUERY: Record<string, string> = {
-  Groceries: 'Groceries', Super: 'Groceries',
-  Instalment: 'Instalment', Cuotas: 'Instalment',
-  Payment: 'Payment', Pagos: 'Payment',
-};
+type RangeKey = 'month' | '3months' | 'ytd' | 'custom';
+type SortKey = 'date' | 'amount';
+
+function toIso(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function addMonths(iso: string, delta: number): string {
+  const d = new Date(iso + 'T00:00:00');
+  d.setMonth(d.getMonth() + delta);
+  return toIso(d);
+}
+
+function startOfMonth(iso: string): string {
+  return iso.slice(0, 8) + '01';
+}
 
 export function TransactionsScreen({ route, navigation }: Props) {
   const { cards } = useCards();
@@ -29,33 +38,73 @@ export function TransactionsScreen({ route, navigation }: Props) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [query, setQuery] = useState(route.params?.initialQuery ?? '');
-  const [activeChip, setActiveChip] = useState<string | null>(null);
+  const [range, setRange] = useState<RangeKey>('3months');
+  const [fromDate, setFromDate] = useState(new Date(2026, 6, 1));
+  const [toDate, setToDate] = useState(new Date(2026, 8, 14));
+  const [selCardId, setSelCardId] = useState<string | null>(null);
+  const [selCategory, setSelCategory] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>('date');
 
   const allTx = useMemo(
-    () => cards.flatMap((c) => c.dtx.map((tx) => ({ tx, cardId: c.id }))),
+    () => cards.flatMap((c) => c.dtx.map((tx) => ({ tx, card: c }))),
     [cards],
   );
 
+  const TODAY = toIso(new Date());
+  const rangeStart =
+    range === 'month'
+      ? startOfMonth(TODAY)
+      : range === '3months'
+        ? addMonths(TODAY, -3)
+        : range === 'ytd'
+          ? `${new Date().getFullYear()}-01-01`
+          : toIso(fromDate);
+  const rangeEnd = range === 'custom' ? toIso(toDate) : TODAY;
+
   const q = query.trim().toLowerCase();
-  const results = q
-    ? allTx.filter(({ tx }) => `${tx.merchant} ${tx.sub} ${tx.category}`.toLowerCase().includes(q))
-    : allTx;
 
-  const note = query
-    ? `${results.length} ${results.length === 1 ? 'match' : 'matches'} for “${query}”`
-    : lang === 'es'
-      ? `${cards.length} ${cards.length === 1 ? 'tarjeta' : 'tarjetas'} · este ciclo`
-      : `${cards.length} ${cards.length === 1 ? 'card' : 'cards'} · this cycle`;
+  // Everything except the category filter — this is the scope the category
+  // chips are built from, so a chip never leads to a dead-end empty list.
+  const scoped = useMemo(
+    () =>
+      allTx.filter(({ tx, card }) => {
+        if (tx.iso < rangeStart || tx.iso > rangeEnd) return false;
+        if (selCardId && card.id !== selCardId) return false;
+        if (
+          q &&
+          !`${tx.merchant} ${tx.sub} ${categoryLabel(tx.category)} ${card.bank} ${card.product} ${card.last4}`
+            .toLowerCase()
+            .includes(q)
+        ) {
+          return false;
+        }
+        return true;
+      }),
+    [allTx, rangeStart, rangeEnd, selCardId, q],
+  );
 
-  const pickChip = (label: string) => {
-    if (activeChip === label) {
-      setActiveChip(null);
-      setQuery('');
-    } else {
-      setActiveChip(label);
-      setQuery(CHIP_QUERY[label]);
+  const availableCategories = useMemo(() => {
+    const set = new Set<string>();
+    scoped.forEach(({ tx }) => set.add(tx.category));
+    return Array.from(set).sort((a, b) => categoryLabel(a).localeCompare(categoryLabel(b)));
+  }, [scoped]);
+
+  // A category chip can go stale if the date/card/search scope no longer
+  // contains it — drop the filter instead of silently showing zero results.
+  useEffect(() => {
+    if (selCategory && !availableCategories.includes(selCategory)) {
+      setSelCategory(null);
     }
-  };
+  }, [availableCategories, selCategory]);
+
+  const results = useMemo(() => {
+    const list = selCategory ? scoped.filter(({ tx }) => tx.category === selCategory) : scoped;
+    return [...list].sort((a, b) =>
+      sortKey === 'amount' ? Math.abs(b.tx.amount) - Math.abs(a.tx.amount) : b.tx.iso.localeCompare(a.tx.iso),
+    );
+  }, [scoped, selCategory, sortKey]);
+
+  const total = results.reduce((n, { tx }) => n + tx.amount, 0);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -65,56 +114,106 @@ export function TransactionsScreen({ route, navigation }: Props) {
           <View style={styles.searchWrap}>
             <TextInput
               value={query}
-              onChangeText={(v) => {
-                setQuery(v);
-                setActiveChip(null);
-              }}
+              onChangeText={setQuery}
               placeholder={t.searchPh}
               placeholderTextColor={colors.ink3}
               style={styles.searchInput}
             />
             {!!query && (
-              <Pressable
-                onPress={() => {
-                  setQuery('');
-                  setActiveChip(null);
-                }}
-                style={styles.clearBtn}
-                hitSlop={6}
-              >
+              <Pressable onPress={() => setQuery('')} style={styles.clearBtn} hitSlop={6}>
                 <Text style={styles.clearBtnText}>{'×'}</Text>
               </Pressable>
             )}
           </View>
-          <View style={styles.chipRow}>
-            {CHIPS[lang].map((label) => {
-              const active = activeChip === label;
-              return (
-                <Pressable
-                  key={label}
-                  onPress={() => pickChip(label)}
-                  style={[styles.chip, active && styles.chipActive]}
-                >
-                  <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
-                </Pressable>
-              );
-            })}
+
+          <View style={styles.rangeWrap}>
+            <Segmented
+              options={[
+                { key: 'month', label: t.thisCycle },
+                { key: '3months', label: t.threeCycles },
+                { key: 'ytd', label: t.ytd },
+                { key: 'custom', label: t.range },
+              ]}
+              value={range}
+              onChange={setRange}
+            />
           </View>
-          <Text style={styles.note}>{note}</Text>
+          {range === 'custom' && (
+            <View style={styles.dateRow}>
+              <DateField label="From" value={fromDate} onChange={setFromDate} maximumDate={toDate} />
+              <DateField label="To" value={toDate} onChange={setToDate} minimumDate={fromDate} />
+            </View>
+          )}
+
+          {cards.length > 1 && (
+            <>
+              <Text style={styles.filterLabel}>{t.card.toUpperCase()}</Text>
+              <View style={styles.chipRow}>
+                {cards.map((c) => {
+                  const active = selCardId === c.id;
+                  return (
+                    <Pressable
+                      key={c.id}
+                      onPress={() => setSelCardId(active ? null : c.id)}
+                      style={[styles.chip, active && styles.chipActive]}
+                    >
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                        {c.bank} {c.last4}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          )}
+
+          {availableCategories.length > 0 && (
+            <>
+              <Text style={styles.filterLabel}>{t.category.toUpperCase()}</Text>
+              <View style={styles.chipRow}>
+                {availableCategories.map((cat) => {
+                  const active = selCategory === cat;
+                  return (
+                    <Pressable
+                      key={cat}
+                      onPress={() => setSelCategory(active ? null : cat)}
+                      style={[styles.chip, active && styles.chipActive]}
+                    >
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>{categoryLabel(cat)}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          )}
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.note}>
+              {results.length} {t.transactions.toLowerCase()}
+              {results.length > 0 ? ` · ${money('US$', total)}` : ''}
+            </Text>
+            <Pressable onPress={() => setSortKey(sortKey === 'date' ? 'amount' : 'date')} hitSlop={6}>
+              <Text style={styles.sortLink}>
+                {t.sortBy}: {sortKey === 'date' ? t.dateLabel : t.amount}
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.section}>
           <View style={styles.listCard}>
-            {results.map(({ tx, cardId }) => (
+            {results.map(({ tx, card }) => (
               <TxRow
                 key={tx.id}
                 tx={tx}
                 showCard
-                onPress={() => navigation.navigate('TransactionDetail', { txId: tx.id, cardId })}
+                onPress={() => navigation.navigate('TransactionDetail', { txId: tx.id, cardId: card.id })}
               />
             ))}
           </View>
-          {!!query && results.length === 0 && <Text style={styles.emptyNote}>{t.noMatch}</Text>}
+          {results.length === 0 && (
+            <Text style={styles.emptyNote}>{query ? t.noMatch : t.noResultsFilters}</Text>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -148,7 +247,17 @@ function makeStyles(colors: ColorTokens) {
       justifyContent: 'center',
     },
     clearBtnText: { color: colors.ink2b, fontSize: 14, fontWeight: '500' },
-    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
+    rangeWrap: { marginTop: 14 },
+    dateRow: { flexDirection: 'row', gap: 12, marginTop: 10 },
+    filterLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      letterSpacing: 0.6,
+      color: colors.ink3,
+      marginTop: 16,
+      marginBottom: 8,
+    },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     chip: {
       borderWidth: 1,
       borderColor: colors.line,
@@ -159,7 +268,15 @@ function makeStyles(colors: ColorTokens) {
     chipActive: { backgroundColor: colors.tint2, borderColor: colors.tint2 },
     chipText: { fontSize: 11.5, fontWeight: '500', color: colors.ink2 },
     chipTextActive: { color: colors.onTint2 },
-    note: { fontSize: 11.5, color: colors.ink3, marginTop: 12, lineHeight: 16 },
+    summaryRow: {
+      marginTop: 16,
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
+    note: { fontSize: 11.5, color: colors.ink3, lineHeight: 16, flexShrink: 1 },
+    sortLink: { fontSize: 11.5, fontWeight: '500', color: colors.accent },
     section: { paddingHorizontal: spacing.lg, marginTop: 14 },
     listCard: {
       borderRadius: radius.lg,

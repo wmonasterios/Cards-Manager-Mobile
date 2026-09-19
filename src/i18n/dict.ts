@@ -58,6 +58,7 @@ export const dict = {
     spendingByWeek: 'Spending by week', weeklyAverage: 'Weekly average',
     tapCategoryHint: 'Tap a category',
     spentThisMonth: 'Spent this month', noSpendingMonth: 'No spending in this month.',
+    sortBy: 'Sort by', noResultsFilters: 'No transactions match these filters.',
   },
   es: {
     totalOwed: 'Total por pagar', latest: 'Actividad reciente', seeAll: 'Ver todo',
@@ -116,6 +117,7 @@ export const dict = {
     spendingByWeek: 'Gasto por semana', weeklyAverage: 'Promedio semanal',
     tapCategoryHint: 'Toca una categoría',
     spentThisMonth: 'Gastado este mes', noSpendingMonth: 'Sin gastos este mes.',
+    sortBy: 'Ordenar por', noResultsFilters: 'Ninguna transacción coincide con estos filtros.',
   },
 } as const;
 
