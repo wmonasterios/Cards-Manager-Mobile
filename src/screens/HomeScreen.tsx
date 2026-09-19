@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { radius, spacing, ColorTokens } from '../theme';
 import { useColors } from '../theme/ThemeContext';

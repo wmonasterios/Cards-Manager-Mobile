@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, StyleSheet } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { runOnJS, useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -35,7 +37,11 @@ function startOfMonth(iso: string): string {
   return iso.slice(0, 8) + '01';
 }
 
-const HERO_SPRING = { damping: 20, stiffness: 200, mass: 0.9 };
+// Apple's own Wallet spec: `.spring(response: 0.5, dampingFraction: 0.8)`, converted
+// to Reanimated's stiffness/damping form (stiffness = (2π/response)², damping = 4π·dampingFraction/response).
+const HERO_SPRING = { damping: 20, stiffness: 158, mass: 1 };
+const COLLAPSE_THRESHOLD = 60;
+const COLLAPSE_RUBBER_START = 100;
 
 export function CardDetailScreen({ route, navigation }: Props) {
   const { cardId, heroFrame } = route.params;
@@ -90,13 +96,38 @@ export function CardDetailScreen({ route, navigation }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Wallet's own "pull to collapse": dragging the expanded card down (not the
+  // stacked peek) shrinks it back toward where it came from and, past a 60pt
+  // threshold, finishes the dismiss; below that it springs back open.
+  const collapseDy = useSharedValue(0);
+  const collapseScale = useSharedValue(1);
+
+  const collapsePan = Gesture.Pan()
+    .enabled(!!heroFrame)
+    .activeOffsetY(10)
+    .onChange((e) => {
+      if (e.translationY <= 0) return;
+      const y = e.translationY;
+      collapseDy.value = y <= COLLAPSE_RUBBER_START ? y : COLLAPSE_RUBBER_START + (y - COLLAPSE_RUBBER_START) * 0.35;
+      collapseScale.value = 1 - Math.min(y / 900, 0.08);
+    })
+    .onEnd((e) => {
+      if (e.translationY > COLLAPSE_THRESHOLD) {
+        runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Soft);
+        runOnJS(navigation.goBack)();
+        return;
+      }
+      collapseDy.value = withSpring(0, HERO_SPRING);
+      collapseScale.value = withSpring(1, HERO_SPRING);
+    });
+
   const heroAnimStyle = useAnimatedStyle(() => ({
     opacity: heroOpacity.value,
     transform: [
       { translateX: heroDx.value },
-      { translateY: heroDy.value },
-      { scaleX: heroScaleX.value },
-      { scaleY: heroScaleY.value },
+      { translateY: heroDy.value + collapseDy.value },
+      { scaleX: heroScaleX.value * collapseScale.value },
+      { scaleY: heroScaleY.value * collapseScale.value },
     ],
   }));
 
@@ -192,21 +223,23 @@ export function CardDetailScreen({ route, navigation }: Props) {
         </View>
 
         <View style={styles.heroWrap}>
-          <Animated.View ref={heroRef} style={[styles.hero, heroAnimStyle]}>
-            <CardArt cardId={card.id} style={styles.heroArt}>
-              <View style={styles.heroTop}>
-                <View>
-                  <Text style={styles.heroBank}>{card.bank}</Text>
-                  <Text style={styles.heroSub}>{card.product}</Text>
+          <GestureDetector gesture={collapsePan}>
+            <Animated.View ref={heroRef} style={[styles.hero, heroAnimStyle]}>
+              <CardArt cardId={card.id} style={styles.heroArt}>
+                <View style={styles.heroTop}>
+                  <View>
+                    <Text style={styles.heroBank}>{card.bank}</Text>
+                    <Text style={styles.heroSub}>{card.product}</Text>
+                  </View>
+                  <Text style={styles.heroNetwork}>{card.network.toUpperCase()}</Text>
                 </View>
-                <Text style={styles.heroNetwork}>{card.network.toUpperCase()}</Text>
-              </View>
-              <View style={styles.heroBottom}>
-                <Text style={styles.heroLast4}>{card.last4}</Text>
-                <Text style={styles.heroCur}>Balances in USD</Text>
-              </View>
-            </CardArt>
-          </Animated.View>
+                <View style={styles.heroBottom}>
+                  <Text style={styles.heroLast4}>{card.last4}</Text>
+                  <Text style={styles.heroCur}>Balances in USD</Text>
+                </View>
+              </CardArt>
+            </Animated.View>
+          </GestureDetector>
         </View>
 
         <View style={styles.tiles}>

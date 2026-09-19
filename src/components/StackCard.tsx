@@ -1,16 +1,10 @@
-import React, { useCallback, useMemo, useRef } from 'react';
-import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { useFocusEffect } from '@react-navigation/native';
+import React, { useMemo, useRef } from 'react';
+import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { DecoratedCard } from '../decorate';
 import { ColorTokens, radius } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { CardArt } from './CardArt';
-
-const SPRING = { damping: 20, stiffness: 200, mass: 0.9 };
-const OPEN_THRESHOLD = 70;
-const MAX_GROW = 0.05;
 
 export type HeroFrame = { x: number; y: number; width: number; height: number };
 
@@ -29,75 +23,33 @@ export function StackCard({
 }) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const ref = useRef<Animated.View>(null);
-  const translateY = useSharedValue(0);
-  const scale = useSharedValue(1);
+  const ref = useRef<View>(null);
 
-  // Drag can leave a card displaced/grown if it opened CardDetail mid-gesture —
-  // put it back to rest whenever Home regains focus (e.g. coming back).
-  useFocusEffect(
-    useCallback(() => {
-      translateY.value = 0;
-      scale.value = 1;
-    }, [translateY, scale]),
-  );
-
-  const open = useCallback(() => {
+  const open = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     ref.current?.measureInWindow((x, y, width, height) => {
       onOpen(card.id, { x, y, width, height });
     });
-  }, [card.id, onOpen]);
-
-  const tap = Gesture.Tap().onEnd((_e, success) => {
-    if (success) runOnJS(open)();
-  });
-
-  // Pulling a card down grows it slightly, like peeking at it in Wallet; past
-  // the threshold releasing it opens CardDetail from wherever it ended up,
-  // otherwise it springs back to its stacked position.
-  const pan = Gesture.Pan()
-    .activeOffsetY(12)
-    .failOffsetX([-15, 15])
-    .onChange((e) => {
-      if (e.translationY <= 0) return;
-      translateY.value = e.translationY;
-      scale.value = 1 + Math.min(e.translationY / 600, MAX_GROW);
-    })
-    .onEnd((e) => {
-      if (e.translationY > OPEN_THRESHOLD) {
-        runOnJS(open)();
-        return;
-      }
-      translateY.value = withSpring(0, SPRING);
-      scale.value = withSpring(1, SPRING);
-    });
-
-  const gesture = Gesture.Race(tap, pan);
-
-  const dragStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }, { scale: scale.value }],
-  }));
+  };
 
   return (
-    <GestureDetector gesture={gesture}>
-      <Animated.View ref={ref} style={[style, { top, zIndex }, dragStyle]}>
-        <CardArt cardId={card.id} style={styles.cardArt}>
-          <View style={styles.cardTopRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardBank}>{card.bank}</Text>
-              <Text style={styles.cardSub}>
-                {card.product} · {card.last4}
-              </Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.cardBalance}>{card.balanceText}</Text>
-              <Text style={styles.cardSub}>{card.dueShort}</Text>
-            </View>
+    <Pressable ref={ref} onPress={open} style={[style, { top, zIndex }]}>
+      <CardArt cardId={card.id} style={styles.cardArt}>
+        <View style={styles.cardTopRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cardBank}>{card.bank}</Text>
+            <Text style={styles.cardSub}>
+              {card.product} · {card.last4}
+            </Text>
           </View>
-          <Text style={styles.cardNetwork}>{card.network.toUpperCase()}</Text>
-        </CardArt>
-      </Animated.View>
-    </GestureDetector>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={styles.cardBalance}>{card.balanceText}</Text>
+            <Text style={styles.cardSub}>{card.dueShort}</Text>
+          </View>
+        </View>
+        <Text style={styles.cardNetwork}>{card.network.toUpperCase()}</Text>
+      </CardArt>
+    </Pressable>
   );
 }
 
