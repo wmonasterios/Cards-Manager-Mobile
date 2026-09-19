@@ -17,7 +17,7 @@ import { money } from '../format';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CardDetail'>;
 
-type RangeKey = 'cycle' | '3cycles' | 'ytd' | 'custom';
+type RangeKey = 'month' | '3months' | 'ytd' | 'custom';
 
 function toIso(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -29,6 +29,10 @@ function addMonths(iso: string, delta: number): string {
   return toIso(d);
 }
 
+function startOfMonth(iso: string): string {
+  return iso.slice(0, 8) + '01';
+}
+
 export function CardDetailScreen({ route, navigation }: Props) {
   const { cardId } = route.params;
   const { getCard, togglePaid, isDemo, deleteCard } = useCards();
@@ -37,7 +41,7 @@ export function CardDetailScreen({ route, navigation }: Props) {
   const { lang, t } = useLocale();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
-  const [range, setRange] = useState<RangeKey>('cycle');
+  const [range, setRange] = useState<RangeKey>('month');
   const [showAll, setShowAll] = useState(false);
   const [fromDate, setFromDate] = useState(new Date(2026, 6, 1));
   const [toDate, setToDate] = useState(new Date(2026, 8, 14));
@@ -71,19 +75,16 @@ export function CardDetailScreen({ route, navigation }: Props) {
   };
 
   const TODAY = toIso(new Date());
-  const cutoffIso = card?.cutoffIso ?? TODAY;
-  // "This cycle" = the billing period that produced the statement balance shown
-  // above (previous cutoff up to this cutoff), not "since cutoff until today" —
-  // otherwise it would mix in new, not-yet-billed charges with that balance.
+  // Plain calendar ranges — deliberately unrelated to any statement's billing cycle.
   const rangeStart =
-    range === 'cycle'
-      ? addMonths(cutoffIso, -1)
-      : range === '3cycles'
-        ? addMonths(cutoffIso, -3)
+    range === 'month'
+      ? startOfMonth(TODAY)
+      : range === '3months'
+        ? addMonths(TODAY, -3)
         : range === 'ytd'
           ? `${new Date().getFullYear()}-01-01`
           : toIso(fromDate);
-  const rangeEnd = range === 'cycle' ? cutoffIso : range === 'custom' ? toIso(toDate) : TODAY;
+  const rangeEnd = range === 'custom' ? toIso(toDate) : TODAY;
 
   const rangeTx = useMemo(
     () => (card ? card.dtx.filter((tx) => tx.iso >= rangeStart && tx.iso <= rangeEnd) : []),
@@ -208,8 +209,8 @@ export function CardDetailScreen({ route, navigation }: Props) {
           <View style={{ marginTop: 12 }}>
             <Segmented
               options={[
-                { key: 'cycle', label: t.thisCycle },
-                { key: '3cycles', label: t.threeCycles },
+                { key: 'month', label: t.thisCycle },
+                { key: '3months', label: t.threeCycles },
                 { key: 'ytd', label: t.ytd },
                 { key: 'custom', label: t.range },
               ]}
