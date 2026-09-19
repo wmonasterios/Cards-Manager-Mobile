@@ -17,11 +17,16 @@ import { money } from '../format';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CardDetail'>;
 
-const TODAY = '2026-09-14';
 type RangeKey = 'cycle' | '3cycles' | 'ytd' | 'custom';
 
 function toIso(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function addMonths(iso: string, delta: number): string {
+  const d = new Date(iso + 'T00:00:00');
+  d.setMonth(d.getMonth() + delta);
+  return toIso(d);
 }
 
 export function CardDetailScreen({ route, navigation }: Props) {
@@ -65,15 +70,20 @@ export function CardDetailScreen({ route, navigation }: Props) {
     );
   };
 
+  const TODAY = toIso(new Date());
+  const cutoffIso = card?.cutoffIso ?? TODAY;
+  // "This cycle" = the billing period that produced the statement balance shown
+  // above (previous cutoff up to this cutoff), not "since cutoff until today" —
+  // otherwise it would mix in new, not-yet-billed charges with that balance.
   const rangeStart =
     range === 'cycle'
-      ? '2026-08-14'
+      ? addMonths(cutoffIso, -1)
       : range === '3cycles'
-        ? '2026-06-14'
+        ? addMonths(cutoffIso, -3)
         : range === 'ytd'
-          ? '2026-01-01'
+          ? `${new Date().getFullYear()}-01-01`
           : toIso(fromDate);
-  const rangeEnd = range === 'custom' ? toIso(toDate) : TODAY;
+  const rangeEnd = range === 'cycle' ? cutoffIso : range === 'custom' ? toIso(toDate) : TODAY;
 
   const rangeTx = useMemo(
     () => (card ? card.dtx.filter((tx) => tx.iso >= rangeStart && tx.iso <= rangeEnd) : []),

@@ -73,6 +73,7 @@ export type Card = {
   due: string;
   cutoff: string;
   dueIso?: string;
+  cutoffIso?: string;
   plansNote: string;
   cycleNote: string;
   plans: InstalmentPlan[];
@@ -119,6 +120,7 @@ export const CARDS: Card[] = [
     min: 171.01,
     due: 'Sep 18',
     cutoff: 'Aug 30',
+    cutoffIso: '2026-08-30',
     plansNote: '2 active',
     cycleNote: '30 Aug – 29 Sep',
     plans: [
@@ -149,6 +151,7 @@ export const CARDS: Card[] = [
     min: 64.23,
     due: 'Sep 25',
     cutoff: 'Sep 5',
+    cutoffIso: '2026-09-05',
     plansNote: '1 active',
     cycleNote: '5 Aug – 4 Sep',
     plans: [
@@ -175,6 +178,7 @@ export const CARDS: Card[] = [
     min: 214.05,
     due: 'Oct 2',
     cutoff: 'Sep 8',
+    cutoffIso: '2026-09-08',
     plansNote: '1 active',
     cycleNote: '8 Aug – 7 Sep',
     plans: [
@@ -199,6 +203,7 @@ export const CARDS: Card[] = [
     min: 0,
     due: 'Sep 22',
     cutoff: 'Sep 5',
+    cutoffIso: '2026-09-05',
     plansNote: 'None',
     cycleNote: '5 Aug – 4 Sep',
     plans: [],

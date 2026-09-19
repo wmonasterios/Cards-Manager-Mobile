@@ -39,6 +39,7 @@ export function dbCardToCard(row: DbCard, transactions: DbTransaction[] = []): C
     due: shortDate(row.due_date),
     cutoff: shortDate(row.cutoff_date),
     dueIso: row.due_date ?? undefined,
+    cutoffIso: row.cutoff_date ?? undefined,
     plansNote: '',
     cycleNote: '',
     plans: [],
