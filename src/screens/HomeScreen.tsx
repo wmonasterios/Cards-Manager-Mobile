@@ -1,47 +1,23 @@
 import React, { useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { ScrollView, Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { useSharedValue, withSpring } from 'react-native-reanimated';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { radius, spacing, ColorTokens } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useT } from '../i18n/LocaleContext';
-import { StackCard, HeroFrame } from '../components/StackCard';
+import { CardArt } from '../components/CardArt';
 import { TxRow } from '../components/TxRow';
 import { useCards } from '../context/CardsContext';
 import { money } from '../format';
 
-// Exported so CardDetailScreen's hero can match this size exactly — the
-// grow animation depends on origin and destination being the same size.
+// Exported so CardDetailScreen's hero can match this size exactly.
 export const CARD_HEIGHT = 214;
 const CARD_STEP = 86;
-const MAX_SPREAD = 30;
-// Same physics as CardDetail's hero motion — Apple's `.spring(response: 0.5, dampingFraction: 0.8)`.
-const SPREAD_SPRING = { damping: 20, stiffness: 158, mass: 1 };
 
 export function HomeScreen({ navigation }: any) {
   const { cards, isDemo } = useCards();
   const colors = useColors();
   const t = useT();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-
-  const openCard = (cardId: string, heroFrame: HeroFrame) => {
-    navigation.navigate('CardDetail', { cardId, heroFrame });
-  };
-
-  // Dragging anywhere on the stack fans every card out together — the gap
-  // between all of them grows at once, not just the top card moving — so you
-  // can peek at what's underneath. Always springs back closed on release.
-  const spread = useSharedValue(0);
-  const stackPan = Gesture.Pan()
-    .activeOffsetY(12)
-    .onChange((e) => {
-      if (e.translationY <= 0) return;
-      spread.value = Math.min(e.translationY * 0.4, MAX_SPREAD);
-    })
-    .onEnd(() => {
-      spread.value = withSpring(0, SPREAD_SPRING);
-    });
 
   const unpaid = cards.filter((c) => !c.paid);
   const totalOwed = unpaid.reduce((n, c) => n + c.remaining, 0);
@@ -99,22 +75,31 @@ export function HomeScreen({ navigation }: any) {
           </View>
         )}
 
-        <GestureDetector gesture={stackPan}>
-          <View style={[styles.stack, { height: cards.length ? stackHeight : 0 }]}>
-            {cards.map((c, i) => (
-              <StackCard
-                key={c.id}
-                card={c}
-                index={i}
-                step={CARD_STEP}
-                spread={spread}
-                zIndex={10 + i}
-                style={styles.stackSlot}
-                onOpen={openCard}
-              />
-            ))}
-          </View>
-        </GestureDetector>
+        <View style={[styles.stack, { height: cards.length ? stackHeight : 0 }]}>
+          {cards.map((c, i) => (
+            <Pressable
+              key={c.id}
+              onPress={() => navigation.navigate('CardDetail', { cardId: c.id })}
+              style={[styles.stackSlot, { top: i * CARD_STEP, zIndex: 10 + i }]}
+            >
+              <CardArt cardId={c.id} style={styles.cardArt}>
+                <View style={styles.cardTopRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.cardBank}>{c.bank}</Text>
+                    <Text style={styles.cardSub}>
+                      {c.product} · {c.last4}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.cardBalance}>{c.balanceText}</Text>
+                    <Text style={styles.cardSub}>{c.dueShort}</Text>
+                  </View>
+                </View>
+                <Text style={styles.cardNetwork}>{c.network.toUpperCase()}</Text>
+              </CardArt>
+            </Pressable>
+          ))}
+        </View>
 
         {cards.length > 0 && (
           <>
@@ -208,6 +193,22 @@ function makeStyles(colors: ColorTokens) {
     emptyStateBody: { fontSize: 12.5, color: colors.ink3, marginTop: 6, textAlign: 'center' },
     stack: { marginTop: 18, paddingHorizontal: spacing.lg, position: 'relative' },
     stackSlot: { position: 'absolute', left: spacing.lg, right: spacing.lg, height: CARD_HEIGHT },
+    cardArt: {
+      flex: 1,
+      borderRadius: radius.xl,
+      padding: 18,
+      justifyContent: 'space-between',
+      shadowColor: '#000',
+      shadowOpacity: 0.55,
+      shadowRadius: 26,
+      shadowOffset: { width: 0, height: -12 },
+      elevation: 6,
+    },
+    cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+    cardBank: { fontSize: 15, fontWeight: '600', color: colors.onArt, letterSpacing: 0.2 },
+    cardSub: { fontSize: 11.5, color: 'rgba(243,245,254,0.62)', marginTop: 3 },
+    cardBalance: { fontSize: 17, fontWeight: '600', color: colors.onArt },
+    cardNetwork: { fontSize: 10.5, fontWeight: '500', letterSpacing: 1.4, color: 'rgba(243,245,254,0.62)' },
     sectionHeader: {
       marginTop: 8,
       paddingHorizontal: spacing.xl,

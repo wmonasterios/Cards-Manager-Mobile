@@ -34,7 +34,7 @@ export function RootNavigator() {
     >
       <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       <Stack.Screen name="Tabs" component={TabNavigator} />
-      <Stack.Screen name="CardDetail" component={CardDetailScreen} options={{ animation: 'fade' }} />
+      <Stack.Screen name="CardDetail" component={CardDetailScreen} />
       <Stack.Screen name="Transactions" component={TransactionsScreen} />
       <Stack.Screen name="TransactionDetail" component={TransactionDetailScreen} />
       <Stack.Screen name="Pay" component={PayScreen} />

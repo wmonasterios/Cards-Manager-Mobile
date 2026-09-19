@@ -1,6 +1,5 @@
 import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootNavigator } from './src/navigation/RootNavigator';
@@ -56,18 +55,16 @@ function Root() {
 
 export default function App() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <ThemeProvider>
-          <LocaleProvider>
-            <AppSettingsProvider>
-              <AuthProvider>
-                <Root />
-              </AuthProvider>
-            </AppSettingsProvider>
-          </LocaleProvider>
-        </ThemeProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <LocaleProvider>
+          <AppSettingsProvider>
+            <AuthProvider>
+              <Root />
+            </AuthProvider>
+          </AppSettingsProvider>
+        </LocaleProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

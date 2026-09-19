@@ -1,8 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, StyleSheet } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -37,14 +34,8 @@ function startOfMonth(iso: string): string {
   return iso.slice(0, 8) + '01';
 }
 
-// Apple's own Wallet spec: `.spring(response: 0.5, dampingFraction: 0.8)`, converted
-// to Reanimated's stiffness/damping form (stiffness = (2π/response)², damping = 4π·dampingFraction/response).
-const HERO_SPRING = { damping: 20, stiffness: 158, mass: 1 };
-const COLLAPSE_THRESHOLD = 60;
-const COLLAPSE_RUBBER_START = 100;
-
 export function CardDetailScreen({ route, navigation }: Props) {
-  const { cardId, heroFrame } = route.params;
+  const { cardId } = route.params;
   const { getCard, togglePaid, isDemo, deleteCard } = useCards();
   const card = getCard(cardId);
   const colors = useColors();
@@ -56,80 +47,6 @@ export function CardDetailScreen({ route, navigation }: Props) {
   const [fromDate, setFromDate] = useState(new Date(2026, 6, 1));
   const [toDate, setToDate] = useState(new Date(2026, 8, 14));
   const [deleting, setDeleting] = useState(false);
-
-  // Grows the hero card from wherever it was tapped on Home (heroFrame, measured
-  // there before navigating) into its resting position here, instead of just
-  // popping in — the "shared element" look, done by hand since Reanimated's
-  // native shared-transition support is off by default even in App Store builds.
-  const heroRef = useRef<Animated.View>(null);
-  const heroOpacity = useSharedValue(heroFrame ? 0 : 1);
-  const heroDx = useSharedValue(0);
-  const heroDy = useSharedValue(0);
-  const heroScaleX = useSharedValue(heroFrame ? 1 : 0.96);
-  const heroScaleY = useSharedValue(heroFrame ? 1 : 0.96);
-
-  useEffect(() => {
-    if (!heroFrame) {
-      heroOpacity.value = withTiming(1, { duration: 220 });
-      heroScaleX.value = withSpring(1, HERO_SPRING);
-      heroScaleY.value = withSpring(1, HERO_SPRING);
-      return;
-    }
-    const raf = requestAnimationFrame(() => {
-      heroRef.current?.measureInWindow((fx, fy, fw, fh) => {
-        if (!fw || !fh) {
-          heroOpacity.value = 1;
-          return;
-        }
-        heroDx.value = heroFrame.x + heroFrame.width / 2 - (fx + fw / 2);
-        heroDy.value = heroFrame.y + heroFrame.height / 2 - (fy + fh / 2);
-        heroScaleX.value = heroFrame.width / fw;
-        heroScaleY.value = heroFrame.height / fh;
-        heroOpacity.value = 1;
-        heroDx.value = withSpring(0, HERO_SPRING);
-        heroDy.value = withSpring(0, HERO_SPRING);
-        heroScaleX.value = withSpring(1, HERO_SPRING);
-        heroScaleY.value = withSpring(1, HERO_SPRING);
-      });
-    });
-    return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Wallet's own "pull to collapse": dragging the expanded card down (not the
-  // stacked peek) shrinks it back toward where it came from and, past a 60pt
-  // threshold, finishes the dismiss; below that it springs back open.
-  const collapseDy = useSharedValue(0);
-  const collapseScale = useSharedValue(1);
-
-  const collapsePan = Gesture.Pan()
-    .enabled(!!heroFrame)
-    .activeOffsetY(10)
-    .onChange((e) => {
-      if (e.translationY <= 0) return;
-      const y = e.translationY;
-      collapseDy.value = y <= COLLAPSE_RUBBER_START ? y : COLLAPSE_RUBBER_START + (y - COLLAPSE_RUBBER_START) * 0.35;
-      collapseScale.value = 1 - Math.min(y / 900, 0.08);
-    })
-    .onEnd((e) => {
-      if (e.translationY > COLLAPSE_THRESHOLD) {
-        runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Soft);
-        runOnJS(navigation.goBack)();
-        return;
-      }
-      collapseDy.value = withSpring(0, HERO_SPRING);
-      collapseScale.value = withSpring(1, HERO_SPRING);
-    });
-
-  const heroAnimStyle = useAnimatedStyle(() => ({
-    opacity: heroOpacity.value,
-    transform: [
-      { translateX: heroDx.value },
-      { translateY: heroDy.value + collapseDy.value },
-      { scaleX: heroScaleX.value * collapseScale.value },
-      { scaleY: heroScaleY.value * collapseScale.value },
-    ],
-  }));
 
   const handleTogglePaid = () => {
     if (!card) return;
@@ -223,23 +140,19 @@ export function CardDetailScreen({ route, navigation }: Props) {
         </View>
 
         <View style={styles.heroWrap}>
-          <GestureDetector gesture={collapsePan}>
-            <Animated.View ref={heroRef} style={[styles.hero, heroAnimStyle]}>
-              <CardArt cardId={card.id} style={styles.heroArt}>
-                <View style={styles.heroTop}>
-                  <View>
-                    <Text style={styles.heroBank}>{card.bank}</Text>
-                    <Text style={styles.heroSub}>{card.product}</Text>
-                  </View>
-                  <Text style={styles.heroNetwork}>{card.network.toUpperCase()}</Text>
-                </View>
-                <View style={styles.heroBottom}>
-                  <Text style={styles.heroLast4}>{card.last4}</Text>
-                  <Text style={styles.heroCur}>Balances in USD</Text>
-                </View>
-              </CardArt>
-            </Animated.View>
-          </GestureDetector>
+          <CardArt cardId={card.id} style={styles.hero}>
+            <View style={styles.heroTop}>
+              <View>
+                <Text style={styles.heroBank}>{card.bank}</Text>
+                <Text style={styles.heroSub}>{card.product}</Text>
+              </View>
+              <Text style={styles.heroNetwork}>{card.network.toUpperCase()}</Text>
+            </View>
+            <View style={styles.heroBottom}>
+              <Text style={styles.heroLast4}>{card.last4}</Text>
+              <Text style={styles.heroCur}>Balances in USD</Text>
+            </View>
+          </CardArt>
         </View>
 
         <View style={styles.tiles}>
@@ -408,10 +321,6 @@ function makeStyles(colors: ColorTokens) {
     hero: {
       borderRadius: radius.xl,
       height: CARD_HEIGHT,
-      overflow: 'hidden',
-    },
-    heroArt: {
-      flex: 1,
       padding: 18,
       justifyContent: 'space-between',
     },

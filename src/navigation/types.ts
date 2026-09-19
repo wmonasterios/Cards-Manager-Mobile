@@ -11,7 +11,7 @@ export type TabParamList = {
 export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabParamList> | undefined;
   Onboarding: undefined;
-  CardDetail: { cardId: string; heroFrame?: { x: number; y: number; width: number; height: number } };
+  CardDetail: { cardId: string };
   Transactions: { initialQuery?: string };
   TransactionDetail: { txId: string; cardId: string };
   Pay: { cardId: string };
