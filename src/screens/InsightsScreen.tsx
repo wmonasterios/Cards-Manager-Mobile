@@ -7,6 +7,7 @@ import { radius, spacing, ColorTokens, categoryLabel } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { useCards } from '../context/CardsContext';
+import { TxRow } from '../components/TxRow';
 import { getAvailableMonths, analyseInsights, fmtMoney } from '../insightsAnalysis';
 
 export function InsightsScreen({ navigation }: any) {
@@ -18,6 +19,7 @@ export function InsightsScreen({ navigation }: any) {
   const [selectedMonthIso, setSelectedMonthIso] = useState<string | null>(null);
   const [selCat, setSelCat] = useState<string | null>(null);
   const [selWeek, setSelWeek] = useState<number | null>(null);
+  const [showAllTx, setShowAllTx] = useState(false);
 
   const toggleCard = (id: string) => {
     setExcludedCardIds((prev) => {
@@ -47,6 +49,7 @@ export function InsightsScreen({ navigation }: any) {
     setSelectedMonthIso(months[next].iso);
     setSelCat(null);
     setSelWeek(null);
+    setShowAllTx(false);
   };
 
   const analysis = useMemo(
@@ -54,8 +57,14 @@ export function InsightsScreen({ navigation }: any) {
     [includedCards, monthIso, prevMonthIso, selCat, selWeek, colors],
   );
 
-  const pickCategory = (name: string) => setSelCat((prev) => (prev === name ? null : name));
-  const pickWeek = (idx: number) => setSelWeek((prev) => (prev === idx ? null : idx));
+  const pickCategory = (name: string) => {
+    setSelCat((prev) => (prev === name ? null : name));
+    setShowAllTx(false);
+  };
+  const pickWeek = (idx: number) => {
+    setSelWeek((prev) => (prev === idx ? null : idx));
+    setShowAllTx(false);
+  };
 
   const txWord = (n: number) => (lang === 'es' ? (n === 1 ? 'transacción' : 'transacciones') : n === 1 ? 'transaction' : 'transactions');
   const pctText = (share: number) => `${share < 10 ? share.toFixed(1) : Math.round(share)}%`;
@@ -204,7 +213,7 @@ export function InsightsScreen({ navigation }: any) {
                       />
                     ))}
                   </Svg>
-                  <Pressable onPress={() => setSelCat(null)} style={styles.donutCenter}>
+                  <Pressable onPress={() => { setSelCat(null); setShowAllTx(false); }} style={styles.donutCenter}>
                     <Text style={styles.donutAmount} numberOfLines={1}>
                       {fmtMoney(analysis.sel ? analysis.sel.amount : analysis.spent)}
                     </Text>
@@ -262,31 +271,40 @@ export function InsightsScreen({ navigation }: any) {
               )}
             </View>
 
-            {/* Where it went */}
-            {analysis.merchants.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>{sectionTitle(t.whereItWent)}</Text>
-                <View style={styles.listCard}>
-                  {analysis.merchants.map((m) => (
-                    <View key={m.name} style={styles.catRow}>
-                      <View style={[styles.catBadge, { backgroundColor: m.bg }]}>
-                        <Ionicons name={m.icon as any} size={16} color={m.ink} />
-                      </View>
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text style={styles.catName} numberOfLines={1}>{m.name}</Text>
-                        <Text style={styles.merchantSub} numberOfLines={1}>
-                          {`${categoryLabel(m.category)} · ${m.count} tx`}
-                        </Text>
-                      </View>
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={styles.catAmount}>{fmtMoney(m.amount)}</Text>
-                        <Text style={styles.catCount}>{Math.round(m.share)}%</Text>
-                      </View>
-                    </View>
-                  ))}
+            {/* Transactions — the actual, individual charges behind the numbers above.
+                Filtered by whichever week/category is selected; sorted biggest first. */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                {t.transactions}
+                {selWeek !== null ? ` · W${selWeek + 1}` : ''}
+                {selCat !== null ? ` · ${categoryLabel(selCat)}` : ''}
+              </Text>
+              {analysis.filteredTx.length === 0 ? (
+                <View style={styles.emptyCard}>
+                  <Text style={styles.emptyBody}>{t.noSpendingMonth}</Text>
                 </View>
-              </View>
-            )}
+              ) : (
+                <>
+                  <View style={styles.listCard}>
+                    {(showAllTx ? analysis.filteredTx : analysis.filteredTx.slice(0, 5)).map(({ tx, cardId }) => (
+                      <TxRow
+                        key={tx.id}
+                        tx={tx}
+                        showCard
+                        onPress={() => navigation.navigate('TransactionDetail', { txId: tx.id, cardId })}
+                      />
+                    ))}
+                  </View>
+                  {analysis.filteredTx.length > 5 && (
+                    <Pressable onPress={() => setShowAllTx((v) => !v)} style={styles.moreBtn}>
+                      <Text style={styles.moreBtnText}>
+                        {showAllTx ? t.showLess : `${t.showAll} ${analysis.filteredTx.length}`}
+                      </Text>
+                    </Pressable>
+                  )}
+                </>
+              )}
+            </View>
           </>
         )}
       </ScrollView>
@@ -391,7 +409,15 @@ function makeStyles(colors: ColorTokens) {
     catBarFill: { height: '100%' },
     catAmount: { fontSize: 13, fontWeight: '600', color: colors.ink },
     catCount: { fontSize: 10.5, color: colors.ink3, marginTop: 6 },
-    merchantSub: { fontSize: 11, color: colors.ink3, marginTop: 3 },
+    moreBtn: {
+      marginTop: 10,
+      padding: 12,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.hair4,
+      alignItems: 'center',
+    },
+    moreBtnText: { fontSize: 12.5, fontWeight: '500', color: colors.ink },
 
     weekHeadRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 },
     weekAvgNote: { fontSize: 11, color: colors.ink3 },

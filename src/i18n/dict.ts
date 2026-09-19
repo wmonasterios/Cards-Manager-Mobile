@@ -56,7 +56,7 @@ export const dict = {
     needsReview: 'Needs review', new: 'New', applied: 'Applied',
     week: 'Week', month: 'Month', year: 'Year',
     spendingByWeek: 'Spending by week', weeklyAverage: 'Weekly average',
-    whereItWent: 'Where it went', tapCategoryHint: 'Tap a category',
+    tapCategoryHint: 'Tap a category',
     spentThisMonth: 'Spent this month', noSpendingMonth: 'No spending in this month.',
   },
   es: {
@@ -114,7 +114,7 @@ export const dict = {
     needsReview: 'Revisar', new: 'Nuevo', applied: 'Aplicado',
     week: 'Semana', month: 'Mes', year: 'Año',
     spendingByWeek: 'Gasto por semana', weeklyAverage: 'Promedio semanal',
-    whereItWent: 'A dónde fue', tapCategoryHint: 'Toca una categoría',
+    tapCategoryHint: 'Toca una categoría',
     spentThisMonth: 'Gastado este mes', noSpendingMonth: 'Sin gastos este mes.',
   },
 } as const;

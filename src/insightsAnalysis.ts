@@ -33,23 +33,14 @@ export type DonutArc = {
   opacity: number;
 };
 
-export type MerchantRow = {
-  name: string;
-  amount: number;
-  count: number;
-  category: string;
-  share: number;
-  bg: string;
-  ink: string;
-  icon: string;
-};
+export type FlatTx = { tx: DecoratedTransaction; cardId: string };
 
 export type InsightsAnalysis = {
   txCount: number;
   spent: number;
   categories: CategorySlice[];
   arcs: DonutArc[];
-  merchants: MerchantRow[];
+  filteredTx: FlatTx[];
   weekSums: number[];
   weekMax: number;
   avgWeek: number;
@@ -59,6 +50,10 @@ export type InsightsAnalysis = {
 
 function flattenTx(cards: DecoratedCard[]): DecoratedTransaction[] {
   return cards.flatMap((c) => c.dtx);
+}
+
+function flattenTxWithCard(cards: DecoratedCard[]): FlatTx[] {
+  return cards.flatMap((c) => c.dtx.map((tx) => ({ tx, cardId: c.id })));
 }
 
 function weekOf(iso: string): number {
@@ -80,9 +75,9 @@ export function getAvailableMonths(cards: DecoratedCard[], lang: 'en' | 'es'): I
     });
 }
 
-// weekIdx narrows every downstream total (categories, donut, top merchants) to that
-// week of the month; the week bars themselves always reflect the whole month, since
-// they are the navigation control, not a filtered result.
+// weekIdx narrows every downstream total (categories, donut, the transaction list) to
+// that week of the month; the week bars themselves always reflect the whole month,
+// since they are the navigation control, not a filtered result.
 export function analyseInsights(
   cards: DecoratedCard[],
   monthIso: string,
@@ -133,16 +128,18 @@ export function analyseInsights(
   const weekMax = Math.max(...weekSums, 1);
   const avgWeek = weekSums.reduce((a, b) => a + b, 0) / 5;
 
-  const byMerchant: Record<string, { amount: number; count: number; category: string; bg: string; ink: string; icon: string }> = {};
-  for (const t of spendTx) {
-    const entry = byMerchant[t.merchant] ?? (byMerchant[t.merchant] = { amount: 0, count: 0, category: t.category, bg: t.catBg, ink: t.catInk, icon: t.catIcon });
-    entry.amount += -t.amount;
-    entry.count += 1;
-  }
-  const merchants: MerchantRow[] = Object.entries(byMerchant)
-    .map(([name, v]) => ({ name, amount: v.amount, count: v.count, category: v.category, bg: v.bg, ink: v.ink, icon: v.icon, share: spent ? (v.amount / spent) * 100 : 0 }))
-    .sort((a, b) => b.amount - a.amount)
-    .slice(0, 4);
+  // Individual transactions, not grouped by merchant — the same real chain shows up
+  // under several slightly different names on statements (e.g. "PRICESMART PANAMA
+  // ECOM -I-" vs "PRICESMART METR ..."), so grouping by exact merchant text splits
+  // one merchant's spend across several meaningless rows. Showing the actual
+  // transactions sidesteps that entirely and doubles as the category drill-down.
+  const monthWithCard = flattenTxWithCard(cards).filter(
+    ({ tx }) => tx.iso.slice(0, 7) === monthIso && tx.amount < 0 && !tx.declined,
+  );
+  const weekWithCard = weekIdx === null ? monthWithCard : monthWithCard.filter(({ tx }) => weekOf(tx.iso) === weekIdx);
+  const filteredTx = (selCat === null ? weekWithCard : weekWithCard.filter(({ tx }) => tx.category === selCat))
+    .slice()
+    .sort((a, b) => Math.abs(b.tx.amount) - Math.abs(a.tx.amount));
 
   const prevTx = prevMonthIso ? allTx.filter((t) => t.iso.slice(0, 7) === prevMonthIso && t.amount < 0 && !t.declined) : [];
   const prevSpent = prevTx.reduce((n, t) => n - t.amount, 0);
@@ -150,7 +147,7 @@ export function analyseInsights(
 
   const sel = categories.find((c) => c.name === selCat) ?? null;
 
-  return { txCount: monthTx.length, spent, categories, arcs, merchants, weekSums, weekMax, avgWeek, delta, sel };
+  return { txCount: monthTx.length, spent, categories, arcs, filteredTx, weekSums, weekMax, avgWeek, delta, sel };
 }
 
 export function fmtMoney(n: number): string {
