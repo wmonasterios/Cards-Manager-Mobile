@@ -47,6 +47,24 @@ export function CardDetailScreen({ route, navigation }: Props) {
   const [toDate, setToDate] = useState(new Date(2026, 8, 14));
   const [deleting, setDeleting] = useState(false);
 
+  const handleTogglePaid = () => {
+    if (!card) return;
+    if (card.paid) {
+      togglePaid(card.id);
+      return;
+    }
+    Alert.alert(
+      lang === 'es' ? '¿Marcar como pagada?' : 'Mark as paid?',
+      lang === 'es'
+        ? `Se marcará ${card.bank} ${card.product} como pagada este ciclo.`
+        : `${card.bank} ${card.product} will be marked as paid this cycle.`,
+      [
+        { text: lang === 'es' ? 'Cancelar' : 'Cancel', style: 'cancel' },
+        { text: lang === 'es' ? 'Marcar pagada' : 'Mark as paid', onPress: () => togglePaid(card.id) },
+      ],
+    );
+  };
+
   const confirmDelete = () => {
     if (!card) return;
     Alert.alert(
@@ -104,13 +122,13 @@ export function CardDetailScreen({ route, navigation }: Props) {
           <BackButton onPress={() => navigation.goBack()} />
           <View style={styles.topActions}>
             <Pressable
-              onPress={() => navigation.navigate('Tabs', { screen: 'Statements' })}
+              onPress={() => navigation.navigate('Tabs', { screen: 'Statements', params: { cardId: card.id } })}
               style={styles.pillBtn}
             >
               <Text style={styles.pillBtnText}>{t.statements}</Text>
             </Pressable>
             <Pressable
-              onPress={() => togglePaid(card.id)}
+              onPress={handleTogglePaid}
               style={[styles.pillBtn, styles.pillBtnAccent]}
             >
               <Text style={[styles.pillBtnText, { color: colors.accent }]}>

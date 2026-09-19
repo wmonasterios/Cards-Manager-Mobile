@@ -155,9 +155,13 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       }
       if (!userId) return;
       const paidOn = new Date().toISOString().slice(0, 10);
-      addPaymentRow(userId, id, amount, paidOn, when).then(loadReal);
+      const current = cards.find((c) => c.id === id);
+      const coversBalance = !!current && amount >= current.remaining - 0.01;
+      addPaymentRow(userId, id, amount, paidOn, when)
+        .then(() => (coversBalance ? updateCard(id, { paid_this_cycle: true }) : undefined))
+        .then(loadReal);
     },
-    [isDemo, setDemoPayments, setDemoPaid, userId, loadReal],
+    [isDemo, setDemoPayments, setDemoPaid, userId, loadReal, cards],
   );
 
   const paymentHistory = useCallback((id: string) => paymentsMap[id] ?? [], [paymentsMap]);

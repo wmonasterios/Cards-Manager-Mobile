@@ -4,7 +4,7 @@ export type TabParamList = {
   Home: undefined;
   Calendar: undefined;
   Insights: undefined;
-  Statements: undefined;
+  Statements: { cardId?: string } | undefined;
   Settings: undefined;
 };
 

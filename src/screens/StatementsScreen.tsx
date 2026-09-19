@@ -103,13 +103,17 @@ function statusLabel(status: DbStatement['status'], lang: 'en' | 'es') {
   return map[status][lang === 'es' ? 1 : 0];
 }
 
-function RealStatementsFlow({ navigation }: any) {
+function RealStatementsFlow({ navigation, route }: any) {
   const { lang } = useLocale();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { session } = useAuth();
-  const { refresh } = useCards();
+  const { refresh, getCard } = useCards();
   const userId = session?.user.id;
+
+  const filterCardId: string | undefined = route?.params?.cardId;
+  const [showAllCards, setShowAllCards] = useState(false);
+  const filterCard = filterCardId ? getCard(filterCardId) : undefined;
 
   const [stage, setStage] = useState<RealStage>('idle');
   const [statementId, setStatementId] = useState<string | null>(null);
@@ -117,6 +121,9 @@ function RealStatementsFlow({ navigation }: any) {
   const [errorMsg, setErrorMsg] = useState('');
   const [applying, setApplying] = useState(false);
   const [history, setHistory] = useState<DbStatement[]>([]);
+
+  const visibleHistory =
+    filterCard && !showAllCards ? history.filter((s) => s.card_id === filterCard.id) : history;
 
   const loadHistory = async () => {
     if (!userId) return;
@@ -405,9 +412,31 @@ function RealStatementsFlow({ navigation }: any) {
 
           {history.length > 0 && (
             <>
-              <Text style={styles.historyTitle}>{lang === 'es' ? 'Historial' : 'History'}</Text>
+              <View style={styles.historyHeadRow}>
+                <Text style={styles.historyTitle}>
+                  {filterCard && !showAllCards
+                    ? (lang === 'es' ? `Estados de ${filterCard.bank}` : `${filterCard.bank}'s statements`)
+                    : (lang === 'es' ? 'Historial' : 'History')}
+                </Text>
+                {filterCard && (
+                  <Pressable onPress={() => setShowAllCards((v) => !v)} hitSlop={8}>
+                    <Text style={styles.historyFilterLink}>
+                      {showAllCards
+                        ? (lang === 'es' ? `Solo ${filterCard.bank}` : `Only ${filterCard.bank}`)
+                        : (lang === 'es' ? 'Ver todas' : 'View all')}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+              {filterCard && !showAllCards && visibleHistory.length === 0 ? (
+                <Text style={styles.historyEmptyNote}>
+                  {lang === 'es'
+                    ? 'Todavía no hay estados de cuenta guardados para esta tarjeta.'
+                    : 'No statements saved for this card yet.'}
+                </Text>
+              ) : (
               <View style={styles.listCard}>
-                {history.map((s) => (
+                {visibleHistory.map((s) => (
                   <Pressable
                     key={s.id}
                     disabled={s.status !== 'needs_review'}
@@ -436,6 +465,7 @@ function RealStatementsFlow({ navigation }: any) {
                   </Pressable>
                 ))}
               </View>
+              )}
             </>
           )}
 
@@ -450,7 +480,7 @@ function RealStatementsFlow({ navigation }: any) {
   );
 }
 
-export function StatementsScreen({ navigation }: any) {
+export function StatementsScreen({ navigation, route }: any) {
   const { lang, t } = useLocale();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -462,7 +492,7 @@ export function StatementsScreen({ navigation }: any) {
   useEffect(() => () => clearTimeout(timer.current), []);
 
   if (!isDemo) {
-    return <RealStatementsFlow navigation={navigation} />;
+    return <RealStatementsFlow navigation={navigation} route={route} />;
   }
 
   const startParse = () => {
@@ -691,6 +721,9 @@ function makeStyles(colors: ColorTokens) {
     },
     copyBtnText: { fontSize: 11, fontWeight: '500', color: colors.accent },
     historyTitle: { fontSize: 16, fontWeight: '500', color: colors.ink, marginTop: 22 },
+    historyHeadRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 },
+    historyFilterLink: { fontSize: 12, fontWeight: '500', color: colors.accent, marginTop: 22 },
+    historyEmptyNote: { fontSize: 12.5, color: colors.ink3, marginTop: 10, lineHeight: 18 },
     listCard: {
       marginTop: 10,
       borderRadius: radius.lg,
