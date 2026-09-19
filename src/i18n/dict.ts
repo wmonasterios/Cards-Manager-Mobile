@@ -59,6 +59,7 @@ export const dict = {
     tapCategoryHint: 'Tap a category',
     spentThisMonth: 'Spent this month', noSpendingMonth: 'No spending in this month.',
     sortBy: 'Sort by', noResultsFilters: 'No transactions match these filters.',
+    hidePayments: 'Hide payments',
   },
   es: {
     totalOwed: 'Total por pagar', latest: 'Actividad reciente', seeAll: 'Ver todo',
@@ -118,6 +119,7 @@ export const dict = {
     tapCategoryHint: 'Toca una categoría',
     spentThisMonth: 'Gastado este mes', noSpendingMonth: 'Sin gastos este mes.',
     sortBy: 'Ordenar por', noResultsFilters: 'Ninguna transacción coincide con estos filtros.',
+    hidePayments: 'Ocultar pagos',
   },
 } as const;
 

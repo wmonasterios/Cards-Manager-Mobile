@@ -44,6 +44,7 @@ export function TransactionsScreen({ route, navigation }: Props) {
   const [selCardId, setSelCardId] = useState<string | null>(null);
   const [selCategory, setSelCategory] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('date');
+  const [hidePayments, setHidePayments] = useState(false);
 
   const allTx = useMemo(
     () => cards.flatMap((c) => c.dtx.map((tx) => ({ tx, card: c }))),
@@ -68,6 +69,7 @@ export function TransactionsScreen({ route, navigation }: Props) {
   const scoped = useMemo(
     () =>
       allTx.filter(({ tx, card }) => {
+        if (hidePayments && tx.amount > 0) return false;
         if (tx.iso < rangeStart || tx.iso > rangeEnd) return false;
         if (selCardId && card.id !== selCardId) return false;
         if (
@@ -80,7 +82,7 @@ export function TransactionsScreen({ route, navigation }: Props) {
         }
         return true;
       }),
-    [allTx, rangeStart, rangeEnd, selCardId, q],
+    [allTx, hidePayments, rangeStart, rangeEnd, selCardId, q],
   );
 
   const availableCategories = useMemo(() => {
@@ -125,6 +127,13 @@ export function TransactionsScreen({ route, navigation }: Props) {
               </Pressable>
             )}
           </View>
+
+          <Pressable
+            onPress={() => setHidePayments((v) => !v)}
+            style={[styles.chip, styles.hidePayBtn, hidePayments && styles.chipActive]}
+          >
+            <Text style={[styles.chipText, hidePayments && styles.chipTextActive]}>{t.hidePayments}</Text>
+          </Pressable>
 
           <View style={styles.rangeWrap}>
             <Segmented
@@ -268,6 +277,7 @@ function makeStyles(colors: ColorTokens) {
     chipActive: { backgroundColor: colors.tint2, borderColor: colors.tint2 },
     chipText: { fontSize: 11.5, fontWeight: '500', color: colors.ink2 },
     chipTextActive: { color: colors.onTint2 },
+    hidePayBtn: { alignSelf: 'flex-start', marginTop: 12 },
     summaryRow: {
       marginTop: 16,
       flexDirection: 'row',
