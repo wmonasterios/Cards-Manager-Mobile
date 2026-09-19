@@ -55,6 +55,10 @@ export const dict = {
     openStatement: 'Open statement', enterAmount: 'Enter an amount first',
     needsReview: 'Needs review', new: 'New', applied: 'Applied',
     week: 'Week', month: 'Month', year: 'Year',
+    spentLabel: 'Spent', paidLabel2: 'Payments', netLabel: 'Net change',
+    spendingByWeek: 'Spending by week', weeklyAverage: 'Weekly average',
+    whereItWent: 'Where it went', tapCategoryHint: 'Tap a category',
+    spentThisMonth: 'Spent this month', noSpendingMonth: 'No spending in this month.',
   },
   es: {
     totalOwed: 'Total por pagar', latest: 'Actividad reciente', seeAll: 'Ver todo',
@@ -110,6 +114,10 @@ export const dict = {
     openStatement: 'Abrir estado', enterAmount: 'Ingresa un monto primero',
     needsReview: 'Revisar', new: 'Nuevo', applied: 'Aplicado',
     week: 'Semana', month: 'Mes', year: 'Año',
+    spentLabel: 'Gastado', paidLabel2: 'Pagos', netLabel: 'Cambio neto',
+    spendingByWeek: 'Gasto por semana', weeklyAverage: 'Promedio semanal',
+    whereItWent: 'A dónde fue', tapCategoryHint: 'Toca una categoría',
+    spentThisMonth: 'Gastado este mes', noSpendingMonth: 'Sin gastos este mes.',
   },
 } as const;
 

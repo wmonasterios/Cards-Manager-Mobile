@@ -28,6 +28,13 @@ export const darkColors = {
   hair3: 'rgba(233,233,237,0.12)',
   hair4: 'rgba(233,233,237,0.16)',
   hair5: 'rgba(233,233,237,0.18)',
+  seg1: '#b5abfc',
+  seg2: '#9184d9',
+  seg3: '#796cbf',
+  seg4: '#5d5294',
+  seg5: '#423a6a',
+  seg6: '#6b6f80',
+  seg7: '#3f424d',
 };
 
 export const lightColors: ColorTokens = {
@@ -57,6 +64,13 @@ export const lightColors: ColorTokens = {
   hair3: 'rgba(41,43,49,0.12)',
   hair4: 'rgba(41,43,49,0.16)',
   hair5: 'rgba(41,43,49,0.18)',
+  seg1: '#5d5294',
+  seg2: '#796cbf',
+  seg3: '#9184d9',
+  seg4: '#b5abfc',
+  seg5: '#423a6a',
+  seg6: '#8b8fa0',
+  seg7: '#cfd3e5',
 };
 
 // Default export kept for call sites that only ever run in dark mode (rare).
@@ -122,6 +136,12 @@ export function categoryLabel(id: string): string {
 
 // Kept for the few call sites that need it before a theme is resolvable.
 export const categoryColors = getCategoryColors(darkColors);
+
+// Chart-series colors for Insights: assigned by rank (largest category first),
+// not by category identity — a category's chart color can change month to month.
+export function chartSeriesColors(c: ColorTokens): string[] {
+  return [c.seg1, c.seg2, c.seg3, c.seg4, c.seg5, c.seg6, c.seg7];
+}
 
 export const cardArt: Record<string, [string, string, string]> = {
   aliado: ['#131b30', '#22375f', '#2f4d84'],
