@@ -17,6 +17,7 @@ export function InsightsScreen({ navigation }: any) {
   const [excludedCardIds, setExcludedCardIds] = useState<Set<string>>(() => new Set());
   const [selectedMonthIso, setSelectedMonthIso] = useState<string | null>(null);
   const [selCat, setSelCat] = useState<string | null>(null);
+  const [selWeek, setSelWeek] = useState<number | null>(null);
 
   const toggleCard = (id: string) => {
     setExcludedCardIds((prev) => {
@@ -45,17 +46,20 @@ export function InsightsScreen({ navigation }: any) {
     if (next < 0 || next >= months.length) return;
     setSelectedMonthIso(months[next].iso);
     setSelCat(null);
+    setSelWeek(null);
   };
 
   const analysis = useMemo(
-    () => (monthIso ? analyseInsights(includedCards, monthIso, prevMonthIso, selCat, colors) : null),
-    [includedCards, monthIso, prevMonthIso, selCat, colors],
+    () => (monthIso ? analyseInsights(includedCards, monthIso, prevMonthIso, selCat, selWeek, colors) : null),
+    [includedCards, monthIso, prevMonthIso, selCat, selWeek, colors],
   );
 
   const pickCategory = (name: string) => setSelCat((prev) => (prev === name ? null : name));
+  const pickWeek = (idx: number) => setSelWeek((prev) => (prev === idx ? null : idx));
 
   const txWord = (n: number) => (lang === 'es' ? (n === 1 ? 'transacción' : 'transacciones') : n === 1 ? 'transaction' : 'transactions');
   const pctText = (share: number) => `${share < 10 ? share.toFixed(1) : Math.round(share)}%`;
+  const sectionTitle = (base: string) => (selWeek === null ? base : `${base} · W${selWeek + 1}`);
 
   if (cards.length === 0) {
     return (
@@ -140,36 +144,39 @@ export function InsightsScreen({ navigation }: any) {
               </View>
             </View>
 
-            {/* Summary bars */}
+            {/* Spending by week — the primary drill-down control, so it sits first */}
             <View style={styles.section}>
-              <View style={styles.summaryCard}>
-                <View style={styles.summaryBars}>
-                  {[
-                    [analysis.spent, colors.seg2],
-                    [analysis.paid, colors.seg4],
-                    [Math.max(analysis.net, 0), colors.line],
-                  ].map(([v, fill], i) => (
-                    <View key={i} style={styles.summaryBarCol}>
-                      <View
-                        style={[
-                          styles.summaryBar,
-                          { height: `${Math.round((Number(v) / analysis.scale) * 100)}%`, backgroundColor: String(fill) },
-                        ]}
-                      />
-                    </View>
-                  ))}
-                </View>
-                <View style={styles.summaryLabels}>
-                  {[
-                    [analysis.spent, t.spentLabel],
-                    [analysis.paid, t.paidLabel2],
-                    [analysis.net, t.netLabel],
-                  ].map(([v, label], i) => (
-                    <View key={i} style={{ alignItems: 'center' }}>
-                      <Text style={styles.summaryAmount}>{fmtMoney(Number(v))}</Text>
-                      <Text style={styles.summaryLabel}>{String(label).toUpperCase()}</Text>
-                    </View>
-                  ))}
+              <View style={styles.weekHeadRow}>
+                <Text style={styles.sectionTitle}>{t.spendingByWeek}</Text>
+                <Text style={styles.weekAvgNote}>{t.weeklyAverage} {fmtMoney(analysis.avgWeek)}</Text>
+              </View>
+              <View style={styles.weekCard}>
+                <View style={styles.weekRow}>
+                  {analysis.weekSums.map((v, i) => {
+                    const active = selWeek === i;
+                    const isPeak = v === analysis.weekMax && v > 0;
+                    return (
+                      <Pressable
+                        key={i}
+                        onPress={() => pickWeek(i)}
+                        style={[styles.weekCol, active && styles.weekColActive]}
+                      >
+                        <Text style={styles.weekValue}>{v ? fmtMoney(v) : ''}</Text>
+                        <View style={styles.weekBarTrack}>
+                          <View
+                            style={[
+                              styles.weekBar,
+                              {
+                                height: `${Math.max((v / analysis.weekMax) * 100, 2)}%`,
+                                backgroundColor: active || isPeak ? colors.accent : colors.line,
+                              },
+                            ]}
+                          />
+                        </View>
+                        <Text style={styles.weekLabel}>{`W${i + 1}`}</Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
               </View>
             </View>
@@ -202,7 +209,11 @@ export function InsightsScreen({ navigation }: any) {
                       {fmtMoney(analysis.sel ? analysis.sel.amount : analysis.spent)}
                     </Text>
                     <Text style={styles.donutLabel} numberOfLines={1}>
-                      {analysis.sel ? categoryLabel(analysis.sel.name) : t.spentThisMonth}
+                      {analysis.sel
+                        ? categoryLabel(analysis.sel.name)
+                        : selWeek === null
+                          ? t.spentThisMonth
+                          : lang === 'es' ? `Gastado semana ${selWeek + 1}` : `Spent week ${selWeek + 1}`}
                     </Text>
                     <Text style={styles.donutSub} numberOfLines={2}>
                       {analysis.sel
@@ -218,7 +229,7 @@ export function InsightsScreen({ navigation }: any) {
 
             {/* By category */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{t.byCategory}</Text>
+              <Text style={styles.sectionTitle}>{sectionTitle(t.byCategory)}</Text>
               {analysis.categories.length === 0 ? (
                 <View style={styles.emptyCard}>
                   <Text style={styles.emptyBody}>{t.noSpendingMonth}</Text>
@@ -251,37 +262,10 @@ export function InsightsScreen({ navigation }: any) {
               )}
             </View>
 
-            {/* Spending by week */}
-            <View style={styles.section}>
-              <View style={styles.weekHeadRow}>
-                <Text style={styles.sectionTitle}>{t.spendingByWeek}</Text>
-                <Text style={styles.weekAvgNote}>{t.weeklyAverage} {fmtMoney(analysis.avgWeek)}</Text>
-              </View>
-              <View style={styles.weekCard}>
-                <View style={styles.weekRow}>
-                  {analysis.weekSums.map((v, i) => (
-                    <View key={i} style={styles.weekCol}>
-                      <Text style={styles.weekValue}>{v ? fmtMoney(v) : ''}</Text>
-                      <View
-                        style={[
-                          styles.weekBar,
-                          {
-                            height: `${Math.max((v / analysis.weekMax) * 100, 2)}%`,
-                            backgroundColor: v === analysis.weekMax ? colors.accent : colors.line,
-                          },
-                        ]}
-                      />
-                      <Text style={styles.weekLabel}>{`W${i + 1}`}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </View>
-
             {/* Where it went */}
             {analysis.merchants.length > 0 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>{t.whereItWent}</Text>
+                <Text style={styles.sectionTitle}>{sectionTitle(t.whereItWent)}</Text>
                 <View style={styles.listCard}>
                   {analysis.merchants.map((m) => (
                     <View key={m.name} style={styles.catRow}>
@@ -355,21 +339,6 @@ function makeStyles(colors: ColorTokens) {
       marginTop: 5,
     },
 
-    summaryCard: {
-      padding: 16,
-      paddingTop: 18,
-      borderRadius: radius.xl,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.line,
-    },
-    summaryBars: { flexDirection: 'row', alignItems: 'flex-end', height: 112, gap: 10 },
-    summaryBarCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: '100%' },
-    summaryBar: { width: '100%', maxWidth: 44, minHeight: 3, borderRadius: 8, borderBottomLeftRadius: 3, borderBottomRightRadius: 3 },
-    summaryLabels: { flexDirection: 'row', marginTop: 14, gap: 10 },
-    summaryAmount: { fontSize: 15, fontWeight: '600', color: colors.ink },
-    summaryLabel: { fontSize: 10.5, color: colors.ink3, letterSpacing: 0.5, marginTop: 6 },
-
     donutCard: {
       padding: 20,
       alignItems: 'center',
@@ -435,10 +404,15 @@ function makeStyles(colors: ColorTokens) {
       borderWidth: 1,
       borderColor: colors.line,
     },
-    weekRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, height: 104 },
-    weekCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 7, height: '100%' },
+    weekRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+    weekCol: { flex: 1, alignItems: 'center', gap: 7, borderRadius: radius.sm, paddingVertical: 4 },
+    weekColActive: { backgroundColor: colors.tint },
     weekValue: { fontSize: 9.5, fontWeight: '500', color: colors.ink3 },
-    weekBar: { width: '100%', maxWidth: 26, borderRadius: 5 },
+    // Fixed-height track so the tallest bar (100%) never competes with its own
+    // value/label text for space — that competition was pushing the value label
+    // out of the card and overlapping the section header above it.
+    weekBarTrack: { height: 70, width: '100%', maxWidth: 26, justifyContent: 'flex-end' },
+    weekBar: { width: '100%', borderRadius: 5 },
     weekLabel: { fontSize: 10, color: colors.ink3 },
 
     emptyCard: {

@@ -47,9 +47,6 @@ export type MerchantRow = {
 export type InsightsAnalysis = {
   txCount: number;
   spent: number;
-  paid: number;
-  net: number;
-  scale: number;
   categories: CategorySlice[];
   arcs: DonutArc[];
   merchants: MerchantRow[];
@@ -62,6 +59,11 @@ export type InsightsAnalysis = {
 
 function flattenTx(cards: DecoratedCard[]): DecoratedTransaction[] {
   return cards.flatMap((c) => c.dtx);
+}
+
+function weekOf(iso: string): number {
+  const day = parseInt(iso.slice(8), 10);
+  return Math.min(Math.floor((day - 1) / 7), 4);
 }
 
 export function getAvailableMonths(cards: DecoratedCard[], lang: 'en' | 'es'): InsightsMonth[] {
@@ -78,22 +80,23 @@ export function getAvailableMonths(cards: DecoratedCard[], lang: 'en' | 'es'): I
     });
 }
 
+// weekIdx narrows every downstream total (categories, donut, top merchants) to that
+// week of the month; the week bars themselves always reflect the whole month, since
+// they are the navigation control, not a filtered result.
 export function analyseInsights(
   cards: DecoratedCard[],
   monthIso: string,
   prevMonthIso: string | null,
   selCat: string | null,
+  weekIdx: number | null,
   colors: ColorTokens,
 ): InsightsAnalysis {
   const allTx = flattenTx(cards);
   const monthTx = allTx.filter((t) => t.iso.slice(0, 7) === monthIso);
-  const spendTx = monthTx.filter((t) => t.amount < 0 && !t.declined);
-  const payTx = monthTx.filter((t) => t.amount > 0);
+  const monthSpendTx = monthTx.filter((t) => t.amount < 0 && !t.declined);
+  const spendTx = weekIdx === null ? monthSpendTx : monthSpendTx.filter((t) => weekOf(t.iso) === weekIdx);
 
   const spent = spendTx.reduce((n, t) => n - t.amount, 0);
-  const paid = payTx.reduce((n, t) => n + t.amount, 0);
-  const net = spent - paid;
-  const scale = Math.max(spent, paid, 1);
 
   const seg = chartSeriesColors(colors);
   const byCat: Record<string, { amount: number; count: number; bg: string; ink: string; icon: string }> = {};
@@ -122,10 +125,10 @@ export function analyseInsights(
     return arc;
   });
 
+  // Always the whole month, regardless of weekIdx — this drives the week chart itself.
   const weekSums = [0, 0, 0, 0, 0];
-  for (const t of spendTx) {
-    const day = parseInt(t.iso.slice(8), 10);
-    weekSums[Math.min(Math.floor((day - 1) / 7), 4)] += -t.amount;
+  for (const t of monthSpendTx) {
+    weekSums[weekOf(t.iso)] += -t.amount;
   }
   const weekMax = Math.max(...weekSums, 1);
   const avgWeek = weekSums.reduce((a, b) => a + b, 0) / 5;
@@ -143,11 +146,11 @@ export function analyseInsights(
 
   const prevTx = prevMonthIso ? allTx.filter((t) => t.iso.slice(0, 7) === prevMonthIso && t.amount < 0 && !t.declined) : [];
   const prevSpent = prevTx.reduce((n, t) => n - t.amount, 0);
-  const delta = prevTx.length >= 3 && prevSpent ? Math.round(((spent - prevSpent) / prevSpent) * 100) : null;
+  const delta = weekIdx === null && prevTx.length >= 3 && prevSpent ? Math.round(((spent - prevSpent) / prevSpent) * 100) : null;
 
   const sel = categories.find((c) => c.name === selCat) ?? null;
 
-  return { txCount: monthTx.length, spent, paid, net, scale, categories, arcs, merchants, weekSums, weekMax, avgWeek, delta, sel };
+  return { txCount: monthTx.length, spent, categories, arcs, merchants, weekSums, weekMax, avgWeek, delta, sel };
 }
 
 export function fmtMoney(n: number): string {
