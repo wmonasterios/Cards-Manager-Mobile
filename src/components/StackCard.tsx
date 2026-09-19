@@ -1,5 +1,6 @@
 import React, { useMemo, useRef } from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import Animated, { SharedValue, useAnimatedStyle } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { DecoratedCard } from '../decorate';
 import { ColorTokens, radius } from '../theme';
@@ -10,20 +11,24 @@ export type HeroFrame = { x: number; y: number; width: number; height: number };
 
 export function StackCard({
   card,
-  top,
+  index,
+  step,
+  spread,
   zIndex,
   style,
   onOpen,
 }: {
   card: DecoratedCard;
-  top: number;
+  index: number;
+  step: number;
+  spread: SharedValue<number>;
   zIndex: number;
   style: StyleProp<ViewStyle>;
   onOpen: (cardId: string, frame: HeroFrame) => void;
 }) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const ref = useRef<View>(null);
+  const ref = useRef<Animated.View>(null);
 
   const open = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -32,29 +37,38 @@ export function StackCard({
     });
   };
 
+  // Card 0 stays put; every card after it sits further down as `spread`
+  // grows, widening every gap in the stack at once.
+  const positionStyle = useAnimatedStyle(() => ({
+    top: index * (step + spread.value),
+  }));
+
   return (
-    <Pressable ref={ref} onPress={open} style={[style, { top, zIndex }]}>
-      <CardArt cardId={card.id} style={styles.cardArt}>
-        <View style={styles.cardTopRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.cardBank}>{card.bank}</Text>
-            <Text style={styles.cardSub}>
-              {card.product} · {card.last4}
-            </Text>
+    <Animated.View ref={ref} style={[style, { zIndex }, positionStyle]}>
+      <Pressable onPress={open} style={styles.pressable}>
+        <CardArt cardId={card.id} style={styles.cardArt}>
+          <View style={styles.cardTopRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardBank}>{card.bank}</Text>
+              <Text style={styles.cardSub}>
+                {card.product} · {card.last4}
+              </Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={styles.cardBalance}>{card.balanceText}</Text>
+              <Text style={styles.cardSub}>{card.dueShort}</Text>
+            </View>
           </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.cardBalance}>{card.balanceText}</Text>
-            <Text style={styles.cardSub}>{card.dueShort}</Text>
-          </View>
-        </View>
-        <Text style={styles.cardNetwork}>{card.network.toUpperCase()}</Text>
-      </CardArt>
-    </Pressable>
+          <Text style={styles.cardNetwork}>{card.network.toUpperCase()}</Text>
+        </CardArt>
+      </Pressable>
+    </Animated.View>
   );
 }
 
 function makeStyles(colors: ColorTokens) {
   return StyleSheet.create({
+    pressable: { flex: 1 },
     cardArt: {
       flex: 1,
       borderRadius: radius.xl,

@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { ScrollView, Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { useSharedValue, withSpring } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { radius, spacing, ColorTokens } from '../theme';
 import { useColors } from '../theme/ThemeContext';
@@ -13,6 +15,9 @@ import { money } from '../format';
 // grow animation depends on origin and destination being the same size.
 export const CARD_HEIGHT = 214;
 const CARD_STEP = 86;
+const MAX_SPREAD = 30;
+// Same physics as CardDetail's hero motion — Apple's `.spring(response: 0.5, dampingFraction: 0.8)`.
+const SPREAD_SPRING = { damping: 20, stiffness: 158, mass: 1 };
 
 export function HomeScreen({ navigation }: any) {
   const { cards, isDemo } = useCards();
@@ -23,6 +28,20 @@ export function HomeScreen({ navigation }: any) {
   const openCard = (cardId: string, heroFrame: HeroFrame) => {
     navigation.navigate('CardDetail', { cardId, heroFrame });
   };
+
+  // Dragging anywhere on the stack fans every card out together — the gap
+  // between all of them grows at once, not just the top card moving — so you
+  // can peek at what's underneath. Always springs back closed on release.
+  const spread = useSharedValue(0);
+  const stackPan = Gesture.Pan()
+    .activeOffsetY(12)
+    .onChange((e) => {
+      if (e.translationY <= 0) return;
+      spread.value = Math.min(e.translationY * 0.4, MAX_SPREAD);
+    })
+    .onEnd(() => {
+      spread.value = withSpring(0, SPREAD_SPRING);
+    });
 
   const unpaid = cards.filter((c) => !c.paid);
   const totalOwed = unpaid.reduce((n, c) => n + c.remaining, 0);
@@ -80,18 +99,22 @@ export function HomeScreen({ navigation }: any) {
           </View>
         )}
 
-        <View style={[styles.stack, { height: cards.length ? stackHeight : 0 }]}>
-          {cards.map((c, i) => (
-            <StackCard
-              key={c.id}
-              card={c}
-              top={i * CARD_STEP}
-              zIndex={10 + i}
-              style={styles.stackSlot}
-              onOpen={openCard}
-            />
-          ))}
-        </View>
+        <GestureDetector gesture={stackPan}>
+          <View style={[styles.stack, { height: cards.length ? stackHeight : 0 }]}>
+            {cards.map((c, i) => (
+              <StackCard
+                key={c.id}
+                card={c}
+                index={i}
+                step={CARD_STEP}
+                spread={spread}
+                zIndex={10 + i}
+                style={styles.stackSlot}
+                onOpen={openCard}
+              />
+            ))}
+          </View>
+        </GestureDetector>
 
         {cards.length > 0 && (
           <>
