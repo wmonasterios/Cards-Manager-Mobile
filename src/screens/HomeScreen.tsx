@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { radius, spacing, ColorTokens } from '../theme';
@@ -17,6 +17,18 @@ export function HomeScreen({ navigation }: any) {
   const colors = useColors();
   const t = useT();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const cardRefs = useRef(new Map<string, View | null>()).current;
+
+  const openCard = (cardId: string) => {
+    const node = cardRefs.get(cardId);
+    if (node) {
+      node.measureInWindow((x, y, width, height) => {
+        navigation.navigate('CardDetail', { cardId, heroFrame: { x, y, width, height } });
+      });
+    } else {
+      navigation.navigate('CardDetail', { cardId });
+    }
+  };
 
   const unpaid = cards.filter((c) => !c.paid);
   const totalOwed = unpaid.reduce((n, c) => n + c.remaining, 0);
@@ -78,7 +90,8 @@ export function HomeScreen({ navigation }: any) {
           {cards.map((c, i) => (
             <Pressable
               key={c.id}
-              onPress={() => navigation.navigate('CardDetail', { cardId: c.id })}
+              ref={(node) => { cardRefs.set(c.id, node as unknown as View | null); }}
+              onPress={() => openCard(c.id)}
               style={[styles.stackSlot, { top: i * CARD_STEP, zIndex: 10 + i }]}
             >
               <CardArt cardId={c.id} style={styles.cardArt}>

@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -33,8 +34,10 @@ function startOfMonth(iso: string): string {
   return iso.slice(0, 8) + '01';
 }
 
+const HERO_SPRING = { damping: 20, stiffness: 200, mass: 0.9 };
+
 export function CardDetailScreen({ route, navigation }: Props) {
-  const { cardId } = route.params;
+  const { cardId, heroFrame } = route.params;
   const { getCard, togglePaid, isDemo, deleteCard } = useCards();
   const card = getCard(cardId);
   const colors = useColors();
@@ -46,6 +49,55 @@ export function CardDetailScreen({ route, navigation }: Props) {
   const [fromDate, setFromDate] = useState(new Date(2026, 6, 1));
   const [toDate, setToDate] = useState(new Date(2026, 8, 14));
   const [deleting, setDeleting] = useState(false);
+
+  // Grows the hero card from wherever it was tapped on Home (heroFrame, measured
+  // there before navigating) into its resting position here, instead of just
+  // popping in — the "shared element" look, done by hand since Reanimated's
+  // native shared-transition support is off by default even in App Store builds.
+  const heroRef = useRef<Animated.View>(null);
+  const heroOpacity = useSharedValue(heroFrame ? 0 : 1);
+  const heroDx = useSharedValue(0);
+  const heroDy = useSharedValue(0);
+  const heroScaleX = useSharedValue(heroFrame ? 1 : 0.96);
+  const heroScaleY = useSharedValue(heroFrame ? 1 : 0.96);
+
+  useEffect(() => {
+    if (!heroFrame) {
+      heroOpacity.value = withTiming(1, { duration: 220 });
+      heroScaleX.value = withSpring(1, HERO_SPRING);
+      heroScaleY.value = withSpring(1, HERO_SPRING);
+      return;
+    }
+    const raf = requestAnimationFrame(() => {
+      heroRef.current?.measureInWindow((fx, fy, fw, fh) => {
+        if (!fw || !fh) {
+          heroOpacity.value = 1;
+          return;
+        }
+        heroDx.value = heroFrame.x + heroFrame.width / 2 - (fx + fw / 2);
+        heroDy.value = heroFrame.y + heroFrame.height / 2 - (fy + fh / 2);
+        heroScaleX.value = heroFrame.width / fw;
+        heroScaleY.value = heroFrame.height / fh;
+        heroOpacity.value = 1;
+        heroDx.value = withSpring(0, HERO_SPRING);
+        heroDy.value = withSpring(0, HERO_SPRING);
+        heroScaleX.value = withSpring(1, HERO_SPRING);
+        heroScaleY.value = withSpring(1, HERO_SPRING);
+      });
+    });
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const heroAnimStyle = useAnimatedStyle(() => ({
+    opacity: heroOpacity.value,
+    transform: [
+      { translateX: heroDx.value },
+      { translateY: heroDy.value },
+      { scaleX: heroScaleX.value },
+      { scaleY: heroScaleY.value },
+    ],
+  }));
 
   const handleTogglePaid = () => {
     if (!card) return;
@@ -139,19 +191,21 @@ export function CardDetailScreen({ route, navigation }: Props) {
         </View>
 
         <View style={styles.heroWrap}>
-          <CardArt cardId={card.id} style={styles.hero}>
-            <View style={styles.heroTop}>
-              <View>
-                <Text style={styles.heroBank}>{card.bank}</Text>
-                <Text style={styles.heroSub}>{card.product}</Text>
+          <Animated.View ref={heroRef} style={[styles.hero, heroAnimStyle]}>
+            <CardArt cardId={card.id} style={styles.heroArt}>
+              <View style={styles.heroTop}>
+                <View>
+                  <Text style={styles.heroBank}>{card.bank}</Text>
+                  <Text style={styles.heroSub}>{card.product}</Text>
+                </View>
+                <Text style={styles.heroNetwork}>{card.network.toUpperCase()}</Text>
               </View>
-              <Text style={styles.heroNetwork}>{card.network.toUpperCase()}</Text>
-            </View>
-            <View style={styles.heroBottom}>
-              <Text style={styles.heroLast4}>{card.last4}</Text>
-              <Text style={styles.heroCur}>Balances in USD</Text>
-            </View>
-          </CardArt>
+              <View style={styles.heroBottom}>
+                <Text style={styles.heroLast4}>{card.last4}</Text>
+                <Text style={styles.heroCur}>Balances in USD</Text>
+              </View>
+            </CardArt>
+          </Animated.View>
         </View>
 
         <View style={styles.tiles}>
@@ -319,8 +373,12 @@ function makeStyles(colors: ColorTokens) {
     heroWrap: { paddingHorizontal: spacing.xl, marginTop: spacing.lg },
     hero: {
       borderRadius: radius.xl,
-      padding: 18,
       height: 200,
+      overflow: 'hidden',
+    },
+    heroArt: {
+      flex: 1,
+      padding: 18,
       justifyContent: 'space-between',
     },
     heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
