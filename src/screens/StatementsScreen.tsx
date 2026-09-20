@@ -12,11 +12,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
+import { FunctionsFetchError } from '@supabase/supabase-js';
 import { radius, spacing, ColorTokens } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { BackButton } from '../components/BackButton';
 import { DateField } from '../components/DateField';
+import { ProgressBar } from '../components/ProgressBar';
 import { useCards } from '../context/CardsContext';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -103,6 +105,23 @@ function statusLabel(status: DbStatement['status'], lang: 'en' | 'es') {
   return map[status][lang === 'es' ? 1 : 0];
 }
 
+// FunctionsFetchError means the request to Supabase never got a response at all
+// (dropped connection, no signal) — the raw SDK message ("Failed to send a
+// request to the Edge Function") isn't actionable, so point at the network instead.
+function friendlyErrorMessage(err: any, lang: 'en' | 'es'): string {
+  if (err instanceof FunctionsFetchError) {
+    return lang === 'es'
+      ? 'No se pudo conectar con el servidor. Revisa tu conexión a internet e intenta de nuevo.'
+      : 'Could not reach the server. Check your internet connection and try again.';
+  }
+  return err?.message ?? String(err);
+}
+
+// Simulated progress toward an asymptote — there is no real progress signal from
+// a single request/response edge function call, so this only ever creeps toward
+// 92% while waiting, and is snapped to 100% once the response actually arrives.
+const PARSE_ESTIMATE_SECONDS = 20;
+
 function RealStatementsFlow({ navigation, route }: any) {
   const { lang } = useLocale();
   const colors = useColors();
@@ -121,9 +140,29 @@ function RealStatementsFlow({ navigation, route }: any) {
   const [errorMsg, setErrorMsg] = useState('');
   const [applying, setApplying] = useState(false);
   const [history, setHistory] = useState<DbStatement[]>([]);
+  const [parseProgress, setParseProgress] = useState(0);
+  const [parseSeconds, setParseSeconds] = useState(0);
+  const parseTicker = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const visibleHistory =
     filterCard && !showAllCards ? history.filter((s) => s.card_id === filterCard.id) : history;
+
+  const startParseTicker = () => {
+    setParseProgress(0);
+    setParseSeconds(0);
+    clearInterval(parseTicker.current);
+    parseTicker.current = setInterval(() => {
+      setParseSeconds((s) => s + 1);
+      setParseProgress((p) => p + (92 - p) * 0.12);
+    }, 400);
+  };
+
+  const stopParseTicker = (finalPct: number) => {
+    clearInterval(parseTicker.current);
+    setParseProgress(finalPct);
+  };
+
+  useEffect(() => () => clearInterval(parseTicker.current), []);
 
   const loadHistory = async () => {
     if (!userId) return;
@@ -180,11 +219,14 @@ function RealStatementsFlow({ navigation, route }: any) {
       const statement = await uploadStatementPdf(userId, base64, asset.name ?? 'statement.pdf', hash);
       setStatementId(statement.id);
       setStage('parsing');
+      startParseTicker();
       const parsed = await parseStatement(statement.id);
+      stopParseTicker(100);
       setFields(parsed);
       setStage('review');
     } catch (err: any) {
-      setErrorMsg(err?.message ?? String(err));
+      clearInterval(parseTicker.current);
+      setErrorMsg(friendlyErrorMessage(err, lang));
       setStage('error');
     } finally {
       loadHistory();
@@ -209,7 +251,7 @@ function RealStatementsFlow({ navigation, route }: any) {
       setFields(null);
       navigation.navigate('CardDetail', { cardId: result.cardId });
     } catch (err: any) {
-      Alert.alert(lang === 'es' ? 'No se pudo guardar' : 'Could not save', err?.message ?? String(err));
+      Alert.alert(lang === 'es' ? 'No se pudo guardar' : 'Could not save', friendlyErrorMessage(err, lang));
     } finally {
       setApplying(false);
       loadHistory();
@@ -238,12 +280,33 @@ function RealStatementsFlow({ navigation, route }: any) {
               : (lang === 'es' ? 'Leyendo tu estado de cuenta' : 'Reading your statement')}
           </Text>
           <Text style={styles.sub}>
-            {lang === 'es' ? 'Esto puede tardar unos segundos.' : 'This can take a few seconds.'}
+            {stage === 'uploading'
+              ? (lang === 'es' ? 'Esto puede tardar unos segundos.' : 'This can take a few seconds.')
+              : (lang === 'es'
+                ? 'Suele tardar entre 10 y 30 segundos, más si el estado es largo.'
+                : 'Usually takes 10–30 seconds, longer for a long statement.')}
           </Text>
         </View>
-        <View style={[styles.section, { alignItems: 'center', paddingTop: 30 }]}>
-          <ActivityIndicator color={colors.accent} size="large" />
-        </View>
+        {stage === 'uploading' ? (
+          <View style={[styles.section, { alignItems: 'center', paddingTop: 30 }]}>
+            <ActivityIndicator color={colors.accent} size="large" />
+          </View>
+        ) : (
+          <View style={[styles.section, { paddingTop: 30 }]}>
+            <ProgressBar pct={parseProgress} fill={colors.accent} height={6} />
+            <View style={styles.parseProgressRow}>
+              <Text style={styles.parseProgressPct}>{Math.round(parseProgress)}%</Text>
+              <Text style={styles.parseProgressTime}>
+                {parseSeconds}s
+                {parseSeconds > PARSE_ESTIMATE_SECONDS
+                  ? lang === 'es'
+                    ? ' · casi listo'
+                    : ' · almost there'
+                  : ''}
+              </Text>
+            </View>
+          </View>
+        )}
       </SafeAreaView>
     );
   }
@@ -680,6 +743,13 @@ function makeStyles(colors: ColorTokens) {
     title: { fontSize: 26, fontWeight: '500', color: colors.ink, marginTop: 20, letterSpacing: -0.3 },
     sub: { fontSize: 12.5, color: colors.ink2, marginTop: 8, lineHeight: 18, maxWidth: 320 },
     section: { paddingHorizontal: spacing.xl, marginTop: spacing.xl },
+    parseProgressRow: {
+      marginTop: 10,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
+    parseProgressPct: { fontSize: 13, fontWeight: '600', color: colors.ink },
+    parseProgressTime: { fontSize: 12, color: colors.ink3 },
     uploadBtn: {
       borderWidth: 1,
       borderStyle: 'dashed',
