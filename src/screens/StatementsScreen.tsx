@@ -430,6 +430,15 @@ function RealStatementsFlow({ navigation, route }: any) {
               {fields.transactions?.length ?? 0}{' '}
               {lang === 'es' ? 'transacciones encontradas' : 'transactions found'}
             </Text>
+            {(fields.transactions?.length ?? 0) === 0 && (
+              <View style={styles.zeroTxBanner}>
+                <Text style={styles.zeroTxBannerText}>
+                  {lang === 'es'
+                    ? 'No encontramos ninguna transacción en este estado de cuenta. Revisa el PDF antes de guardar — es posible que la lectura se haya saltado algo.'
+                    : "We didn't find any transactions in this statement. Check the PDF before saving — the reading may have missed something."}
+                </Text>
+              </View>
+            )}
 
             <View style={styles.reviewActions}>
               <Pressable onPress={confirmApply} disabled={applying} style={[styles.saveBtn, applying && { opacity: 0.6 }]}>
@@ -911,6 +920,15 @@ function makeStyles(colors: ColorTokens) {
       borderColor: colors.line2,
     },
     noteBannerText: { fontSize: 12, color: colors.ink2, lineHeight: 17 },
+    zeroTxBanner: {
+      marginTop: 10,
+      padding: 12,
+      borderRadius: radius.md,
+      backgroundColor: colors.tint,
+      borderWidth: 1,
+      borderColor: colors.tint2,
+    },
+    zeroTxBannerText: { fontSize: 12, color: colors.accentInk, lineHeight: 17 },
     manualLink: { marginTop: 18, alignItems: 'center' },
     manualLinkText: { fontSize: 12, color: colors.accent, fontWeight: '500' },
   });
