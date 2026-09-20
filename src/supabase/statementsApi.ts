@@ -67,6 +67,23 @@ export async function applyStatement(
   return data;
 }
 
+export async function deleteStatement(statementId: string): Promise<void> {
+  const { data: statement, error: fetchErr } = await supabase
+    .from('statements')
+    .select('storage_path')
+    .eq('id', statementId)
+    .single();
+  if (fetchErr) throw fetchErr;
+
+  if (statement?.storage_path) {
+    const { error: storageErr } = await supabase.storage.from('statements').remove([statement.storage_path]);
+    if (storageErr) throw storageErr;
+  }
+
+  const { error } = await supabase.from('statements').delete().eq('id', statementId);
+  if (error) throw error;
+}
+
 export async function getStatementPdfUrl(statementId: string): Promise<string> {
   const { data: statement, error } = await supabase
     .from('statements')

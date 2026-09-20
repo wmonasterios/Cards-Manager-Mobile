@@ -27,6 +27,7 @@ import {
   uploadStatementPdf,
   parseStatement,
   applyStatement,
+  deleteStatement,
   listNeedsReviewStatements,
 } from '../supabase/statementsApi';
 import { DbStatement, ParsedStatement } from '../supabase/types';
@@ -139,6 +140,7 @@ function RealStatementsFlow({ navigation, route }: any) {
   const [fields, setFields] = useState<ParsedStatement | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [applying, setApplying] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
   const [history, setHistory] = useState<DbStatement[]>([]);
   const [parseProgress, setParseProgress] = useState(0);
   const [parseSeconds, setParseSeconds] = useState(0);
@@ -258,10 +260,48 @@ function RealStatementsFlow({ navigation, route }: any) {
     }
   };
 
-  const discardReview = () => {
+  // Just steps back to the list without touching the statement — for the
+  // back caret, which shouldn't delete anything on its own.
+  const backFromReview = () => {
     setStage('idle');
     setStatementId(null);
     setFields(null);
+  };
+
+  // The "Discard" button, in contrast, means it: confirms, then actually
+  // deletes the statement (and its PDF) so it stops showing up as needs-review.
+  const discardReview = () => {
+    if (!statementId) return;
+    Alert.alert(
+      lang === 'es' ? '¿Descartar este estado de cuenta?' : 'Discard this statement?',
+      lang === 'es'
+        ? 'Se elimina permanentemente, junto con el PDF. No se puede deshacer.'
+        : 'This permanently deletes it, along with the PDF. This cannot be undone.',
+      [
+        { text: lang === 'es' ? 'Cancelar' : 'Cancel', style: 'cancel' },
+        {
+          text: lang === 'es' ? 'Descartar' : 'Discard',
+          style: 'destructive',
+          onPress: async () => {
+            setDiscarding(true);
+            try {
+              await deleteStatement(statementId);
+              setStage('idle');
+              setStatementId(null);
+              setFields(null);
+            } catch (err: any) {
+              Alert.alert(
+                lang === 'es' ? 'No se pudo descartar' : 'Could not discard',
+                friendlyErrorMessage(err, lang),
+              );
+            } finally {
+              setDiscarding(false);
+              loadHistory();
+            }
+          },
+        },
+      ],
+    );
   };
 
   const setField = <K extends keyof ParsedStatement>(key: K, value: ParsedStatement[K]) => {
@@ -335,7 +375,7 @@ function RealStatementsFlow({ navigation, route }: any) {
       <SafeAreaView style={styles.screen} edges={['top']}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.top}>
-            <BackButton onPress={discardReview} />
+            <BackButton onPress={backFromReview} />
             <Text style={styles.title}>{lang === 'es' ? 'Revisa lo que leímos' : 'Check what we read'}</Text>
             <Text style={styles.sub}>
               {lang === 'es'
@@ -448,8 +488,12 @@ function RealStatementsFlow({ navigation, route }: any) {
                   <Text style={styles.saveBtnText}>{lang === 'es' ? 'Guardar en la tarjeta' : 'Save to card'}</Text>
                 )}
               </Pressable>
-              <Pressable onPress={discardReview} disabled={applying} style={styles.discardBtn}>
-                <Text style={styles.discardBtnText}>{lang === 'es' ? 'Descartar' : 'Discard'}</Text>
+              <Pressable onPress={discardReview} disabled={applying || discarding} style={styles.discardBtn}>
+                {discarding ? (
+                  <ActivityIndicator color={colors.ink2} />
+                ) : (
+                  <Text style={styles.discardBtnText}>{lang === 'es' ? 'Descartar' : 'Discard'}</Text>
+                )}
               </Pressable>
             </View>
           </View>
