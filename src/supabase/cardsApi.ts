@@ -1,5 +1,5 @@
 import { supabase } from './client';
-import { DbCard, DbPayment, DbTransaction, NewDbCard } from './types';
+import { DbCard, DbCardAlias, DbPayment, DbTransaction, NewDbCard } from './types';
 import { ALL_CATEGORIES, Card, Category, Transaction } from '../data';
 
 function shortDate(iso: string | null): string {
@@ -43,6 +43,8 @@ export function dbCardToCard(row: DbCard, transactions: DbTransaction[] = []): C
     plansNote: '',
     cycleNote: '',
     plans: [],
+    nickname: row.nickname ?? undefined,
+    colorKey: row.color_key ?? undefined,
     tx: transactions
       .filter((t) => t.card_id === row.id)
       .sort((a, b) => (a.occurred_on < b.occurred_on ? 1 : -1))
@@ -57,6 +59,15 @@ export async function listCards(userId: string): Promise<DbCard[]> {
     .eq('user_id', userId)
     .eq('archived', false)
     .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+// Every (bank text, last4) combination that has ever been confirmed to
+// belong to each of the user's cards — used to auto-recognize a statement
+// without re-asking, even after a card gets renewed with new last4 digits.
+export async function listCardAliases(userId: string): Promise<DbCardAlias[]> {
+  const { data, error } = await supabase.from('card_aliases').select('*').eq('user_id', userId);
   if (error) throw error;
   return data ?? [];
 }

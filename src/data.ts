@@ -1,4 +1,4 @@
-import { cardArt } from './theme';
+import { cardArt, CARD_PALETTE, CARD_PALETTE_ORDER } from './theme';
 
 export type Category =
   | 'dining'
@@ -78,6 +78,8 @@ export type Card = {
   cycleNote: string;
   plans: InstalmentPlan[];
   tx: Transaction[];
+  nickname?: string;
+  colorKey?: string;
 };
 
 const MON: Record<string, number> = {
@@ -211,6 +213,15 @@ export const CARDS: Card[] = [
   },
 ];
 
-export function artGradient(id: string): [string, string, string] {
-  return cardArt[id] ?? cardArt.bac2;
+// Demo cards keep their fixed named gradient. Real cards, unless the user
+// picked a color, get one hashed from their id — so two real cards never
+// default to looking identical, which used to always happen (every real
+// card id fell through to the same cardArt.bac2 fallback).
+export function artGradient(id: string, colorKey?: string): [string, string, string] {
+  if (colorKey && CARD_PALETTE[colorKey]) return CARD_PALETTE[colorKey];
+  if (cardArt[id]) return cardArt[id];
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  const key = CARD_PALETTE_ORDER[hash % CARD_PALETTE_ORDER.length];
+  return CARD_PALETTE[key];
 }

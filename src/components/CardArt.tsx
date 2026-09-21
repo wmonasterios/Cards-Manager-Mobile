@@ -5,14 +5,16 @@ import { artGradient } from '../data';
 
 export function CardArt({
   cardId,
+  colorKey,
   style,
   children,
 }: {
   cardId: string;
+  colorKey?: string;
   style?: StyleProp<ViewStyle>;
   children?: React.ReactNode;
 }) {
-  const [c0, c1, c2] = artGradient(cardId);
+  const [c0, c1, c2] = artGradient(cardId, colorKey);
   return (
     <LinearGradient
       colors={[c0, c1, c2]}

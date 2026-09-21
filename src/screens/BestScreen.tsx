@@ -70,10 +70,10 @@ export function BestScreen({ navigation }: Props) {
               onPress={() => navigation.navigate('CardDetail', { cardId: r.c.id })}
               style={styles.row}
             >
-              <CardArt cardId={r.c.id} style={styles.thumb} />
+              <CardArt cardId={r.c.id} colorKey={r.c.colorKey} style={styles.thumb} />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={styles.bank} numberOfLines={1}>
-                  {r.c.bank} {r.c.product}
+                  {r.c.displayName} {r.c.product}
                 </Text>
                 <Text style={styles.note} numberOfLines={1}>
                   {r.note} · {r.c.availableText} {t.availableWord}

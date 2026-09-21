@@ -93,13 +93,13 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
   );
 
   const statusNote = tx.declined
-    ? `Declined by ${card.bank} — over limit`
+    ? `Declined by ${card.displayName} — over limit`
     : tx.amount > 0
-      ? `Payment credited to ${card.bank}`
-      : `Posted · ${card.bank} ${card.last4}`;
+      ? `Payment credited to ${card.displayName}`
+      : `Posted · ${card.displayName} ${card.last4}`;
 
   const rows = [
-    { label: t.card, value: `${card.bank} ${card.product}` },
+    { label: t.card, value: `${card.displayName} ${card.product}` },
     { label: t.category, value: categoryLabel(tx.category) },
     { label: t.dateLabel, value: `${tx.date}, 2026` },
     { label: t.plan, value: tx.plan ? `${tx.plan} · 0%` : t.single },
@@ -107,7 +107,7 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
     { label: t.originalDesc, value: tx.merchant.toUpperCase() },
   ];
 
-  const sourceNote = `Read from the ${card.bank} statement PDF received on ${card.cutoff}. Amounts can differ from the bank app until the next statement arrives.`;
+  const sourceNote = `Read from the ${card.displayName} statement PDF received on ${card.cutoff}. Amounts can differ from the bank app until the next statement arrives.`;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>

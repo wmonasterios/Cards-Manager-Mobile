@@ -143,12 +143,27 @@ export function chartSeriesColors(c: ColorTokens): string[] {
   return [c.seg1, c.seg2, c.seg3, c.seg4, c.seg5, c.seg6, c.seg7];
 }
 
+// Fixed gradients for the demo catalogue's hardcoded card ids.
 export const cardArt: Record<string, [string, string, string]> = {
   aliado: ['#131b30', '#22375f', '#2f4d84'],
   bac: ['#2a1420', '#5a2333', '#7c3145'],
   davi: ['#19202b', '#2c3a47', '#3e5163'],
   bac2: ['#1b1e27', '#31353f', '#474c58'],
 };
+
+// A curated palette real cards can be assigned to — either automatically (by
+// hashing the card's id, so cards look different from each other by default)
+// or explicitly, when the user picks a color for a card.
+export const CARD_PALETTE: Record<string, [string, string, string]> = {
+  violet: ['#1c1730', '#332a5c', '#4a3d86'],
+  ocean: ['#0f1f2e', '#1c3a54', '#2a5980'],
+  forest: ['#12261c', '#1f4231', '#2d6247'],
+  ember: ['#2a1420', '#5a2333', '#7c3145'],
+  slate: ['#1b1e27', '#31353f', '#474c58'],
+  gold: ['#2a2210', '#5c4a1c', '#8a7128'],
+};
+
+export const CARD_PALETTE_ORDER = Object.keys(CARD_PALETTE);
 
 export const radius = { sm: 8, md: 12, lg: 14, xl: 16, pill: 999 };
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24 };

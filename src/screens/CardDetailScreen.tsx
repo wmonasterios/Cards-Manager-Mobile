@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, Modal, TextInput, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { radius, spacing, ColorTokens } from '../theme';
+import { radius, spacing, ColorTokens, CARD_PALETTE, CARD_PALETTE_ORDER } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { CardArt } from '../components/CardArt';
@@ -36,7 +36,7 @@ function startOfMonth(iso: string): string {
 
 export function CardDetailScreen({ route, navigation }: Props) {
   const { cardId } = route.params;
-  const { getCard, togglePaid, isDemo, deleteCard } = useCards();
+  const { getCard, togglePaid, isDemo, deleteCard, updateCardDisplay } = useCards();
   const card = getCard(cardId);
   const colors = useColors();
   const { lang, t } = useLocale();
@@ -47,6 +47,22 @@ export function CardDetailScreen({ route, navigation }: Props) {
   const [fromDate, setFromDate] = useState(new Date(2026, 6, 1));
   const [toDate, setToDate] = useState(new Date(2026, 8, 14));
   const [deleting, setDeleting] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editNickname, setEditNickname] = useState('');
+  const [editColorKey, setEditColorKey] = useState<string | null>(null);
+
+  const openEdit = () => {
+    if (!card) return;
+    setEditNickname(card.nickname ?? '');
+    setEditColorKey(card.colorKey ?? null);
+    setEditOpen(true);
+  };
+
+  const saveEdit = () => {
+    if (!card) return;
+    updateCardDisplay(card.id, { nickname: editNickname.trim() || null, colorKey: editColorKey });
+    setEditOpen(false);
+  };
 
   const handleTogglePaid = () => {
     if (!card) return;
@@ -57,8 +73,8 @@ export function CardDetailScreen({ route, navigation }: Props) {
     Alert.alert(
       lang === 'es' ? '¿Marcar como pagada?' : 'Mark as paid?',
       lang === 'es'
-        ? `Se marcará ${card.bank} ${card.product} como pagada este ciclo.`
-        : `${card.bank} ${card.product} will be marked as paid this cycle.`,
+        ? `Se marcará ${card.displayName} como pagada este ciclo.`
+        : `${card.displayName} will be marked as paid this cycle.`,
       [
         { text: lang === 'es' ? 'Cancelar' : 'Cancel', style: 'cancel' },
         { text: lang === 'es' ? 'Marcar pagada' : 'Mark as paid', onPress: () => togglePaid(card.id) },
@@ -122,6 +138,11 @@ export function CardDetailScreen({ route, navigation }: Props) {
         <View style={styles.topRow}>
           <BackButton onPress={() => navigation.goBack()} />
           <View style={styles.topActions}>
+            {!isDemo && (
+              <Pressable onPress={openEdit} style={styles.pillBtn}>
+                <Text style={styles.pillBtnText}>{lang === 'es' ? 'Editar' : 'Edit'}</Text>
+              </Pressable>
+            )}
             <Pressable
               onPress={() => navigation.navigate('Tabs', { screen: 'Statements', params: { cardId: card.id } })}
               style={styles.pillBtn}
@@ -140,11 +161,11 @@ export function CardDetailScreen({ route, navigation }: Props) {
         </View>
 
         <View style={styles.heroWrap}>
-          <CardArt cardId={card.id} style={styles.hero}>
+          <CardArt cardId={card.id} colorKey={card.colorKey} style={styles.hero}>
             <View style={styles.heroTop}>
               <View>
-                <Text style={styles.heroBank}>{card.bank}</Text>
-                <Text style={styles.heroSub}>{card.product}</Text>
+                <Text style={styles.heroBank}>{card.displayName}</Text>
+                <Text style={styles.heroSub}>{card.displaySub}</Text>
               </View>
               <Text style={styles.heroNetwork}>{card.network.toUpperCase()}</Text>
             </View>
@@ -292,6 +313,47 @@ export function CardDetailScreen({ route, navigation }: Props) {
           </View>
         )}
       </ScrollView>
+
+      <Modal visible={editOpen} transparent animationType="fade" onRequestClose={() => setEditOpen(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setEditOpen(false)}>
+          <Pressable style={styles.modalSheet} onPress={() => {}}>
+            <Text style={styles.modalTitle}>{lang === 'es' ? 'Editar tarjeta' : 'Edit card'}</Text>
+
+            <Text style={styles.label}>{lang === 'es' ? 'APODO' : 'NICKNAME'}</Text>
+            <TextInput
+              value={editNickname}
+              onChangeText={setEditNickname}
+              placeholder={card.bank}
+              placeholderTextColor={colors.ink3}
+              style={styles.modalSearch}
+            />
+
+            <Text style={[styles.label, { marginTop: 14 }]}>{lang === 'es' ? 'COLOR' : 'COLOR'}</Text>
+            <View style={styles.swatchRow}>
+              {CARD_PALETTE_ORDER.map((key) => {
+                const [c0, , c2] = CARD_PALETTE[key];
+                const active = editColorKey === key;
+                return (
+                  <Pressable
+                    key={key}
+                    onPress={() => setEditColorKey(active ? null : key)}
+                    style={[
+                      styles.swatch,
+                      { backgroundColor: c0, borderColor: active ? colors.accent : 'transparent' },
+                    ]}
+                  >
+                    <View style={[styles.swatchInner, { backgroundColor: c2 }]} />
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Pressable onPress={saveEdit} style={styles.saveBtn}>
+              <Text style={styles.saveBtnText}>{lang === 'es' ? 'Guardar' : 'Save'}</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -402,5 +464,46 @@ function makeStyles(colors: ColorTokens) {
       alignItems: 'center',
     },
     deleteBtnText: { fontSize: 13.5, fontWeight: '500', color: colors.accentInk2 },
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalSheet: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: radius.xl,
+      borderTopRightRadius: radius.xl,
+      padding: spacing.xl,
+      paddingBottom: spacing.xxl,
+    },
+    modalTitle: { fontSize: 16, fontWeight: '500', color: colors.ink, marginBottom: 14 },
+    label: { fontSize: 11, fontWeight: '500', color: colors.ink3, letterSpacing: 1, marginBottom: 8 },
+    modalSearch: {
+      borderWidth: 1,
+      borderColor: colors.line,
+      borderRadius: radius.md - 2,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      fontSize: 14,
+      color: colors.ink,
+    },
+    swatchRow: { flexDirection: 'row', gap: 12 },
+    swatch: {
+      width: 40,
+      height: 40,
+      borderRadius: 999,
+      borderWidth: 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    swatchInner: { width: 18, height: 18, borderRadius: 999 },
+    saveBtn: {
+      marginTop: 22,
+      padding: 14,
+      borderRadius: radius.md,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+    },
+    saveBtnText: { fontSize: 14, fontWeight: '600', color: colors.bg },
   });
 }

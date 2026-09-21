@@ -58,9 +58,10 @@ export async function parseStatement(statementId: string): Promise<ParsedStateme
 export async function applyStatement(
   statementId: string,
   fields: ParsedStatement,
+  cardId?: string,
 ): Promise<{ cardId: string; created: boolean; transactionsInserted: number }> {
   const { data, error } = await supabase.functions.invoke('apply-statement', {
-    body: { statementId, fields },
+    body: { statementId, fields, cardId },
   });
   if (error) throw error;
   if (data?.error) throw new Error(data.error);

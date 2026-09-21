@@ -50,7 +50,7 @@ export function PayScreen({ route, navigation }: Props) {
     }
     const whenLabel = when === 'today' ? 'Registered · 14 Sep' : `Scheduled · ${card.due}`;
     addPayment(card.id, payAmount, whenLabel);
-    Alert.alert(`${money('US$', payAmount)} registered on ${card.bank}`);
+    Alert.alert(`${money('US$', payAmount)} registered on ${card.displayName}`);
     navigation.goBack();
   };
 
@@ -62,10 +62,10 @@ export function PayScreen({ route, navigation }: Props) {
           <Text style={styles.title}>{t.registerPay}</Text>
           <Text style={styles.sub}>{t.noMoney}</Text>
           <View style={styles.cardRow}>
-            <CardArt cardId={card.id} style={styles.cardThumb} />
+            <CardArt cardId={card.id} colorKey={card.colorKey} style={styles.cardThumb} />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.cardName}>
-                {card.bank} {card.product}
+                {card.displayName} {card.product}
               </Text>
               <Text style={styles.cardMeta}>
                 {card.last4} · {card.dueShort}

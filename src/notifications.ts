@@ -56,7 +56,7 @@ export async function schedulePaymentReminders(cards: DecoratedCard[]) {
     if (fireAt.getTime() <= Date.now()) continue;
     const id = await Notifications.scheduleNotificationAsync({
       content: {
-        title: `${card.bank} due in 3 days`,
+        title: `${card.displayName} due in 3 days`,
         body: `${card.balanceText} · minimum ${card.minText}`,
       },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fireAt },

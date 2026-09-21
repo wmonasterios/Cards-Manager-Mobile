@@ -7,6 +7,7 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Modal,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,7 +31,9 @@ import {
   deleteStatement,
   listNeedsReviewStatements,
 } from '../supabase/statementsApi';
-import { DbStatement, ParsedStatement } from '../supabase/types';
+import { listCardAliases } from '../supabase/cardsApi';
+import { DbStatement, DbCardAlias, ParsedStatement } from '../supabase/types';
+import { DecoratedCard } from '../decorate';
 
 type UploadStage = 'idle' | 'parsing' | 'review';
 type RealStage = 'idle' | 'uploading' | 'parsing' | 'review' | 'error';
@@ -128,7 +131,7 @@ function RealStatementsFlow({ navigation, route }: any) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { session } = useAuth();
-  const { refresh, getCard } = useCards();
+  const { refresh, getCard, cards } = useCards();
   const userId = session?.user.id;
 
   const filterCardId: string | undefined = route?.params?.cardId;
@@ -145,6 +148,12 @@ function RealStatementsFlow({ navigation, route }: any) {
   const [parseProgress, setParseProgress] = useState(0);
   const [parseSeconds, setParseSeconds] = useState(0);
   const parseTicker = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+
+  const [aliases, setAliases] = useState<DbCardAlias[]>([]);
+  // undefined = follow the automatic match; null = user said "it's a new card";
+  // a string = a specific card the user picked or confirmed explicitly.
+  const [chosenCardId, setChosenCardId] = useState<string | null | undefined>(undefined);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const visibleHistory =
     filterCard && !showAllCards ? history.filter((s) => s.card_id === filterCard.id) : history;
@@ -177,7 +186,42 @@ function RealStatementsFlow({ navigation, route }: any) {
 
   useEffect(() => {
     loadHistory();
+    if (userId) {
+      listCardAliases(userId).then(setAliases).catch(() => {});
+    }
   }, [userId]);
+
+  // Which card this statement belongs to is never guessed from live text —
+  // it's either forced (uploading from inside a specific card), an exact
+  // match against a previously-confirmed (bank, last4) alias, a same-bank
+  // match (possibly a renewal, if last4 changed), or genuinely new.
+  type Resolution =
+    | { kind: 'forced'; card: DecoratedCard }
+    | { kind: 'alias'; card: DecoratedCard }
+    | { kind: 'match'; card: DecoratedCard; sameLast4: boolean }
+    | { kind: 'ambiguous'; candidates: DecoratedCard[] }
+    | { kind: 'new' };
+
+  const resolution: Resolution = useMemo(() => {
+    if (!fields) return { kind: 'new' };
+    if (filterCard) return { kind: 'forced', card: filterCard };
+
+    const bankNorm = fields.bank.trim().toLowerCase();
+    const last4Norm = (fields.last4 ?? '').replace(/\D/g, '').slice(-4) || null;
+
+    const aliasHit = aliases.find((a) => a.bank_text === bankNorm && a.last4 === last4Norm);
+    const aliasCard = aliasHit ? cards.find((c) => c.id === aliasHit.card_id) : undefined;
+    if (aliasCard) return { kind: 'alias', card: aliasCard };
+
+    const bankMatches = cards.filter((c) => c.bank.trim().toLowerCase() === bankNorm);
+    if (bankMatches.length === 1) {
+      return { kind: 'match', card: bankMatches[0], sameLast4: bankMatches[0].last4 === last4Norm };
+    }
+    if (bankMatches.length > 1) return { kind: 'ambiguous', candidates: bankMatches };
+    return { kind: 'new' };
+  }, [fields, filterCard, aliases, cards]);
+
+  const chosenCard = chosenCardId ? cards.find((c) => c.id === chosenCardId) : undefined;
 
   const confirmDuplicateUpload = (existing: DbStatement): Promise<boolean> =>
     new Promise((resolve) => {
@@ -225,6 +269,7 @@ function RealStatementsFlow({ navigation, route }: any) {
       const parsed = await parseStatement(statement.id);
       stopParseTicker(100);
       setFields(parsed);
+      setChosenCardId(undefined);
       setStage('review');
     } catch (err: any) {
       clearInterval(parseTicker.current);
@@ -239,18 +284,62 @@ function RealStatementsFlow({ navigation, route }: any) {
     if (s.status !== 'needs_review' || !s.parsed) return;
     setStatementId(s.id);
     setFields(s.parsed);
+    setChosenCardId(s.card_id ?? undefined);
     setStage('review');
+  };
+
+  const resolvedCardId = (): string | undefined | 'ambiguous' => {
+    if (chosenCardId !== undefined) return chosenCardId ?? undefined;
+    if (resolution.kind === 'forced' || resolution.kind === 'alias') return resolution.card.id;
+    if (resolution.kind === 'match' && resolution.sameLast4) return resolution.card.id;
+    if (resolution.kind === 'match') return undefined; // renewal guess needs explicit confirmation
+    if (resolution.kind === 'ambiguous') return 'ambiguous';
+    return undefined;
   };
 
   const confirmApply = async () => {
     if (!statementId || !fields) return;
+    const cardId = resolvedCardId();
+    if (cardId === 'ambiguous') {
+      Alert.alert(
+        lang === 'es' ? 'Elige la tarjeta' : 'Pick the card',
+        lang === 'es'
+          ? 'Hay varias tarjetas de este banco. Elige a cuál pertenece este estado de cuenta.'
+          : 'There are several cards from this bank. Pick which one this statement belongs to.',
+      );
+      setPickerOpen(true);
+      return;
+    }
+    if (resolution.kind === 'match' && !resolution.sameLast4 && chosenCardId === undefined) {
+      // A same-bank match with a different last4 could be a renewal — don't
+      // silently assume it, ask once.
+      Alert.alert(
+        lang === 'es' ? '¿Es la misma tarjeta renovada?' : 'Is this the same card, renewed?',
+        lang === 'es'
+          ? `El banco coincide con ${resolution.card.displayName}, pero los últimos 4 dígitos cambiaron (de ${resolution.card.last4} a ${fields.last4 ?? '----'}).`
+          : `The bank matches ${resolution.card.displayName}, but the last 4 digits changed (from ${resolution.card.last4} to ${fields.last4 ?? '----'}).`,
+        [
+          {
+            text: lang === 'es' ? 'No, es otra' : 'No, different card',
+            style: 'cancel',
+            onPress: () => setPickerOpen(true),
+          },
+          {
+            text: lang === 'es' ? 'Sí, es la misma' : 'Yes, same card',
+            onPress: () => setChosenCardId(resolution.card.id),
+          },
+        ],
+      );
+      return;
+    }
     setApplying(true);
     try {
-      const result = await applyStatement(statementId, fields);
+      const result = await applyStatement(statementId, fields, cardId);
       await refresh();
       setStage('idle');
       setStatementId(null);
       setFields(null);
+      setChosenCardId(undefined);
       navigation.navigate('CardDetail', { cardId: result.cardId });
     } catch (err: any) {
       Alert.alert(lang === 'es' ? 'No se pudo guardar' : 'Could not save', friendlyErrorMessage(err, lang));
@@ -266,6 +355,7 @@ function RealStatementsFlow({ navigation, route }: any) {
     setStage('idle');
     setStatementId(null);
     setFields(null);
+    setChosenCardId(undefined);
   };
 
   // The "Discard" button, in contrast, means it: confirms, then actually
@@ -289,6 +379,7 @@ function RealStatementsFlow({ navigation, route }: any) {
               setStage('idle');
               setStatementId(null);
               setFields(null);
+              setChosenCardId(undefined);
             } catch (err: any) {
               Alert.alert(
                 lang === 'es' ? 'No se pudo descartar' : 'Could not discard',
@@ -301,6 +392,107 @@ function RealStatementsFlow({ navigation, route }: any) {
           },
         },
       ],
+    );
+  };
+
+  const renderMatchBanner = () => {
+    if (!fields) return null;
+    if (resolution.kind === 'forced') {
+      return (
+        <View style={styles.matchInlineBanner}>
+          <Text style={styles.matchInlineTitle}>
+            {lang === 'es' ? `Se guardará en ${resolution.card.displayName}` : `Will save to ${resolution.card.displayName}`}
+          </Text>
+          <Text style={styles.matchInlineSub}>•••• {resolution.card.last4}</Text>
+        </View>
+      );
+    }
+    if (chosenCardId !== undefined) {
+      if (chosenCardId === null) {
+        return (
+          <View style={styles.matchInlineBanner}>
+            <Text style={styles.matchInlineTitle}>
+              {lang === 'es' ? 'Se creará una tarjeta nueva' : 'A new card will be created'}
+            </Text>
+            <Pressable onPress={() => setPickerOpen(true)} hitSlop={6}>
+              <Text style={styles.matchInlineLink}>{lang === 'es' ? 'Elegir una existente' : 'Pick an existing one'}</Text>
+            </Pressable>
+          </View>
+        );
+      }
+      if (chosenCard) {
+        return (
+          <View style={styles.matchInlineBanner}>
+            <Text style={styles.matchInlineTitle}>
+              {lang === 'es' ? `Se guardará en ${chosenCard.displayName}` : `Will save to ${chosenCard.displayName}`}
+            </Text>
+            <Pressable onPress={() => setPickerOpen(true)} hitSlop={6}>
+              <Text style={styles.matchInlineLink}>{lang === 'es' ? 'Cambiar' : 'Change'}</Text>
+            </Pressable>
+          </View>
+        );
+      }
+      return null;
+    }
+    if (resolution.kind === 'alias' || (resolution.kind === 'match' && resolution.sameLast4)) {
+      const card = resolution.card;
+      return (
+        <View style={styles.matchInlineBanner}>
+          <Text style={styles.matchInlineTitle}>
+            {lang === 'es' ? `Se guardará en ${card.displayName}` : `Will save to ${card.displayName}`}
+          </Text>
+          <Pressable onPress={() => setPickerOpen(true)} hitSlop={6}>
+            <Text style={styles.matchInlineLink}>{lang === 'es' ? 'Cambiar' : 'Change'}</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    if (resolution.kind === 'match') {
+      const card = resolution.card;
+      return (
+        <View style={styles.renewalBanner}>
+          <Text style={styles.matchInlineTitle}>
+            {lang === 'es'
+              ? `¿Es la renovación de ${card.displayName}? Los últimos 4 dígitos cambiaron.`
+              : `Is this the renewal of ${card.displayName}? The last 4 digits changed.`}
+          </Text>
+          <View style={styles.renewalActions}>
+            <Pressable onPress={() => setChosenCardId(card.id)} style={styles.renewalYes}>
+              <Text style={styles.renewalYesText}>{lang === 'es' ? 'Sí, la misma' : 'Yes, same card'}</Text>
+            </Pressable>
+            <Pressable onPress={() => setPickerOpen(true)} style={styles.renewalNo}>
+              <Text style={styles.renewalNoText}>{lang === 'es' ? 'No, otra' : 'No, different'}</Text>
+            </Pressable>
+          </View>
+        </View>
+      );
+    }
+    if (resolution.kind === 'ambiguous') {
+      return (
+        <View style={styles.renewalBanner}>
+          <Text style={styles.matchInlineTitle}>
+            {lang === 'es' ? 'Hay varias tarjetas de este banco. ¿Cuál es?' : 'There are several cards from this bank. Which one?'}
+          </Text>
+          <View style={{ marginTop: 10, gap: 6 }}>
+            {resolution.candidates.map((c) => (
+              <Pressable key={c.id} onPress={() => setChosenCardId(c.id)} style={styles.candidateRow}>
+                <Text style={styles.candidateText}>{c.displayName} · •••• {c.last4}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Pressable onPress={() => setChosenCardId(null)} hitSlop={6} style={{ marginTop: 8 }}>
+            <Text style={styles.matchInlineLink}>{lang === 'es' ? 'Ninguna, es nueva' : "None, it's new"}</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.matchInlineBanner}>
+        <Text style={styles.matchInlineTitle}>{lang === 'es' ? 'Parece una tarjeta nueva' : 'Looks like a new card'}</Text>
+        <Pressable onPress={() => setPickerOpen(true)} hitSlop={6}>
+          <Text style={styles.matchInlineLink}>{lang === 'es' ? '¿Ya la tienes?' : 'Already have it?'}</Text>
+        </Pressable>
+      </View>
     );
   };
 
@@ -388,6 +580,8 @@ function RealStatementsFlow({ navigation, route }: any) {
               </View>
             )}
           </View>
+
+          <View style={styles.section}>{renderMatchBanner()}</View>
 
           <View style={styles.section}>
             <Text style={styles.label}>{lang === 'es' ? 'BANCO' : 'BANK'}</Text>
@@ -498,6 +692,40 @@ function RealStatementsFlow({ navigation, route }: any) {
             </View>
           </View>
         </ScrollView>
+
+        <Modal visible={pickerOpen} animationType="slide" transparent onRequestClose={() => setPickerOpen(false)}>
+          <Pressable style={styles.pickerBackdrop} onPress={() => setPickerOpen(false)}>
+            <Pressable style={styles.pickerSheet} onPress={() => {}}>
+              <Text style={styles.pickerTitle}>{lang === 'es' ? 'Elige la tarjeta' : 'Pick the card'}</Text>
+              <ScrollView style={{ maxHeight: 360 }}>
+                <Pressable
+                  style={styles.pickerNewRow}
+                  onPress={() => {
+                    setChosenCardId(null);
+                    setPickerOpen(false);
+                  }}
+                >
+                  <Text style={styles.pickerNewText}>{lang === 'es' ? 'Es una tarjeta nueva' : "It's a new card"}</Text>
+                </Pressable>
+                {cards.map((c) => (
+                  <Pressable
+                    key={c.id}
+                    style={styles.pickerRow}
+                    onPress={() => {
+                      setChosenCardId(c.id);
+                      setPickerOpen(false);
+                    }}
+                  >
+                    <Text style={styles.pickerRowText}>{c.displayName}</Text>
+                    <Text style={styles.pickerRowSub}>
+                      {c.bank} {c.product ? `· ${c.product}` : ''} · •••• {c.last4}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </Pressable>
+          </Pressable>
+        </Modal>
       </SafeAreaView>
     );
   }
@@ -531,14 +759,14 @@ function RealStatementsFlow({ navigation, route }: any) {
               <View style={styles.historyHeadRow}>
                 <Text style={styles.historyTitle}>
                   {filterCard && !showAllCards
-                    ? (lang === 'es' ? `Estados de ${filterCard.bank}` : `${filterCard.bank}'s statements`)
+                    ? (lang === 'es' ? `Estados de ${filterCard.displayName}` : `${filterCard.displayName}'s statements`)
                     : (lang === 'es' ? 'Historial' : 'History')}
                 </Text>
                 {filterCard && (
                   <Pressable onPress={() => setShowAllCards((v) => !v)} hitSlop={8}>
                     <Text style={styles.historyFilterLink}>
                       {showAllCards
-                        ? (lang === 'es' ? `Solo ${filterCard.bank}` : `Only ${filterCard.bank}`)
+                        ? (lang === 'es' ? `Solo ${filterCard.displayName}` : `Only ${filterCard.displayName}`)
                         : (lang === 'es' ? 'Ver todas' : 'View all')}
                     </Text>
                   </Pressable>
@@ -975,5 +1203,84 @@ function makeStyles(colors: ColorTokens) {
     zeroTxBannerText: { fontSize: 12, color: colors.accentInk, lineHeight: 17 },
     manualLink: { marginTop: 18, alignItems: 'center' },
     manualLinkText: { fontSize: 12, color: colors.accent, fontWeight: '500' },
+    matchInlineBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 10,
+      padding: 13,
+      borderRadius: radius.lg,
+      backgroundColor: colors.tint,
+      borderWidth: 1,
+      borderColor: colors.tint2,
+    },
+    matchInlineTitle: { fontSize: 12.5, fontWeight: '500', color: colors.accentInk, flex: 1 },
+    matchInlineSub: { fontSize: 11.5, color: colors.accentInk2 },
+    matchInlineLink: { fontSize: 12, fontWeight: '600', color: colors.accent },
+    renewalBanner: {
+      padding: 13,
+      borderRadius: radius.lg,
+      backgroundColor: colors.tint,
+      borderWidth: 1,
+      borderColor: colors.tint2,
+    },
+    renewalActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
+    renewalYes: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: radius.sm + 2,
+      borderWidth: 1,
+      borderColor: colors.accent,
+      alignItems: 'center',
+    },
+    renewalYesText: { fontSize: 12.5, fontWeight: '500', color: colors.accent },
+    renewalNo: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: radius.sm + 2,
+      borderWidth: 1,
+      borderColor: colors.hair4,
+      alignItems: 'center',
+    },
+    renewalNoText: { fontSize: 12.5, fontWeight: '500', color: colors.ink2 },
+    candidateRow: {
+      padding: 11,
+      borderRadius: radius.sm + 2,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.line,
+    },
+    candidateText: { fontSize: 12.5, fontWeight: '500', color: colors.ink },
+    pickerBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.4)',
+      justifyContent: 'flex-end',
+    },
+    pickerSheet: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: radius.xl,
+      borderTopRightRadius: radius.xl,
+      padding: spacing.xl,
+      paddingBottom: spacing.xxl,
+    },
+    pickerTitle: { fontSize: 17, fontWeight: '600', color: colors.ink, marginBottom: 12 },
+    pickerNewRow: {
+      padding: 13,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: colors.accentLine,
+      marginBottom: 8,
+    },
+    pickerNewText: { fontSize: 13, fontWeight: '500', color: colors.accentInk },
+    pickerRow: {
+      padding: 13,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.line,
+      marginBottom: 8,
+    },
+    pickerRowText: { fontSize: 13, fontWeight: '500', color: colors.ink },
+    pickerRowSub: { fontSize: 11, color: colors.ink3, marginTop: 3 },
   });
 }

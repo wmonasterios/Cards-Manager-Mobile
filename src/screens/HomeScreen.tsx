@@ -82,12 +82,12 @@ export function HomeScreen({ navigation }: any) {
               onPress={() => navigation.navigate('CardDetail', { cardId: c.id })}
               style={[styles.stackSlot, { top: i * CARD_STEP, zIndex: 10 + i }]}
             >
-              <CardArt cardId={c.id} style={styles.cardArt}>
+              <CardArt cardId={c.id} colorKey={c.colorKey} style={styles.cardArt}>
                 <View style={styles.cardTopRow}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.cardBank}>{c.bank}</Text>
+                    <Text style={styles.cardBank}>{c.displayName}</Text>
                     <Text style={styles.cardSub}>
-                      {c.product} · {c.last4}
+                      {c.displaySub} · {c.last4}
                     </Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>

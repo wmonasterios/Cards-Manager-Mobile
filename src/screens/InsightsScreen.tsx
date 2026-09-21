@@ -109,7 +109,7 @@ export function InsightsScreen({ navigation }: any) {
                     style={[styles.chip, active && styles.chipActive]}
                   >
                     <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>
-                      {c.bank} {c.last4}
+                      {c.displayName} {c.last4}
                     </Text>
                   </Pressable>
                 );

@@ -29,6 +29,8 @@ export type DecoratedCard = Card & {
   stateText: string;
   stateInk: string;
   barInk: string;
+  displayName: string;
+  displaySub: string;
   dtx: DecoratedTransaction[];
 };
 
@@ -45,7 +47,7 @@ export function decorateTransaction(t: Transaction, card: Card, colors: ColorTok
     catBg: cat.bg,
     catInk: cat.ink,
     catIcon: cat.icon,
-    cardShort: card.bank + ' ' + card.last4.slice(-4),
+    cardShort: (card.nickname || card.bank) + ' ' + card.last4.slice(-4),
   };
 }
 
@@ -86,6 +88,10 @@ export function decorateCard(
         : `${t.minWord} ${fmtC(c.min)}`,
     stateInk: paid ? colors.ink2 : colors.accentInk,
     barInk: usedPct > 60 ? colors.accentInk2 : colors.bar,
+    // With a nickname, that becomes the headline and the real bank/product
+    // moves to the subtitle so the actual card is still identifiable.
+    displayName: c.nickname || c.bank,
+    displaySub: c.nickname ? [c.bank, c.product].filter(Boolean).join(' ') : c.product,
     dtx: c.tx.map((tr) => decorateTransaction(tr, c, colors)),
   };
 }

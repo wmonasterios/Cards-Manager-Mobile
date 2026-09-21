@@ -74,7 +74,7 @@ export function TransactionsScreen({ route, navigation }: Props) {
         if (selCardId && card.id !== selCardId) return false;
         if (
           q &&
-          !`${tx.merchant} ${tx.sub} ${categoryLabel(tx.category)} ${card.bank} ${card.product} ${card.last4}`
+          !`${tx.merchant} ${tx.sub} ${categoryLabel(tx.category)} ${card.displayName} ${card.bank} ${card.product} ${card.last4}`
             .toLowerCase()
             .includes(q)
         ) {
@@ -167,7 +167,7 @@ export function TransactionsScreen({ route, navigation }: Props) {
                       style={[styles.chip, active && styles.chipActive]}
                     >
                       <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                        {c.bank} {c.last4}
+                        {c.displayName} {c.last4}
                       </Text>
                     </Pressable>
                   );

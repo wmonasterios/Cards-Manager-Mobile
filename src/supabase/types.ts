@@ -21,6 +21,8 @@ export type DbCard = {
   reward_point_value: number | null;
   reward_accelerators: RewardAccelerator[];
   archived: boolean;
+  nickname: string | null;
+  color_key: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -29,6 +31,15 @@ export type NewDbCard = Pick<DbCard, 'bank'> &
   Partial<
     Omit<DbCard, 'id' | 'user_id' | 'bank' | 'created_at' | 'updated_at' | 'archived' | 'paid_this_cycle'>
   >;
+
+export type DbCardAlias = {
+  id: string;
+  user_id: string;
+  card_id: string;
+  bank_text: string;
+  last4: string | null;
+  created_at: string;
+};
 
 export type DbPayment = {
   id: string;

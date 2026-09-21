@@ -91,7 +91,7 @@ export function CalendarScreen() {
         const d = new Date(c.dueIso + 'T00:00:00');
         if (d.getFullYear() !== year || d.getMonth() !== month) continue;
         add(d.getDate(), {
-          card: `${c.bank} ${c.product}`.trim(),
+          card: `${c.displayName} ${c.product}`.trim(),
           note: c.dueShort,
           amount: c.balanceText,
           min: c.minText,
@@ -114,7 +114,7 @@ export function CalendarScreen() {
   const previewTitle = isDemo
     ? 'Banco Aliado · due in 3 days'
     : firstUnpaid
-      ? `${firstUnpaid.bank} · ${firstUnpaid.dueShort}`
+      ? `${firstUnpaid.displayName} · ${firstUnpaid.dueShort}`
       : lang === 'es'
         ? 'No tienes pagos pendientes'
         : "You're all caught up";
