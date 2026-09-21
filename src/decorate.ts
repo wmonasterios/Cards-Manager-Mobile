@@ -60,7 +60,9 @@ export function decorateCard(
 ): DecoratedCard {
   const paid = paidOverride !== undefined ? paidOverride : c.balance === 0;
   const paidAmt = payments.reduce((n, p) => n + p.amount, 0);
-  const remaining = Math.max(0, c.balance - paidAmt);
+  // Marking a card Paid without registering a specific payment amount still
+  // means the whole balance is settled — don't leave the old balance showing.
+  const remaining = paid ? 0 : Math.max(0, c.balance - paidAmt);
   const usedPct = Math.round((remaining / c.limit) * 100);
   const fmtC = (n: number) => money(c.cur, n);
 

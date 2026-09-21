@@ -249,6 +249,13 @@ export function CardDetailScreen({ route, navigation }: Props) {
             <Text style={styles.sectionTitle}>{t.transactions}</Text>
             <Text style={styles.sectionNote}>{card.cycleNote}</Text>
           </View>
+          <Pressable
+            onPress={() => navigation.navigate('Transactions', { cardId: card.id })}
+            style={styles.seeAllRow}
+            hitSlop={6}
+          >
+            <Text style={styles.seeAll}>{t.seeAll}</Text>
+          </Pressable>
           <View style={{ marginTop: 12 }}>
             <Segmented
               options={[
@@ -302,12 +309,6 @@ export function CardDetailScreen({ route, navigation }: Props) {
               </Text>
             </Pressable>
           )}
-          <Pressable
-            onPress={() => navigation.navigate('Transactions', { cardId: card.id })}
-            style={styles.searchAllBtn}
-          >
-            <Text style={styles.searchAllBtnText}>{t.searchAllTx}</Text>
-          </Pressable>
         </View>
 
         {!isDemo && (
@@ -465,8 +466,8 @@ function makeStyles(colors: ColorTokens) {
       alignItems: 'center',
     },
     moreBtnText: { fontSize: 12.5, fontWeight: '500', color: colors.ink },
-    searchAllBtn: { marginTop: 10, alignItems: 'center' },
-    searchAllBtnText: { fontSize: 12.5, fontWeight: '500', color: colors.accent },
+    seeAllRow: { alignItems: 'flex-end', marginTop: 4 },
+    seeAll: { fontSize: 12, fontWeight: '500', color: colors.accent },
     deleteBtn: {
       padding: 14,
       borderRadius: radius.md,
