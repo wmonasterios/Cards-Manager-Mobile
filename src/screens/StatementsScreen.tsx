@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  Linking,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,6 +32,7 @@ import {
   deleteStatement,
   listNeedsReviewStatements,
   getStatement,
+  getStatementPdfUrl,
 } from '../supabase/statementsApi';
 import { listCardAliases } from '../supabase/cardsApi';
 import { DbStatement, DbCardAlias, ParsedStatement } from '../supabase/types';
@@ -338,6 +340,34 @@ function RealStatementsFlow({ navigation, route }: any) {
     setFields(s.parsed);
     setChosenCardId(s.card_id ?? undefined);
     setStage('review');
+  };
+
+  const [openingStatementId, setOpeningStatementId] = useState<string | null>(null);
+
+  const openStatementPdf = async (s: DbStatement) => {
+    setOpeningStatementId(s.id);
+    try {
+      const url = await getStatementPdfUrl(s.id);
+      await Linking.openURL(url);
+    } catch (err: any) {
+      Alert.alert(
+        lang === 'es' ? 'No se pudo abrir el PDF' : 'Could not open the PDF',
+        friendlyErrorMessage(err, lang),
+      );
+    } finally {
+      setOpeningStatementId(null);
+    }
+  };
+
+  // Statements still needing review resume the review flow; every other
+  // statement (applied, failed) just opens its original PDF, since there is
+  // nothing left to review.
+  const handleStatementPress = (s: DbStatement) => {
+    if (s.status === 'needs_review') {
+      resumeReview(s);
+    } else {
+      openStatementPdf(s);
+    }
   };
 
   const resolvedCardId = (): string | undefined | 'ambiguous' => {
@@ -835,12 +865,16 @@ function RealStatementsFlow({ navigation, route }: any) {
                 {visibleHistory.map((s) => (
                   <Pressable
                     key={s.id}
-                    disabled={s.status !== 'needs_review'}
-                    onPress={() => resumeReview(s)}
+                    disabled={openingStatementId === s.id}
+                    onPress={() => handleStatementPress(s)}
                     style={styles.historyRow}
                   >
                     <View style={styles.historyBadge}>
-                      <Text style={styles.historyBadgeText}>PDF</Text>
+                      {openingStatementId === s.id ? (
+                        <ActivityIndicator size="small" color={colors.accentInk} />
+                      ) : (
+                        <Text style={styles.historyBadgeText}>PDF</Text>
+                      )}
                     </View>
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text style={styles.historyRowTitle} numberOfLines={1}>

@@ -12,7 +12,7 @@ export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabParamList> | undefined;
   Onboarding: undefined;
   CardDetail: { cardId: string };
-  Transactions: { initialQuery?: string };
+  Transactions: { initialQuery?: string; cardId?: string };
   TransactionDetail: { txId: string; cardId: string };
   Pay: { cardId: string };
   Best: undefined;

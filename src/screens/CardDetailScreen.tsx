@@ -198,6 +198,9 @@ export function CardDetailScreen({ route, navigation }: Props) {
             <View style={{ marginTop: 10 }}>
               <ProgressBar pct={card.usedPct} fill={card.barInk} />
             </View>
+            <Text style={styles.tileNote}>
+              {card.availableText} {t.availableWord}
+            </Text>
           </View>
         </View>
 
@@ -299,6 +302,12 @@ export function CardDetailScreen({ route, navigation }: Props) {
               </Text>
             </Pressable>
           )}
+          <Pressable
+            onPress={() => navigation.navigate('Transactions', { cardId: card.id })}
+            style={styles.searchAllBtn}
+          >
+            <Text style={styles.searchAllBtnText}>{t.searchAllTx}</Text>
+          </Pressable>
         </View>
 
         {!isDemo && (
@@ -456,6 +465,8 @@ function makeStyles(colors: ColorTokens) {
       alignItems: 'center',
     },
     moreBtnText: { fontSize: 12.5, fontWeight: '500', color: colors.ink },
+    searchAllBtn: { marginTop: 10, alignItems: 'center' },
+    searchAllBtnText: { fontSize: 12.5, fontWeight: '500', color: colors.accent },
     deleteBtn: {
       padding: 14,
       borderRadius: radius.md,

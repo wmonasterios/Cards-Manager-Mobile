@@ -74,7 +74,7 @@ export function decorateCard(
     paidNote:
       paidAmt > 0
         ? `${fmtC(paidAmt)} ${t.registeredWord} · ${fmtC(remaining)} ${t.leftWord}`
-        : `${fmtC(c.limit - remaining)} ${t.availableWord} ${t.ofWord} ${fmtC(c.limit)}`,
+        : `${t.ofWord} ${fmtC(c.limit)}`,
     balanceText: fmtC(remaining),
     minText: fmtC(Math.max(0, c.min - paidAmt)),
     limitText: fmtC(c.limit),

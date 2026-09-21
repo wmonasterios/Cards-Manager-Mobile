@@ -41,7 +41,7 @@ export function TransactionsScreen({ route, navigation }: Props) {
   const [range, setRange] = useState<RangeKey>('3months');
   const [fromDate, setFromDate] = useState(new Date(2026, 6, 1));
   const [toDate, setToDate] = useState(new Date(2026, 8, 14));
-  const [selCardId, setSelCardId] = useState<string | null>(null);
+  const [selCardId, setSelCardId] = useState<string | null>(route.params?.cardId ?? null);
   const [selCategory, setSelCategory] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [hidePayments, setHidePayments] = useState(false);
