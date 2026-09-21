@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { radius, spacing, ColorTokens, categoryLabel } from '../theme';
@@ -45,6 +46,8 @@ export function TransactionsScreen({ route, navigation }: Props) {
   const [selCategory, setSelCategory] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [hidePayments, setHidePayments] = useState(false);
+  const [cardOpen, setCardOpen] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(false);
 
   const allTx = useMemo(
     () => cards.flatMap((c) => c.dtx.map((tx) => ({ tx, card: c }))),
@@ -107,6 +110,16 @@ export function TransactionsScreen({ route, navigation }: Props) {
   }, [scoped, selCategory, sortKey]);
 
   const total = results.reduce((n, { tx }) => n + tx.amount, 0);
+  const selectedCard = selCardId ? cards.find((c) => c.id === selCardId) : undefined;
+
+  const chooseCard = (id: string) => {
+    setSelCardId((cur) => (cur === id ? null : id));
+    setCardOpen(false);
+  };
+  const chooseCategory = (cat: string) => {
+    setSelCategory((cur) => (cur === cat ? null : cat));
+    setCategoryOpen(false);
+  };
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -156,43 +169,75 @@ export function TransactionsScreen({ route, navigation }: Props) {
 
           {cards.length > 1 && (
             <>
-              <Text style={styles.filterLabel}>{t.card.toUpperCase()}</Text>
-              <View style={styles.chipRow}>
-                {cards.map((c) => {
-                  const active = selCardId === c.id;
-                  return (
-                    <Pressable
-                      key={c.id}
-                      onPress={() => setSelCardId(active ? null : c.id)}
-                      style={[styles.chip, active && styles.chipActive]}
-                    >
-                      <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                        {c.displayName} {c.last4}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <Pressable onPress={() => setCardOpen((v) => !v)} style={styles.filterHeaderRow}>
+                <Text style={styles.filterLabel}>{t.card.toUpperCase()}</Text>
+                <View style={styles.filterHeaderRight}>
+                  {!cardOpen && selectedCard && (
+                    <Text style={styles.filterSummary} numberOfLines={1}>
+                      {selectedCard.displayName} {selectedCard.last4}
+                    </Text>
+                  )}
+                  <Ionicons
+                    name={cardOpen ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color={colors.ink3}
+                  />
+                </View>
+              </Pressable>
+              {cardOpen && (
+                <View style={styles.chipRow}>
+                  {cards.map((c) => {
+                    const active = selCardId === c.id;
+                    return (
+                      <Pressable
+                        key={c.id}
+                        onPress={() => chooseCard(c.id)}
+                        style={[styles.chip, active && styles.chipActive]}
+                      >
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                          {c.displayName} {c.last4}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
             </>
           )}
 
           {availableCategories.length > 0 && (
             <>
-              <Text style={styles.filterLabel}>{t.category.toUpperCase()}</Text>
-              <View style={styles.chipRow}>
-                {availableCategories.map((cat) => {
-                  const active = selCategory === cat;
-                  return (
-                    <Pressable
-                      key={cat}
-                      onPress={() => setSelCategory(active ? null : cat)}
-                      style={[styles.chip, active && styles.chipActive]}
-                    >
-                      <Text style={[styles.chipText, active && styles.chipTextActive]}>{categoryLabel(cat)}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <Pressable onPress={() => setCategoryOpen((v) => !v)} style={styles.filterHeaderRow}>
+                <Text style={styles.filterLabel}>{t.category.toUpperCase()}</Text>
+                <View style={styles.filterHeaderRight}>
+                  {!categoryOpen && selCategory && (
+                    <Text style={styles.filterSummary} numberOfLines={1}>
+                      {categoryLabel(selCategory)}
+                    </Text>
+                  )}
+                  <Ionicons
+                    name={categoryOpen ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color={colors.ink3}
+                  />
+                </View>
+              </Pressable>
+              {categoryOpen && (
+                <View style={styles.chipRow}>
+                  {availableCategories.map((cat) => {
+                    const active = selCategory === cat;
+                    return (
+                      <Pressable
+                        key={cat}
+                        onPress={() => chooseCategory(cat)}
+                        style={[styles.chip, active && styles.chipActive]}
+                      >
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{categoryLabel(cat)}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
             </>
           )}
 
@@ -258,15 +303,22 @@ function makeStyles(colors: ColorTokens) {
     clearBtnText: { color: colors.ink2b, fontSize: 14, fontWeight: '500' },
     rangeWrap: { marginTop: 14 },
     dateRow: { flexDirection: 'row', gap: 12, marginTop: 10 },
+    filterHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 16,
+      paddingVertical: 6,
+    },
+    filterHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, minWidth: 0 },
+    filterSummary: { fontSize: 11.5, fontWeight: '500', color: colors.accent, flexShrink: 1 },
     filterLabel: {
       fontSize: 11,
       fontWeight: '600',
       letterSpacing: 0.6,
       color: colors.ink3,
-      marginTop: 16,
-      marginBottom: 8,
     },
-    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
     chip: {
       borderWidth: 1,
       borderColor: colors.line,
