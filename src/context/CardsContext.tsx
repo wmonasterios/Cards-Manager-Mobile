@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
-import { CARDS, Card, Category } from '../data';
+import { CARDS, Card, Category, DEMO_REVIEW_COUNTS } from '../data';
 import { decorateCard, DecoratedCard, Payment } from '../decorate';
 import { useT } from '../i18n/LocaleContext';
 import { useColors } from '../theme/ThemeContext';
@@ -17,7 +17,8 @@ import {
   deleteCardCompletely,
   updateTransactionCategory,
 } from '../supabase/cardsApi';
-import { DbCard, DbTransaction, NewDbCard } from '../supabase/types';
+import { listNeedsReviewStatements } from '../supabase/statementsApi';
+import { DbCard, DbTransaction, DbStatement, NewDbCard } from '../supabase/types';
 
 function shortDate(iso: string) {
   return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
@@ -56,6 +57,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
   const [dbCards, setDbCards] = useState<DbCard[]>([]);
   const [dbPayments, setDbPayments] = useState<Record<string, Payment[]>>({});
   const [dbTransactions, setDbTransactions] = useState<DbTransaction[]>([]);
+  const [dbStatements, setDbStatements] = useState<DbStatement[]>([]);
   const [realLoaded, setRealLoaded] = useState(false);
 
   const t = useT();
@@ -64,13 +66,15 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
   const loadReal = useCallback(async () => {
     if (!userId) return;
     try {
-      const [cardsRows, paymentsRows, transactionRows] = await Promise.all([
+      const [cardsRows, paymentsRows, transactionRows, statementRows] = await Promise.all([
         listCards(userId),
         listPayments(userId),
         listTransactions(userId),
+        listNeedsReviewStatements(userId),
       ]);
       setDbCards(cardsRows);
       setDbTransactions(transactionRows);
+      setDbStatements(statementRows);
       const byCard: Record<string, Payment[]> = {};
       for (const p of paymentsRows) {
         const list = byCard[p.card_id] ?? (byCard[p.card_id] = []);
@@ -94,6 +98,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       setDbCards([]);
       setDbPayments({});
       setDbTransactions([]);
+      setDbStatements([]);
       setRealLoaded(false);
     }
   }, [userId, loadReal]);
@@ -122,9 +127,25 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
   );
   const paymentsMap = isDemo ? demoPayments : dbPayments;
 
+  // How many of each card's statements are stuck in needs_review — feeds the
+  // Home screen's "Needs attention" list without re-querying per card.
+  const reviewCounts = useMemo(() => {
+    if (isDemo) return DEMO_REVIEW_COUNTS;
+    const map: Record<string, number> = {};
+    for (const s of dbStatements) {
+      if (s.status === 'needs_review' && s.card_id) {
+        map[s.card_id] = (map[s.card_id] ?? 0) + 1;
+      }
+    }
+    return map;
+  }, [isDemo, dbStatements]);
+
   const cards = useMemo(
-    () => baseCards.map((c) => decorateCard(c, paidMap[c.id], paymentsMap[c.id] ?? [], t, colors)),
-    [baseCards, paidMap, paymentsMap, t, colors],
+    () =>
+      baseCards.map((c) =>
+        decorateCard(c, paidMap[c.id], paymentsMap[c.id] ?? [], t, colors, reviewCounts[c.id] ?? 0),
+      ),
+    [baseCards, paidMap, paymentsMap, t, colors, reviewCounts],
   );
 
   const getCard = useCallback((id: string) => cards.find((c) => c.id === id), [cards]);

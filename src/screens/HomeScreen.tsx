@@ -1,13 +1,16 @@
 import React, { useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Circle } from 'react-native-svg';
 import { radius, spacing, ColorTokens } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useT } from '../i18n/LocaleContext';
 import { CardArt } from '../components/CardArt';
-import { TxRow } from '../components/TxRow';
 import { useCards } from '../context/CardsContext';
 import { money } from '../format';
+import { deriveStatus, StatusRow } from '../status';
+
+const RING_R = 15;
 
 // Exported so CardDetailScreen's hero can match this size exactly.
 export const CARD_HEIGHT = 214;
@@ -22,7 +25,21 @@ export function HomeScreen({ navigation }: any) {
   const unpaid = cards.filter((c) => !c.paid);
   const totalOwed = unpaid.reduce((n, c) => n + c.remaining, 0);
   const stackHeight = CARD_HEIGHT + (cards.length - 1) * CARD_STEP;
-  const recent = useMemo(() => cards.flatMap((c) => c.dtx).slice(0, 4), [cards]);
+  // Computed fresh on every render (not memoized against mount time) so a
+  // card that crosses a due-date threshold overnight updates without a reload.
+  const now = new Date();
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const status = useMemo(() => deriveStatus(cards, todayIso, t, colors), [cards, todayIso, t, colors]);
+
+  const goToAction = (r: StatusRow) => {
+    if (r.action === 'upload' || r.action === 'review') {
+      navigation.navigate('Statements', { cardId: r.card.id });
+    } else if (r.action === 'pay') {
+      navigation.navigate('Pay', { cardId: r.card.id });
+    } else {
+      navigation.navigate('CardDetail', { cardId: r.card.id });
+    }
+  };
 
   const nextDueText = !unpaid.length
     ? 'Everything is paid this cycle'
@@ -102,29 +119,80 @@ export function HomeScreen({ navigation }: any) {
         </View>
 
         {cards.length > 0 && (
-          <>
+          <View style={styles.statusSection}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{t.latest}</Text>
-              <Pressable onPress={() => navigation.navigate('Transactions', {})} hitSlop={6}>
-                <Text style={styles.seeAll}>{t.seeAll}</Text>
-              </Pressable>
+              <Text style={styles.sectionTitle}>{status.title}</Text>
+              <Text style={styles.statusNote}>{status.note}</Text>
             </View>
-            <View style={styles.listCard}>
-              {recent.map((tx) => (
-                <TxRow
-                  key={tx.id}
-                  tx={tx}
-                  showCard
-                  onPress={() =>
-                    navigation.navigate('TransactionDetail', {
-                      txId: tx.id,
-                      cardId: cards.find((c) => c.dtx.some((x) => x.id === tx.id))?.id ?? cards[0].id,
-                    })
-                  }
-                />
+
+            <View style={styles.healthBar}>
+              {status.segments.map((s, i) => (
+                <View key={i} style={[styles.healthSeg, { backgroundColor: s.color, width: `${s.pct}%` }]} />
               ))}
             </View>
-          </>
+
+            <View style={styles.statusList}>
+              {status.rows.map((r) => (
+                <Pressable
+                  key={r.card.id}
+                  onPress={() => goToAction(r)}
+                  style={[styles.statusRow, { borderColor: r.act ? colors.tint2 : colors.line }]}
+                >
+                  <View style={styles.ring}>
+                    <Svg
+                      viewBox="0 0 36 36"
+                      width="100%"
+                      height="100%"
+                      style={{ transform: [{ rotate: '-90deg' }] }}
+                    >
+                      <Circle cx={18} cy={18} r={RING_R} fill="none" stroke={colors.line2} strokeWidth={3} />
+                      <Circle
+                        cx={18}
+                        cy={18}
+                        r={RING_R}
+                        fill="none"
+                        stroke={r.ringColor}
+                        strokeWidth={3}
+                        strokeLinecap="round"
+                        strokeDasharray={r.ringDash}
+                      />
+                    </Svg>
+                    <View style={styles.ringTextWrap}>
+                      <Text style={[styles.ringNum, { color: r.numInk }]}>{r.ringNum}</Text>
+                      <Text style={styles.ringUnit}>{r.ringUnit}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.statusMid}>
+                    <View style={styles.statusTitleRow}>
+                      <CardArt cardId={r.card.id} colorKey={r.card.colorKey} style={styles.statusSwatch} />
+                      <Text style={styles.statusTitle} numberOfLines={1}>
+                        {r.title}
+                      </Text>
+                    </View>
+                    <Text style={styles.statusSub} numberOfLines={1}>
+                      {r.sub}
+                    </Text>
+                    {r.chips.length > 0 && (
+                      <View style={styles.statusChips}>
+                        {r.chips.map((ch, i) => (
+                          <View key={i} style={[styles.statusChip, { backgroundColor: ch.bg }]}>
+                            <Text style={[styles.statusChipText, { color: ch.ink }]}>{ch.text}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={[styles.actionPill, { borderColor: r.act ? colors.accent : colors.hair4 }]}>
+                    <Text style={[styles.actionPillText, { color: r.act ? colors.accent : colors.ink3 }]}>
+                      {r.actionLabel}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -217,15 +285,42 @@ function makeStyles(colors: ColorTokens) {
       justifyContent: 'space-between',
     },
     sectionTitle: { fontSize: 16, fontWeight: '500', color: colors.ink },
-    seeAll: { fontSize: 12, fontWeight: '500', color: colors.accent },
-    listCard: {
-      marginTop: 10,
-      marginHorizontal: spacing.lg,
+    statusSection: { marginTop: 4 },
+    statusNote: { fontSize: 11, color: colors.ink3 },
+    healthBar: { flexDirection: 'row', gap: 3, height: 5, marginTop: 12, marginHorizontal: spacing.xl },
+    healthSeg: { borderRadius: radius.pill, height: 5 },
+    statusList: { marginTop: 12, marginHorizontal: spacing.xl, gap: 8 },
+    statusRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 13,
+      paddingVertical: 13,
+      paddingHorizontal: 14,
       borderRadius: radius.lg,
       backgroundColor: colors.surface,
       borderWidth: 1,
-      borderColor: colors.line,
-      overflow: 'hidden',
     },
+    ring: { width: 44, height: 44, position: 'relative' },
+    ringTextWrap: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    ringNum: { fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'] },
+    ringUnit: { fontSize: 7.5, color: colors.ink3, letterSpacing: 0.6, textTransform: 'uppercase', marginTop: 1 },
+    statusMid: { flex: 1, minWidth: 0 },
+    statusTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+    statusSwatch: { width: 16, height: 11, borderRadius: 2 },
+    statusTitle: { fontSize: 13, fontWeight: '500', color: colors.ink, flexShrink: 1 },
+    statusSub: { fontSize: 11, color: colors.ink3, marginTop: 5, lineHeight: 15 },
+    statusChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 7 },
+    statusChip: { paddingVertical: 3, paddingHorizontal: 8, borderRadius: radius.pill },
+    statusChipText: { fontSize: 10, fontWeight: '500' },
+    actionPill: { paddingVertical: 8, paddingHorizontal: 11, borderRadius: radius.pill, borderWidth: 1 },
+    actionPillText: { fontSize: 11, fontWeight: '500' },
   });
 }

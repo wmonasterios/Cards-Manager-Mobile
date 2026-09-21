@@ -2,7 +2,7 @@ export type Lang = 'en' | 'es';
 
 export const dict = {
   en: {
-    totalOwed: 'Total owed', latest: 'Latest activity', seeAll: 'See all',
+    totalOwed: 'Total owed', seeAll: 'See all',
     stmtBal: 'Statement balance', payDue: 'Payment due', minPay: 'Minimum payment',
     creditUsed: 'Credit used', registerPay: 'Register a payment', plans: 'Installment plans',
     transactions: 'Transactions', statements: 'Statements', calendarTitle: 'Payment calendar',
@@ -60,9 +60,14 @@ export const dict = {
     spentThisMonth: 'Spent this month', noSpendingMonth: 'No spending in this month.',
     sortBy: 'Sort by', noResultsFilters: 'No transactions match these filters.',
     hidePayments: 'Hide payments',
+    needsAttention: 'Needs attention', cardStatus: 'Card status', everythingOnTrack: 'Everything on track',
+    onTrack: 'on track', actionUpload: 'Upload', actionReview: 'Review', actionPay: 'Pay', actionOpen: 'Open',
+    daysWord: 'days', lateWord: 'late', daysLateWord: 'days late', toReviewWord: 'to review',
+    upToDate: 'Up to date', statementWord: 'Statement', cutoffLabel: 'Cut-off',
+    nothingReceived: 'nothing received', nextCutoffWord: 'next cut-off', noStatementYet: 'No statement received yet',
   },
   es: {
-    totalOwed: 'Total por pagar', latest: 'Actividad reciente', seeAll: 'Ver todo',
+    totalOwed: 'Total por pagar', seeAll: 'Ver todo',
     stmtBal: 'Saldo del estado', payDue: 'Fecha de pago', minPay: 'Pago mínimo',
     creditUsed: 'Cupo usado', registerPay: 'Registrar un pago', plans: 'Compras a cuotas',
     transactions: 'Transacciones', statements: 'Estados', calendarTitle: 'Calendario de pagos',
@@ -120,6 +125,11 @@ export const dict = {
     spentThisMonth: 'Gastado este mes', noSpendingMonth: 'Sin gastos este mes.',
     sortBy: 'Ordenar por', noResultsFilters: 'Ninguna transacción coincide con estos filtros.',
     hidePayments: 'Ocultar pagos',
+    needsAttention: 'Necesita atención', cardStatus: 'Estado de tarjetas', everythingOnTrack: 'Todo al día',
+    onTrack: 'al día', actionUpload: 'Subir', actionReview: 'Revisar', actionPay: 'Pagar', actionOpen: 'Abrir',
+    daysWord: 'días', lateWord: 'atraso', daysLateWord: 'días de atraso', toReviewWord: 'por revisar',
+    upToDate: 'Al día', statementWord: 'Estado de cuenta', cutoffLabel: 'Corte',
+    nothingReceived: 'nada recibido', nextCutoffWord: 'próximo corte', noStatementYet: 'Sin estado de cuenta aún',
   },
 } as const;
 

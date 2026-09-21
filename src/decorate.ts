@@ -31,6 +31,7 @@ export type DecoratedCard = Card & {
   barInk: string;
   displayName: string;
   displaySub: string;
+  reviewCount: number;
   dtx: DecoratedTransaction[];
 };
 
@@ -57,6 +58,7 @@ export function decorateCard(
   payments: Payment[],
   t: Dict,
   colors: ColorTokens,
+  reviewCount = 0,
 ): DecoratedCard {
   const paid = paidOverride !== undefined ? paidOverride : c.balance === 0;
   const paidAmt = payments.reduce((n, p) => n + p.amount, 0);
@@ -94,6 +96,7 @@ export function decorateCard(
     // moves to the subtitle so the actual card is still identifiable.
     displayName: c.nickname || c.bank,
     displaySub: c.nickname ? [c.bank, c.product].filter(Boolean).join(' ') : c.product,
+    reviewCount,
     dtx: c.tx.map((tr) => decorateTransaction(tr, c, colors)),
   };
 }

@@ -122,6 +122,7 @@ export const CARDS: Card[] = [
     min: 171.01,
     due: 'Sep 18',
     cutoff: 'Aug 30',
+    dueIso: '2026-09-18',
     cutoffIso: '2026-08-30',
     plansNote: '2 active',
     cycleNote: '30 Aug – 29 Sep',
@@ -153,6 +154,7 @@ export const CARDS: Card[] = [
     min: 64.23,
     due: 'Sep 25',
     cutoff: 'Sep 5',
+    dueIso: '2026-09-25',
     cutoffIso: '2026-09-05',
     plansNote: '1 active',
     cycleNote: '5 Aug – 4 Sep',
@@ -180,6 +182,7 @@ export const CARDS: Card[] = [
     min: 214.05,
     due: 'Oct 2',
     cutoff: 'Sep 8',
+    dueIso: '2026-10-02',
     cutoffIso: '2026-09-08',
     plansNote: '1 active',
     cycleNote: '8 Aug – 7 Sep',
@@ -205,6 +208,7 @@ export const CARDS: Card[] = [
     min: 0,
     due: 'Sep 22',
     cutoff: 'Sep 5',
+    dueIso: '2026-09-22',
     cutoffIso: '2026-09-05',
     plansNote: 'None',
     cycleNote: '5 Aug – 4 Sep',
@@ -212,6 +216,11 @@ export const CARDS: Card[] = [
     tx: [tx('Payment received', 'Transfer · BAC', 'Sep 1', 420.0, 'payment')],
   },
 ];
+
+// Demo has no statements table to count "needs review" rows from, so the
+// Needs-attention list gets this fixed stand-in instead — enough to show
+// the feature working without wiring up fake statement rows.
+export const DEMO_REVIEW_COUNTS: Record<string, number> = { aliado: 1 };
 
 // Demo cards keep their fixed named gradient. Real cards, unless the user
 // picked a color, get one hashed from their id — so two real cards never
