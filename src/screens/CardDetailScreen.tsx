@@ -247,15 +247,13 @@ export function CardDetailScreen({ route, navigation }: Props) {
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>{t.transactions}</Text>
-            <Text style={styles.sectionNote}>{card.cycleNote}</Text>
+            <Pressable
+              onPress={() => navigation.navigate('Transactions', { cardId: card.id })}
+              hitSlop={6}
+            >
+              <Text style={styles.seeAll}>{t.seeAll}</Text>
+            </Pressable>
           </View>
-          <Pressable
-            onPress={() => navigation.navigate('Transactions', { cardId: card.id })}
-            style={styles.seeAllRow}
-            hitSlop={6}
-          >
-            <Text style={styles.seeAll}>{t.seeAll}</Text>
-          </Pressable>
           <View style={{ marginTop: 12 }}>
             <Segmented
               options={[
@@ -466,7 +464,6 @@ function makeStyles(colors: ColorTokens) {
       alignItems: 'center',
     },
     moreBtnText: { fontSize: 12.5, fontWeight: '500', color: colors.ink },
-    seeAllRow: { alignItems: 'flex-end', marginTop: 4 },
     seeAll: { fontSize: 12, fontWeight: '500', color: colors.accent },
     deleteBtn: {
       padding: 14,

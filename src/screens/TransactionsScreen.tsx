@@ -112,7 +112,7 @@ export function TransactionsScreen({ route, navigation }: Props) {
   const total = results.reduce((n, { tx }) => n + tx.amount, 0);
   const selectedCard = selCardId ? cards.find((c) => c.id === selCardId) : undefined;
 
-  const chooseCard = (id: string) => {
+  const chooseCard = (id: string | null) => {
     setSelCardId((cur) => (cur === id ? null : id));
     setCardOpen(false);
   };
@@ -141,13 +141,6 @@ export function TransactionsScreen({ route, navigation }: Props) {
             )}
           </View>
 
-          <Pressable
-            onPress={() => setHidePayments((v) => !v)}
-            style={[styles.chip, styles.hidePayBtn, hidePayments && styles.chipActive]}
-          >
-            <Text style={[styles.chipText, hidePayments && styles.chipTextActive]}>{t.hidePayments}</Text>
-          </Pressable>
-
           <View style={styles.rangeWrap}>
             <Segmented
               options={[
@@ -172,9 +165,9 @@ export function TransactionsScreen({ route, navigation }: Props) {
               <Pressable onPress={() => setCardOpen((v) => !v)} style={styles.filterHeaderRow}>
                 <Text style={styles.filterLabel}>{t.card.toUpperCase()}</Text>
                 <View style={styles.filterHeaderRight}>
-                  {!cardOpen && selectedCard && (
+                  {!cardOpen && (
                     <Text style={styles.filterSummary} numberOfLines={1}>
-                      {selectedCard.displayName} {selectedCard.last4}
+                      {selectedCard ? `${selectedCard.displayName} ${selectedCard.last4}` : t.allWord}
                     </Text>
                   )}
                   <Ionicons
@@ -186,6 +179,12 @@ export function TransactionsScreen({ route, navigation }: Props) {
               </Pressable>
               {cardOpen && (
                 <View style={styles.chipRow}>
+                  <Pressable
+                    onPress={() => chooseCard(null)}
+                    style={[styles.chip, !selCardId && styles.chipActive]}
+                  >
+                    <Text style={[styles.chipText, !selCardId && styles.chipTextActive]}>{t.allWord}</Text>
+                  </Pressable>
                   {cards.map((c) => {
                     const active = selCardId === c.id;
                     return (
@@ -246,11 +245,18 @@ export function TransactionsScreen({ route, navigation }: Props) {
               {results.length} {t.transactions.toLowerCase()}
               {results.length > 0 ? ` · ${money('US$', total)}` : ''}
             </Text>
-            <Pressable onPress={() => setSortKey(sortKey === 'date' ? 'amount' : 'date')} hitSlop={6}>
-              <Text style={styles.sortLink}>
-                {t.sortBy}: {sortKey === 'date' ? t.dateLabel : t.amount}
-              </Text>
-            </Pressable>
+            <View style={styles.summaryActions}>
+              <Pressable onPress={() => setHidePayments((v) => !v)} hitSlop={6}>
+                <Text style={[styles.summaryToggle, hidePayments && styles.summaryToggleActive]}>
+                  {t.hidePayments}
+                </Text>
+              </Pressable>
+              <Pressable onPress={() => setSortKey(sortKey === 'date' ? 'amount' : 'date')} hitSlop={6}>
+                <Text style={styles.sortLink}>
+                  {t.sortBy}: {sortKey === 'date' ? t.dateLabel : t.amount}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -329,7 +335,6 @@ function makeStyles(colors: ColorTokens) {
     chipActive: { backgroundColor: colors.tint2, borderColor: colors.tint2 },
     chipText: { fontSize: 11.5, fontWeight: '500', color: colors.ink2 },
     chipTextActive: { color: colors.onTint2 },
-    hidePayBtn: { alignSelf: 'flex-start', marginTop: 12 },
     summaryRow: {
       marginTop: 16,
       flexDirection: 'row',
@@ -338,6 +343,9 @@ function makeStyles(colors: ColorTokens) {
       gap: 8,
     },
     note: { fontSize: 11.5, color: colors.ink3, lineHeight: 16, flexShrink: 1 },
+    summaryActions: { flexDirection: 'row', alignItems: 'baseline', gap: 12 },
+    summaryToggle: { fontSize: 11.5, fontWeight: '500', color: colors.ink3 },
+    summaryToggleActive: { color: colors.accent },
     sortLink: { fontSize: 11.5, fontWeight: '500', color: colors.accent },
     section: { paddingHorizontal: spacing.lg, marginTop: 14 },
     listCard: {
