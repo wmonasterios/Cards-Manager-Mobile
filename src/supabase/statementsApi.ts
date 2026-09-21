@@ -110,3 +110,9 @@ export async function listNeedsReviewStatements(userId: string): Promise<DbState
   if (error) throw error;
   return data ?? [];
 }
+
+export async function getStatement(statementId: string): Promise<DbStatement | null> {
+  const { data, error } = await supabase.from('statements').select('*').eq('id', statementId).maybeSingle();
+  if (error) throw error;
+  return data;
+}

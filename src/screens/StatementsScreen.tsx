@@ -30,6 +30,7 @@ import {
   applyStatement,
   deleteStatement,
   listNeedsReviewStatements,
+  getStatement,
 } from '../supabase/statementsApi';
 import { listCardAliases } from '../supabase/cardsApi';
 import { DbStatement, DbCardAlias, ParsedStatement } from '../supabase/types';
@@ -125,6 +126,26 @@ function friendlyErrorMessage(err: any, lang: 'en' | 'es'): string {
 // a single request/response edge function call, so this only ever creeps toward
 // 92% while waiting, and is snapped to 100% once the response actually arrives.
 const PARSE_ESTIMATE_SECONDS = 20;
+
+// If the phone's connection to parse-statement drops mid-request (e.g. the app
+// got backgrounded), the edge function itself keeps running on the server and
+// usually finishes anyway — only the phone's view of the outcome was lost. So
+// instead of treating a dropped connection as a hard failure, poll the
+// statement row directly until it shows the real outcome.
+async function pollForCompletion(id: string, maxWaitMs = 90000, intervalMs = 4000): Promise<DbStatement | null> {
+  const deadline = Date.now() + maxWaitMs;
+  let last: DbStatement | null = null;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    try {
+      last = await getStatement(id);
+    } catch {
+      continue;
+    }
+    if (last && last.status !== 'pending') return last;
+  }
+  return last;
+}
 
 function RealStatementsFlow({ navigation, route }: any) {
   const { lang } = useLocale();
@@ -253,6 +274,7 @@ function RealStatementsFlow({ navigation, route }: any) {
 
     setStage('uploading');
     setErrorMsg('');
+    let currentStatementId: string | null = null;
     try {
       const { base64, hash } = await readPdfForUpload(asset.uri);
       const existing = await findStatementByHash(userId, hash);
@@ -263,6 +285,7 @@ function RealStatementsFlow({ navigation, route }: any) {
         setStage('uploading');
       }
       const statement = await uploadStatementPdf(userId, base64, asset.name ?? 'statement.pdf', hash);
+      currentStatementId = statement.id;
       setStatementId(statement.id);
       setStage('parsing');
       startParseTicker();
@@ -272,6 +295,35 @@ function RealStatementsFlow({ navigation, route }: any) {
       setChosenCardId(undefined);
       setStage('review');
     } catch (err: any) {
+      // A dropped connection (e.g. the app was backgrounded) doesn't mean the
+      // parse actually failed — the edge function keeps running server-side.
+      // Check the real outcome before showing a scary error.
+      if (err instanceof FunctionsFetchError && currentStatementId) {
+        const recovered = await pollForCompletion(currentStatementId);
+        if (recovered?.status === 'needs_review' && recovered.parsed) {
+          stopParseTicker(100);
+          setFields(recovered.parsed);
+          setChosenCardId(undefined);
+          setStage('review');
+          return;
+        }
+        if (recovered?.status === 'failed') {
+          clearInterval(parseTicker.current);
+          setErrorMsg(recovered.error_message ?? friendlyErrorMessage(err, lang));
+          setStage('error');
+          return;
+        }
+        if (recovered?.status === 'pending') {
+          clearInterval(parseTicker.current);
+          setErrorMsg(
+            lang === 'es'
+              ? 'Se cortó la conexión, pero el servidor sigue leyendo tu PDF. Dale un minuto y revisa el historial — debería aparecer listo para revisar sin que tengas que subirlo de nuevo.'
+              : 'The connection dropped, but the server is still reading your PDF. Give it a minute and check the history — it should show up ready to review without uploading it again.',
+          );
+          setStage('error');
+          return;
+        }
+      }
       clearInterval(parseTicker.current);
       setErrorMsg(friendlyErrorMessage(err, lang));
       setStage('error');
