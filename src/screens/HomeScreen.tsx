@@ -49,7 +49,7 @@ export function HomeScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
             <Text style={styles.kicker}>{t.totalOwed.toUpperCase()}</Text>

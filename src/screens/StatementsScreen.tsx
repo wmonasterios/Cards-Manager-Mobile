@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,11 @@ import {
   ActivityIndicator,
   Modal,
   Linking,
+  RefreshControl,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
@@ -259,6 +261,8 @@ function RealStatementsFlow({ navigation, route }: any) {
 
   useEffect(() => () => clearInterval(parseTicker.current), []);
 
+  const [refreshing, setRefreshing] = useState(false);
+
   const loadHistory = async () => {
     if (!userId) return;
     try {
@@ -274,6 +278,24 @@ function RealStatementsFlow({ navigation, route }: any) {
       listCardAliases(userId).then(setAliases).catch(() => {});
     }
   }, [userId]);
+
+  // Tabs stay mounted in React Navigation, so a statement that finishes
+  // processing while this screen is in the background never triggers the
+  // mount-only effect above — refresh again every time the tab regains focus.
+  useFocusEffect(
+    useCallback(() => {
+      loadHistory();
+    }, [userId]),
+  );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadHistory();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Which card this statement belongs to is never guessed from live text —
   // it's either forced (uploading from inside a specific card), an exact
@@ -892,7 +914,12 @@ function RealStatementsFlow({ navigation, route }: any) {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+        }
+      >
         <View style={styles.top}>
           <Text style={[styles.title, { marginTop: 0 }]}>
             {lang === 'es' ? 'Agregar un estado de cuenta' : 'Add a statement'}

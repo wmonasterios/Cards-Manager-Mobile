@@ -33,6 +33,19 @@ function startOfMonth(iso: string): string {
   return iso.slice(0, 8) + '01';
 }
 
+// Word-prefix search instead of a raw substring scan — typing "Copa" should
+// match "Copa Airlines" but not some unrelated merchant string that merely
+// happens to contain "copa" with no word boundary around it. Each
+// space-separated query word must prefix-match some word in the text.
+function matchesSearch(haystack: string, q: string): boolean {
+  if (!q) return true;
+  const words = haystack.toLowerCase().split(/[^a-z0-9à-ÿ]+/i).filter(Boolean);
+  return q
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((qw) => words.some((w) => w.startsWith(qw)));
+}
+
 export function TransactionsScreen({ route, navigation }: Props) {
   const { cards } = useCards();
   const { lang, t } = useLocale();
@@ -77,9 +90,10 @@ export function TransactionsScreen({ route, navigation }: Props) {
         if (selCardId && card.id !== selCardId) return false;
         if (
           q &&
-          !`${tx.merchant} ${tx.sub} ${categoryLabel(tx.category)} ${card.displayName} ${card.bank} ${card.product} ${card.last4}`
-            .toLowerCase()
-            .includes(q)
+          !matchesSearch(
+            `${tx.merchant} ${tx.sub} ${categoryLabel(tx.category)} ${card.displayName} ${card.bank} ${card.product} ${card.last4}`,
+            q,
+          )
         ) {
           return false;
         }

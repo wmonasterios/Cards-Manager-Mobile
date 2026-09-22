@@ -170,7 +170,14 @@ export function InsightsScreen({ navigation }: any) {
                         onPress={() => pickWeek(i)}
                         style={[styles.weekCol, active && styles.weekColActive]}
                       >
-                        <Text style={styles.weekValue}>{v ? fmtMoney(v) : ''}</Text>
+                        <Text
+                          style={styles.weekValue}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.7}
+                        >
+                          {v ? fmtMoney(v) : ''}
+                        </Text>
                         <View style={styles.weekBarTrack}>
                           <View
                             style={[
