@@ -28,7 +28,7 @@ type CardsContextValue = {
   cards: DecoratedCard[];
   getCard: (id: string) => DecoratedCard | undefined;
   togglePaid: (id: string) => void;
-  addPayment: (id: string, amount: number, when: string) => void;
+  addPayment: (id: string, amount: number, when: string, paidOnIso?: string) => void;
   paymentHistory: (id: string) => Payment[];
   loaded: boolean;
   isDemo: boolean;
@@ -166,7 +166,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
   );
 
   const addPayment = useCallback(
-    (id: string, amount: number, when: string) => {
+    (id: string, amount: number, when: string, paidOnIso?: string) => {
       if (isDemo) {
         setDemoPayments((prev) => ({ ...prev, [id]: [...(prev[id] ?? []), { amount, when }] }));
         const card = CARDS.find((c) => c.id === id);
@@ -176,7 +176,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       if (!userId) return;
-      const paidOn = new Date().toISOString().slice(0, 10);
+      const paidOn = paidOnIso ?? new Date().toISOString().slice(0, 10);
       const current = cards.find((c) => c.id === id);
       const coversBalance = !!current && amount >= current.remaining - 0.01;
       addPaymentRow(userId, id, amount, paidOn, when)

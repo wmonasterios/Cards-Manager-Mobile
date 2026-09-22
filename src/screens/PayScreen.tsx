@@ -5,7 +5,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { radius, spacing, ColorTokens } from '../theme';
 import { useColors } from '../theme/ThemeContext';
-import { useT } from '../i18n/LocaleContext';
+import { useLocale } from '../i18n/LocaleContext';
 import { CardArt } from '../components/CardArt';
 import { Segmented } from '../components/Segmented';
 import { BackButton } from '../components/BackButton';
@@ -16,12 +16,16 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Pay'>;
 type PayMode = 'min' | 'full' | 'custom';
 type PayDate = 'today' | 'due';
 
+function toIso(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function PayScreen({ route, navigation }: Props) {
   const { cardId } = route.params;
   const { getCard, addPayment, paymentHistory } = useCards();
   const card = getCard(cardId);
   const colors = useColors();
-  const t = useT();
+  const { lang, t } = useLocale();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [mode, setMode] = useState<PayMode>('full');
@@ -32,24 +36,29 @@ export function PayScreen({ route, navigation }: Props) {
 
   const payAmount = mode === 'min' ? card.min : mode === 'custom' ? parseFloat(custom) || 0 : card.remaining;
   const afterAmount = Math.max(0, card.remaining - payAmount);
-  const dateText = when === 'today' ? 'Registered 14 Sep 2026' : `Scheduled for ${card.due}, 2026`;
+
+  const locale = lang === 'es' ? 'es-PA' : 'en-US';
+  const todayDate = new Date();
+  const dueDate = card.dueIso ? new Date(card.dueIso + 'T00:00:00') : todayDate;
+  const formatLong = (d: Date) => d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+  const formatShort = (d: Date) => d.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+  const dateText =
+    when === 'today' ? `${t.registeredOn} ${formatLong(todayDate)}` : `${t.scheduledFor} ${formatLong(dueDate)}`;
+  const whenLabel =
+    when === 'today' ? `${t.registeredOn} · ${formatShort(todayDate)}` : `${t.scheduledFor} · ${formatShort(dueDate)}`;
 
   const history = paymentHistory(card.id)
     .slice()
     .reverse()
-    .map((p) => ({ label: t.payment, value: money('US$', p.amount), sub: `${p.when} · this cycle` }))
-    .concat([
-      { label: t.payment, value: money('US$', 780), sub: '18 Aug' },
-      { label: t.payment, value: money('US$', 640.5), sub: '19 Jul' },
-    ]);
+    .map((p) => ({ label: t.payment, value: money('US$', p.amount), sub: p.when }));
 
   const save = () => {
     if (payAmount <= 0) {
       Alert.alert(t.enterAmount);
       return;
     }
-    const whenLabel = when === 'today' ? 'Registered · 14 Sep' : `Scheduled · ${card.due}`;
-    addPayment(card.id, payAmount, whenLabel);
+    const paidOnIso = when === 'today' ? toIso(todayDate) : toIso(dueDate);
+    addPayment(card.id, payAmount, whenLabel, paidOnIso);
     Alert.alert(`${money('US$', payAmount)} registered on ${card.displayName}`);
     navigation.goBack();
   };
