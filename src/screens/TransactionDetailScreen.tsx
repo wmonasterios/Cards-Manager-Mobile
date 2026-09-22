@@ -111,7 +111,7 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.top}>
           <BackButton onPress={() => navigation.goBack()} />
           <View style={styles.identityRow}>
@@ -166,7 +166,11 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
               placeholderTextColor={colors.ink3}
               style={styles.modalSearch}
             />
-            <ScrollView style={styles.modalList} keyboardShouldPersistTaps="handled">
+            <ScrollView
+              style={styles.modalList}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
               {filteredCategories.map((cat) => {
                 const catColors = getCategoryColors(colors)[cat];
                 const active = cat === tx.category;

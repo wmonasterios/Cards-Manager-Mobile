@@ -134,7 +134,7 @@ export function CardDetailScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.topRow}>
           <BackButton onPress={() => navigation.goBack()} />
           <View style={styles.topActions}>

@@ -41,7 +41,7 @@ export function OnboardingScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Text style={styles.kicker}>{t.firstRun.toUpperCase()}</Text>
         <Text style={styles.title}>{t.onbTitle}</Text>
         <Text style={styles.sub}>{t.onbSub}</Text>

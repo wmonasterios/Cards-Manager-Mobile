@@ -73,7 +73,7 @@ export function InsightsScreen({ navigation }: any) {
   if (cards.length === 0) {
     return (
       <SafeAreaView style={styles.screen} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.section}>
             <View style={styles.emptyCard}>
               <Text style={styles.emptyTitle}>
@@ -88,7 +88,7 @@ export function InsightsScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {!isDemo && cards.length > 1 && (
           <View style={styles.section}>
             <View style={styles.chipRow}>
@@ -281,11 +281,16 @@ export function InsightsScreen({ navigation }: any) {
             {/* Transactions — the actual, individual charges behind the numbers above.
                 Filtered by whichever week/category is selected; sorted biggest first. */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                {t.transactions}
-                {selWeek !== null ? ` · W${selWeek + 1}` : ''}
-                {selCat !== null ? ` · ${categoryLabel(selCat)}` : ''}
-              </Text>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionTitle}>
+                  {t.transactions}
+                  {selWeek !== null ? ` · W${selWeek + 1}` : ''}
+                  {selCat !== null ? ` · ${categoryLabel(selCat)}` : ''}
+                </Text>
+                <Pressable onPress={() => navigation.navigate('Transactions', {})} hitSlop={6}>
+                  <Text style={styles.seeAll}>{t.seeAll}</Text>
+                </Pressable>
+              </View>
               {analysis.filteredTx.length === 0 ? (
                 <View style={styles.emptyCard}>
                   <Text style={styles.emptyBody}>{t.noSpendingMonth}</Text>
@@ -325,6 +330,8 @@ function makeStyles(colors: ColorTokens) {
     scrollContent: { paddingTop: spacing.xxl, paddingBottom: 40 },
     section: { paddingHorizontal: spacing.xl, marginTop: spacing.lg + 2 },
     sectionTitle: { fontSize: 16, fontWeight: '500', color: colors.ink },
+    sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+    seeAll: { fontSize: 12, fontWeight: '500', color: colors.accent },
 
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     chip: { borderWidth: 1, borderColor: colors.line, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999 },

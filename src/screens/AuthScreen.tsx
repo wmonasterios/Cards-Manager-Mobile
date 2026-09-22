@@ -85,7 +85,11 @@ export function AuthScreen({ navigation }: Props) {
   if (awaitingCode) {
     return (
       <SafeAreaView style={styles.screen} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.top}>
             <BackButton onPress={() => setAwaitingCode(false)} />
             <Text style={styles.title}>Confirm your email</Text>
@@ -120,7 +124,11 @@ export function AuthScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.top}>
           <BackButton onPress={() => navigation.goBack()} />
           <Text style={styles.title}>{mode === 'signin' ? 'Sign in' : 'Create account'}</Text>

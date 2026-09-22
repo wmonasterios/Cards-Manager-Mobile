@@ -728,7 +728,7 @@ function RealStatementsFlow({ navigation, route }: any) {
   if (stage === 'error') {
     return (
       <SafeAreaView style={styles.screen} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.top}>
             <BackButton onPress={() => setStage('idle')} />
             <Text style={styles.title}>{lang === 'es' ? 'No pudimos leer el PDF' : "We couldn't read the PDF"}</Text>
@@ -747,7 +747,11 @@ function RealStatementsFlow({ navigation, route }: any) {
   if (stage === 'review' && fields) {
     return (
       <SafeAreaView style={styles.screen} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.top}>
             <BackButton onPress={backFromReview} />
             <Text style={styles.title}>{lang === 'es' ? 'Revisa lo que leímos' : 'Check what we read'}</Text>
@@ -879,7 +883,7 @@ function RealStatementsFlow({ navigation, route }: any) {
           <Pressable style={styles.pickerBackdrop} onPress={() => setPickerOpen(false)}>
             <Pressable style={styles.pickerSheet} onPress={() => {}}>
               <Text style={styles.pickerTitle}>{lang === 'es' ? 'Elige la tarjeta' : 'Pick the card'}</Text>
-              <ScrollView style={{ maxHeight: 360 }}>
+              <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
                 <Pressable
                   style={styles.pickerNewRow}
                   onPress={() => {
@@ -916,6 +920,7 @@ function RealStatementsFlow({ navigation, route }: any) {
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
         }
@@ -1129,7 +1134,7 @@ export function StatementsScreen({ navigation, route }: any) {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.top}>
           {stage !== 'idle' && <BackButton onPress={() => setStage('idle')} />}
           <Text style={[styles.title, stage === 'idle' && { marginTop: 0 }]}>{title}</Text>

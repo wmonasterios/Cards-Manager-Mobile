@@ -53,7 +53,7 @@ export function SettingsScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.top}>
           <Text style={styles.title}>{t.settings}</Text>
 
