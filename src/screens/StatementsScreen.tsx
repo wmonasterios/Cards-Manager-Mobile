@@ -162,6 +162,11 @@ function friendlyErrorMessage(err: any, lang: 'en' | 'es'): string {
       ? 'No se pudo conectar con el servidor. Revisa tu conexión a internet e intenta de nuevo.'
       : 'Could not reach the server. Check your internet connection and try again.';
   }
+  if (err instanceof ParseStallError) {
+    return lang === 'es'
+      ? 'Esto está tardando más de lo normal y no pudimos confirmar el resultado. Revisa el historial en un momento.'
+      : "This is taking longer than usual and we couldn't confirm the result. Check the history in a moment.";
+  }
   return err?.message ?? String(err);
 }
 
@@ -169,6 +174,14 @@ function friendlyErrorMessage(err: any, lang: 'en' | 'es'): string {
 // a single request/response edge function call, so this only ever creeps toward
 // 92% while waiting, and is snapped to 100% once the response actually arrives.
 const PARSE_ESTIMATE_SECONDS = 20;
+
+// If the app gets backgrounded mid-request (e.g. the user switches away to
+// tap a push notification), the underlying fetch can go quiet without ever
+// resolving OR rejecting — no error to catch, just a spinner that waits
+// forever while the server has actually already finished. This bounds how
+// long we wait on the original request before checking the database directly.
+const PARSE_STALL_MS = 60000;
+class ParseStallError extends Error {}
 
 // If the phone's connection to parse-statement drops mid-request (e.g. the app
 // got backgrounded), the edge function itself keeps running on the server and
@@ -313,6 +326,38 @@ function RealStatementsFlow({ navigation, route }: any) {
       );
     });
 
+  // Shared by both recovery paths below: a dropped connection or a stalled
+  // request don't mean the parse actually failed — the edge function keeps
+  // running server-side. Check the real outcome before showing a scary error.
+  // Returns true once it has fully handled the UI (review or error state).
+  const recoverFromStall = async (statementId: string, originalErr: any): Promise<boolean> => {
+    const recovered = await pollForCompletion(statementId);
+    if (recovered?.status === 'needs_review' && recovered.parsed) {
+      stopParseTicker(100);
+      setFields(recovered.parsed);
+      setChosenCardId(undefined);
+      setStage('review');
+      return true;
+    }
+    if (recovered?.status === 'failed') {
+      clearInterval(parseTicker.current);
+      setErrorMsg(recovered.error_message ?? friendlyErrorMessage(originalErr, lang));
+      setStage('error');
+      return true;
+    }
+    if (recovered?.status === 'pending') {
+      clearInterval(parseTicker.current);
+      setErrorMsg(
+        lang === 'es'
+          ? 'El servidor sigue leyendo tu PDF — está tardando más de lo normal. Dale un minuto más y revisa el historial; debería aparecer listo para revisar sin que tengas que subirlo de nuevo.'
+          : "The server is still reading your PDF — it's taking longer than usual. Give it another minute and check the history; it should show up ready to review without uploading it again.",
+      );
+      setStage('error');
+      return true;
+    }
+    return false;
+  };
+
   const pickAndUpload = async () => {
     if (!userId) return;
     const result = await DocumentPicker.getDocumentAsync({
@@ -339,40 +384,25 @@ function RealStatementsFlow({ navigation, route }: any) {
       setStatementId(statement.id);
       setStage('parsing');
       startParseTicker();
-      const parsed = await parseStatement(statement.id);
+
+      // If the app gets backgrounded (e.g. to tap the "ready to review" push
+      // notification) this request can go silent instead of erroring, so it's
+      // raced against a timeout rather than awaited indefinitely.
+      const parsePromise = parseStatement(statement.id);
+      parsePromise.catch(() => {}); // avoid an unhandled rejection if the timeout wins first
+      const parsed = await Promise.race([
+        parsePromise,
+        new Promise<never>((_, reject) => setTimeout(() => reject(new ParseStallError()), PARSE_STALL_MS)),
+      ]);
+
       stopParseTicker(100);
       setFields(parsed);
       setChosenCardId(undefined);
       setStage('review');
     } catch (err: any) {
-      // A dropped connection (e.g. the app was backgrounded) doesn't mean the
-      // parse actually failed — the edge function keeps running server-side.
-      // Check the real outcome before showing a scary error.
-      if (err instanceof FunctionsFetchError && currentStatementId) {
-        const recovered = await pollForCompletion(currentStatementId);
-        if (recovered?.status === 'needs_review' && recovered.parsed) {
-          stopParseTicker(100);
-          setFields(recovered.parsed);
-          setChosenCardId(undefined);
-          setStage('review');
-          return;
-        }
-        if (recovered?.status === 'failed') {
-          clearInterval(parseTicker.current);
-          setErrorMsg(recovered.error_message ?? friendlyErrorMessage(err, lang));
-          setStage('error');
-          return;
-        }
-        if (recovered?.status === 'pending') {
-          clearInterval(parseTicker.current);
-          setErrorMsg(
-            lang === 'es'
-              ? 'Se cortó la conexión, pero el servidor sigue leyendo tu PDF. Dale un minuto y revisa el historial — debería aparecer listo para revisar sin que tengas que subirlo de nuevo.'
-              : 'The connection dropped, but the server is still reading your PDF. Give it a minute and check the history — it should show up ready to review without uploading it again.',
-          );
-          setStage('error');
-          return;
-        }
+      if ((err instanceof FunctionsFetchError || err instanceof ParseStallError) && currentStatementId) {
+        const handled = await recoverFromStall(currentStatementId, err);
+        if (handled) return;
       }
       clearInterval(parseTicker.current);
       setErrorMsg(friendlyErrorMessage(err, lang));
