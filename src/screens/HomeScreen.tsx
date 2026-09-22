@@ -138,29 +138,34 @@ export function HomeScreen({ navigation }: any) {
                   onPress={() => goToAction(r)}
                   style={[styles.statusRow, { borderColor: r.act ? colors.tint2 : colors.line }]}
                 >
-                  <View style={styles.ring}>
-                    <Svg
-                      viewBox="0 0 36 36"
-                      width="100%"
-                      height="100%"
-                      style={{ transform: [{ rotate: '-90deg' }] }}
-                    >
-                      <Circle cx={18} cy={18} r={RING_R} fill="none" stroke={colors.line2} strokeWidth={3} />
-                      <Circle
-                        cx={18}
-                        cy={18}
-                        r={RING_R}
-                        fill="none"
-                        stroke={r.ringColor}
-                        strokeWidth={3}
-                        strokeLinecap="round"
-                        strokeDasharray={r.ringDash}
-                      />
-                    </Svg>
-                    <View style={styles.ringTextWrap}>
-                      <Text style={[styles.ringNum, { color: r.numInk }]}>{r.ringNum}</Text>
-                      <Text style={styles.ringUnit}>{r.ringUnit}</Text>
+                  <View style={styles.ringWrap}>
+                    <View style={styles.ring}>
+                      <Svg
+                        viewBox="0 0 36 36"
+                        width="100%"
+                        height="100%"
+                        style={{ transform: [{ rotate: '-90deg' }] }}
+                      >
+                        <Circle cx={18} cy={18} r={RING_R} fill="none" stroke={colors.line2} strokeWidth={3} />
+                        <Circle
+                          cx={18}
+                          cy={18}
+                          r={RING_R}
+                          fill="none"
+                          stroke={r.ringColor}
+                          strokeWidth={3}
+                          strokeLinecap="round"
+                          strokeDasharray={r.ringDash}
+                        />
+                      </Svg>
+                      <View style={styles.ringTextWrap}>
+                        <Text style={[styles.ringNum, { color: r.numInk }]}>{r.ringNum}</Text>
+                        <Text style={styles.ringUnit}>{r.ringUnit}</Text>
+                      </View>
                     </View>
+                    <Text style={styles.ringCaption} numberOfLines={1}>
+                      {r.ringCaption}
+                    </Text>
                   </View>
 
                   <View style={styles.statusMid}>
@@ -300,7 +305,9 @@ function makeStyles(colors: ColorTokens) {
       backgroundColor: colors.surface,
       borderWidth: 1,
     },
+    ringWrap: { alignItems: 'center' },
     ring: { width: 44, height: 44, position: 'relative' },
+    ringCaption: { fontSize: 8.5, color: colors.ink3, marginTop: 4, maxWidth: 56, textAlign: 'center' },
     ringTextWrap: {
       position: 'absolute',
       top: 0,

@@ -37,6 +37,7 @@ export type StatusRow = {
   chips: StatusChip[];
   ringNum: string;
   ringUnit: string;
+  ringCaption: string;
   ringDash: string;
   ringColor: string;
   numInk: string;
@@ -106,6 +107,11 @@ export function deriveStatus(cards: DecoratedCard[], todayIso: string, t: Dict, 
       action
     ];
 
+    // The ring's inner unit always just says "days" — what those days count
+    // down to (a late statement, a payment, or the next cycle) is spelled out
+    // in the caption below the ring instead, so the ring itself stays terse.
+    const ringCaption = stmtLate ? t.ringLateCaption : !c.paid ? t.ringPayCaption : t.ringOpenCaption;
+
     return {
       card: c,
       act,
@@ -114,7 +120,8 @@ export function deriveStatus(cards: DecoratedCard[], todayIso: string, t: Dict, 
       sub,
       chips,
       ringNum: hasStatement || !stmtLate ? String(Math.max(days, 0)) : '–',
-      ringUnit: stmtLate ? t.lateWord : t.daysWord,
+      ringUnit: t.daysWord,
+      ringCaption,
       ringDash: `${(frac * RING_CIRCUMFERENCE).toFixed(1)} ${RING_CIRCUMFERENCE.toFixed(1)}`,
       ringColor: stmtLate || urgent ? colors.seg1 : soon ? colors.seg3 : colors.line,
       numInk: act ? colors.ink : colors.ink2,

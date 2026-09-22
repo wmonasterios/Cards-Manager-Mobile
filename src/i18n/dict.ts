@@ -62,9 +62,10 @@ export const dict = {
     hidePayments: 'Hide payments',
     needsAttention: 'Needs attention', cardStatus: 'Card status', everythingOnTrack: 'Everything on track',
     onTrack: 'on track', actionUpload: 'Upload', actionReview: 'Review', actionPay: 'Pay', actionOpen: 'Open',
-    daysWord: 'to pay', lateWord: 'late', daysLateWord: 'days late', toReviewWord: 'to review',
+    daysWord: 'days', daysLateWord: 'days late', toReviewWord: 'to review',
     upToDate: 'Up to date', statementWord: 'Statement', cutoffLabel: 'Cut-off',
     nothingReceived: 'nothing received', nextCutoffWord: 'next cut-off', noStatementYet: 'No statement received yet',
+    ringLateCaption: 'Statement', ringPayCaption: 'To pay', ringOpenCaption: 'Next due',
   },
   es: {
     totalOwed: 'Total por pagar', seeAll: 'Ver todo',
@@ -127,9 +128,10 @@ export const dict = {
     hidePayments: 'Ocultar pagos',
     needsAttention: 'Necesita atención', cardStatus: 'Estado de tarjetas', everythingOnTrack: 'Todo al día',
     onTrack: 'al día', actionUpload: 'Subir', actionReview: 'Revisar', actionPay: 'Pagar', actionOpen: 'Abrir',
-    daysWord: 'a pagar', lateWord: 'atraso', daysLateWord: 'días de atraso', toReviewWord: 'por revisar',
+    daysWord: 'días', daysLateWord: 'días de atraso', toReviewWord: 'por revisar',
     upToDate: 'Al día', statementWord: 'Estado de cuenta', cutoffLabel: 'Corte',
     nothingReceived: 'nada recibido', nextCutoffWord: 'próximo corte', noStatementYet: 'Sin estado de cuenta aún',
+    ringLateCaption: 'Estado', ringPayCaption: 'Para pagar', ringOpenCaption: 'Próximo pago',
   },
 } as const;
 
