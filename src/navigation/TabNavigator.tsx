@@ -43,7 +43,19 @@ export function TabNavigator() {
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: t.cards }} />
       <Tab.Screen name="Calendar" component={CalendarScreen} options={{ title: t.calendarTab }} />
       <Tab.Screen name="Insights" component={InsightsScreen} options={{ title: t.insightsTab }} />
-      <Tab.Screen name="Statements" component={StatementsScreen} options={{ title: t.statements }} />
+      <Tab.Screen
+        name="Statements"
+        component={StatementsScreen}
+        options={{ title: t.statements }}
+        listeners={({ navigation }) => ({
+          // The tab bar re-focuses this screen with whatever params it last
+          // had (e.g. a cardId filter from CardDetail's "Statements" pill) —
+          // tapping the tab icon itself should always land on the full list.
+          tabPress: () => {
+            navigation.setParams({ cardId: undefined });
+          },
+        })}
+      />
       <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: t.settings }} />
     </Tab.Navigator>
   );
