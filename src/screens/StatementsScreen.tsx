@@ -12,6 +12,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import { FunctionsFetchError } from '@supabase/supabase-js';
@@ -101,6 +102,46 @@ function statementDateLabel(s: DbStatement, lang: 'en' | 'es'): string {
   return lang === 'es' ? `Subido ${uploadedLabel}` : `Uploaded ${uploadedLabel}`;
 }
 
+// Absolute month index (year*12 + month) — lets gap math ignore day-of-month
+// drift between cut-offs (e.g. the 27th one month, the 30th the next).
+function monthIndex(iso: string): number {
+  const [y, m] = iso.split('-').map(Number);
+  return y * 12 + (m - 1);
+}
+
+function monthIsoFromIndex(idx: number): string {
+  const y = Math.floor(idx / 12);
+  const m = (idx % 12) + 1;
+  return `${y}-${String(m).padStart(2, '0')}-01`;
+}
+
+type TimelineItem = { kind: 'statement'; statement: DbStatement } | { kind: 'gap'; monthIso: string };
+
+// Only flags months strictly BETWEEN statements we actually have — never
+// before the earliest one (a new card with one statement has nothing to
+// compare against yet) and never after the latest (that's what "Needs
+// attention" on Home already covers).
+function buildCardTimeline(statements: DbStatement[]): TimelineItem[] {
+  const dated = statements
+    .filter((s) => !!s.parsed?.cutoff_date)
+    .sort((a, b) => a.parsed!.cutoff_date.localeCompare(b.parsed!.cutoff_date));
+  const undated = statements.filter((s) => !s.parsed?.cutoff_date);
+
+  const items: TimelineItem[] = [];
+  dated.forEach((s, i) => {
+    items.push({ kind: 'statement', statement: s });
+    if (i < dated.length - 1) {
+      const curr = monthIndex(s.parsed!.cutoff_date);
+      const next = monthIndex(dated[i + 1].parsed!.cutoff_date);
+      for (let idx = curr + 1; idx < next; idx++) {
+        items.push({ kind: 'gap', monthIso: monthIsoFromIndex(idx) });
+      }
+    }
+  });
+  items.reverse(); // most recent first
+  return [...undated.map((s): TimelineItem => ({ kind: 'statement', statement: s })), ...items];
+}
+
 function statusLabel(status: DbStatement['status'], lang: 'en' | 'es') {
   const map: Record<DbStatement['status'], [string, string]> = {
     pending: ['Processing', 'Procesando'],
@@ -180,6 +221,13 @@ function RealStatementsFlow({ navigation, route }: any) {
 
   const visibleHistory =
     filterCard && !showAllCards ? history.filter((s) => s.card_id === filterCard.id) : history;
+
+  // Gaps between cut-off months only make sense once we're looking at one
+  // card's own chronology, not the mixed, upload-ordered "all cards" list.
+  const timeline = useMemo(
+    () => (filterCard && !showAllCards ? buildCardTimeline(visibleHistory) : []),
+    [filterCard, showAllCards, visibleHistory],
+  );
 
   const startParseTicker = () => {
     setParseProgress(0);
@@ -862,7 +910,73 @@ function RealStatementsFlow({ navigation, route }: any) {
                 </Text>
               ) : (
               <View style={styles.listCard}>
-                {visibleHistory.map((s) => (
+                {filterCard && !showAllCards
+                  ? timeline.map((item) =>
+                      item.kind === 'gap' ? (
+                        <Pressable
+                          key={`gap-${item.monthIso}`}
+                          onPress={pickAndUpload}
+                          style={[styles.historyRow, styles.historyRowGap]}
+                        >
+                          <View style={[styles.historyBadge, styles.historyBadgeGap]}>
+                            <Ionicons name="add" size={16} color={colors.ink3} />
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={styles.historyRowTitle} numberOfLines={1}>
+                              {fromIso(item.monthIso).toLocaleDateString(lang === 'es' ? 'es-PA' : 'en-US', {
+                                month: 'long',
+                                year: 'numeric',
+                              })}
+                            </Text>
+                            <Text style={styles.historyRowSub} numberOfLines={1}>
+                              {lang === 'es' ? 'Toca para subirlo' : 'Tap to upload'}
+                            </Text>
+                          </View>
+                          <Text style={[styles.historyStatus, { color: colors.ink3 }]}>
+                            {lang === 'es' ? 'No subido' : 'Not uploaded'}
+                          </Text>
+                        </Pressable>
+                      ) : (
+                        <Pressable
+                          key={item.statement.id}
+                          disabled={openingStatementId === item.statement.id}
+                          onPress={() => handleStatementPress(item.statement)}
+                          style={styles.historyRow}
+                        >
+                          <View style={styles.historyBadge}>
+                            {openingStatementId === item.statement.id ? (
+                              <ActivityIndicator size="small" color={colors.accentInk} />
+                            ) : (
+                              <Text style={styles.historyBadgeText}>PDF</Text>
+                            )}
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={styles.historyRowTitle} numberOfLines={1}>
+                              {item.statement.bank ?? (lang === 'es' ? 'Banco desconocido' : 'Unknown bank')}
+                            </Text>
+                            <Text style={styles.historyRowSub} numberOfLines={1}>
+                              {statementDateLabel(item.statement, lang)}
+                            </Text>
+                          </View>
+                          <Text
+                            style={[
+                              styles.historyStatus,
+                              {
+                                color:
+                                  item.statement.status === 'failed'
+                                    ? colors.accentInk2
+                                    : item.statement.status === 'applied'
+                                      ? colors.ink2
+                                      : colors.accentInk,
+                              },
+                            ]}
+                          >
+                            {statusLabel(item.statement.status, lang)}
+                          </Text>
+                        </Pressable>
+                      ),
+                    )
+                  : visibleHistory.map((s) => (
                   <Pressable
                     key={s.id}
                     disabled={openingStatementId === s.id}
@@ -1177,6 +1291,7 @@ function makeStyles(colors: ColorTokens) {
       alignItems: 'center',
       gap: 12,
     },
+    historyRowGap: { opacity: 0.85 },
     historyBadge: {
       width: 34,
       height: 34,
@@ -1184,6 +1299,12 @@ function makeStyles(colors: ColorTokens) {
       backgroundColor: colors.tint,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    historyBadgeGap: {
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: colors.hair4,
     },
     historyBadgeText: { fontSize: 10, fontWeight: '600', color: colors.accentInk },
     historyRowTitle: { fontSize: 13, fontWeight: '500', color: colors.ink },
