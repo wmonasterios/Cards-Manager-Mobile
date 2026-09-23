@@ -150,6 +150,15 @@ export function CardDetailScreen({ route, navigation }: Props) {
 
   const balanceLabel = card.paidAmt > 0 ? t.leftToPay : t.stmtBal;
 
+  // While the edit sheet is open, the hero card reflects whatever's being
+  // typed/picked right now — the same live-preview feel as changing a photo
+  // and seeing the avatar update before you've hit save.
+  const heroColorKey = editOpen ? editColorKey : card.colorKey;
+  const previewNickname = editOpen ? editNickname.trim() : card.nickname ?? '';
+  const previewBank = editOpen ? editBank.trim() || card.bank : card.bank;
+  const heroName = previewNickname || previewBank;
+  const heroSub = previewNickname ? [previewBank, card.product].filter(Boolean).join(' ') : card.product ?? '';
+
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -179,23 +188,25 @@ export function CardDetailScreen({ route, navigation }: Props) {
         </View>
 
         <View style={styles.heroWrap}>
-          <CardArt cardId={card.id} colorKey={card.colorKey} style={styles.hero}>
-            <View style={styles.heroTop}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.heroBank} numberOfLines={1}>
-                  {card.displayName}
-                </Text>
-                <Text style={styles.heroSub} numberOfLines={2}>
-                  {card.displaySub}
-                </Text>
+          <Pressable disabled={isDemo} onPress={openEdit}>
+            <CardArt cardId={card.id} colorKey={heroColorKey ?? undefined} style={styles.hero}>
+              <View style={styles.heroTop}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.heroBank} numberOfLines={1}>
+                    {heroName}
+                  </Text>
+                  <Text style={styles.heroSub} numberOfLines={2}>
+                    {heroSub}
+                  </Text>
+                </View>
+                <Text style={styles.heroNetwork}>{card.network.toUpperCase()}</Text>
               </View>
-              <Text style={styles.heroNetwork}>{card.network.toUpperCase()}</Text>
-            </View>
-            <View style={styles.heroBottom}>
-              <Text style={styles.heroLast4}>{card.last4}</Text>
-              <Text style={styles.heroCur}>Balances in USD</Text>
-            </View>
-          </CardArt>
+              <View style={styles.heroBottom}>
+                <Text style={styles.heroLast4}>{card.last4}</Text>
+                <Text style={styles.heroCur}>Balances in USD</Text>
+              </View>
+            </CardArt>
+          </Pressable>
         </View>
 
         <View style={styles.tiles}>
