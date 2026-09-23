@@ -50,17 +50,23 @@ export function CardDetailScreen({ route, navigation }: Props) {
   const [editOpen, setEditOpen] = useState(false);
   const [editNickname, setEditNickname] = useState('');
   const [editColorKey, setEditColorKey] = useState<string | null>(null);
+  const [editBank, setEditBank] = useState('');
 
   const openEdit = () => {
     if (!card) return;
     setEditNickname(card.nickname ?? '');
     setEditColorKey(card.colorKey ?? null);
+    setEditBank(card.bank);
     setEditOpen(true);
   };
 
   const saveEdit = () => {
     if (!card) return;
-    updateCardDisplay(card.id, { nickname: editNickname.trim() || null, colorKey: editColorKey });
+    updateCardDisplay(card.id, {
+      nickname: editNickname.trim() || null,
+      colorKey: editColorKey,
+      bank: editBank.trim() || card.bank,
+    });
     setEditOpen(false);
   };
 
@@ -163,9 +169,13 @@ export function CardDetailScreen({ route, navigation }: Props) {
         <View style={styles.heroWrap}>
           <CardArt cardId={card.id} colorKey={card.colorKey} style={styles.hero}>
             <View style={styles.heroTop}>
-              <View>
-                <Text style={styles.heroBank}>{card.displayName}</Text>
-                <Text style={styles.heroSub}>{card.displaySub}</Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.heroBank} numberOfLines={1}>
+                  {card.displayName}
+                </Text>
+                <Text style={styles.heroSub} numberOfLines={2}>
+                  {card.displaySub}
+                </Text>
               </View>
               <Text style={styles.heroNetwork}>{card.network.toUpperCase()}</Text>
             </View>
@@ -327,7 +337,20 @@ export function CardDetailScreen({ route, navigation }: Props) {
           <Pressable style={styles.modalSheet} onPress={() => {}}>
             <Text style={styles.modalTitle}>{lang === 'es' ? 'Editar tarjeta' : 'Edit card'}</Text>
 
-            <Text style={styles.label}>{lang === 'es' ? 'APODO' : 'NICKNAME'}</Text>
+            <Text style={styles.label}>{lang === 'es' ? 'BANCO' : 'BANK'}</Text>
+            <TextInput
+              value={editBank}
+              onChangeText={setEditBank}
+              placeholderTextColor={colors.ink3}
+              style={styles.modalSearch}
+            />
+            <Text style={styles.modalHint}>
+              {lang === 'es'
+                ? 'Acórtalo si quieres — mientras el nombre del banco no cambie, los próximos estados de cuenta lo seguirán reconociendo.'
+                : "Shorten it if you like — as long as the bank itself doesn't change, future statements will still be recognized."}
+            </Text>
+
+            <Text style={[styles.label, { marginTop: 14 }]}>{lang === 'es' ? 'APODO' : 'NICKNAME'}</Text>
             <TextInput
               value={editNickname}
               onChangeText={setEditNickname}
@@ -397,7 +420,14 @@ function makeStyles(colors: ColorTokens) {
     heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
     heroBank: { fontSize: 16, fontWeight: '600', color: colors.onArt },
     heroSub: { fontSize: 12, color: 'rgba(243,245,254,0.62)', marginTop: 4 },
-    heroNetwork: { fontSize: 11, fontWeight: '500', letterSpacing: 1.4, color: 'rgba(243,245,254,0.62)' },
+    heroNetwork: {
+      fontSize: 11,
+      fontWeight: '500',
+      letterSpacing: 1.4,
+      color: 'rgba(243,245,254,0.62)',
+      flexShrink: 0,
+      marginLeft: 8,
+    },
     heroBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
     heroLast4: { fontSize: 14, fontWeight: '500', letterSpacing: 2.2, color: colors.onArt },
     heroCur: { fontSize: 11, color: 'rgba(243,245,254,0.62)' },
@@ -496,6 +526,7 @@ function makeStyles(colors: ColorTokens) {
       fontSize: 14,
       color: colors.ink,
     },
+    modalHint: { fontSize: 11, color: colors.ink3, marginTop: 6, lineHeight: 15 },
     swatchRow: { flexDirection: 'row', gap: 12 },
     swatch: {
       width: 40,

@@ -34,7 +34,7 @@ type CardsContextValue = {
   isDemo: boolean;
   addRealCard: (input: NewDbCard) => Promise<void>;
   deleteCard: (id: string) => Promise<void>;
-  updateCardDisplay: (id: string, patch: { nickname: string | null; colorKey: string | null }) => void;
+  updateCardDisplay: (id: string, patch: { nickname: string | null; colorKey: string | null; bank: string }) => void;
   updateTxCategory: (txId: string, merchant: string, category: Category, applyToAllWithMerchant: boolean) => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -207,13 +207,15 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
   );
 
   // Pure display preferences — never touched by statement parsing/applying.
+  // (bank is included here because, unlike product/network, apply-statement
+  // never overwrites it on an existing card — only sets it once at creation.)
   const updateCardDisplay = useCallback(
-    (id: string, patch: { nickname: string | null; colorKey: string | null }) => {
+    (id: string, patch: { nickname: string | null; colorKey: string | null; bank: string }) => {
       if (isDemo) return;
       setDbCards((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, nickname: patch.nickname, color_key: patch.colorKey } : c)),
+        prev.map((c) => (c.id === id ? { ...c, nickname: patch.nickname, color_key: patch.colorKey, bank: patch.bank } : c)),
       );
-      updateCard(id, { nickname: patch.nickname, color_key: patch.colorKey }).catch(() => loadReal());
+      updateCard(id, { nickname: patch.nickname, color_key: patch.colorKey, bank: patch.bank }).catch(() => loadReal());
     },
     [isDemo, loadReal],
   );
