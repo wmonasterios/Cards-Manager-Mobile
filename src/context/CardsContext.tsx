@@ -31,6 +31,7 @@ type CardsContextValue = {
   addPayment: (id: string, amount: number, when: string, paidOnIso?: string) => void;
   paymentHistory: (id: string) => Payment[];
   loaded: boolean;
+  loadError: boolean;
   isDemo: boolean;
   addRealCard: (input: NewDbCard) => Promise<void>;
   deleteCard: (id: string) => Promise<void>;
@@ -59,6 +60,10 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
   const [dbTransactions, setDbTransactions] = useState<DbTransaction[]>([]);
   const [dbStatements, setDbStatements] = useState<DbStatement[]>([]);
   const [realLoaded, setRealLoaded] = useState(false);
+  // Distinguishes "we checked and you genuinely have zero cards" from "the
+  // fetch failed" — without this, a network hiccup on someone's very first
+  // load (nothing cached yet) looked identical to an empty account.
+  const [loadError, setLoadError] = useState(false);
 
   const t = useT();
   const colors = useColors();
@@ -81,10 +86,13 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
         list.push({ amount: Number(p.amount), when: p.note || shortDate(p.paid_on) });
       }
       setDbPayments(byCard);
+      setLoadError(false);
     } catch {
       // A failed refresh should never blank out data already on screen — leave the
       // previous cards/payments/transactions as-is so a transient network hiccup
-      // doesn't look like the user's cards were deleted.
+      // doesn't look like the user's cards were deleted. loadError still flips so
+      // the UI can tell a real failure apart from a genuinely empty account.
+      setLoadError(true);
     } finally {
       setRealLoaded(true);
     }
@@ -237,6 +245,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       addPayment,
       paymentHistory,
       loaded: authLoading ? false : isDemo ? demoPaidLoaded && demoPaymentsLoaded : realLoaded,
+      loadError: isDemo ? false : loadError,
       isDemo,
       addRealCard,
       deleteCard,
@@ -255,6 +264,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       demoPaidLoaded,
       demoPaymentsLoaded,
       realLoaded,
+      loadError,
       addRealCard,
       deleteCard,
       updateCardDisplay,

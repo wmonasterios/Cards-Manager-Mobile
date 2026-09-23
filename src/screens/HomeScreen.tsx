@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useRef } from 'react';
-import { Animated, View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
 import { radius, spacing, ColorTokens } from '../theme';
 import { useColors } from '../theme/ThemeContext';
@@ -16,23 +17,46 @@ const RING_R = 15;
 export const CARD_HEIGHT = 214;
 const CARD_STEP = 86;
 
-function SkeletonPulse({ style }: { style: any }) {
-  const opacity = useRef(new Animated.Value(0.5)).current;
+// A light band sweeps left-to-right across each block on a loop — the classic
+// "this is actively loading" shimmer, instead of a flat pulse that can read
+// as static (or even broken) if someone isn't looking right at it.
+function Shimmer({ style }: { style: any }) {
+  const [width, setWidth] = useState(0);
+  const translateX = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
+    if (!width) return;
+    translateX.setValue(-width);
     const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 650, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.5, duration: 650, useNativeDriver: true }),
-      ]),
+      Animated.timing(translateX, {
+        toValue: width,
+        duration: 1100,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }),
     );
     loop.start();
     return () => loop.stop();
-  }, [opacity]);
-  return <Animated.View style={[style, { opacity }]} />;
+  }, [width, translateX]);
+
+  return (
+    <View style={[style, { overflow: 'hidden' }]} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+      {width > 0 && (
+        <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateX }] }]}>
+          <LinearGradient
+            colors={['transparent', 'rgba(255,255,255,0.09)', 'transparent']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={{ flex: 1 }}
+          />
+        </Animated.View>
+      )}
+    </View>
+  );
 }
 
 export function HomeScreen({ navigation }: any) {
-  const { cards, isDemo, loaded } = useCards();
+  const { cards, isDemo, loaded, loadError, refresh } = useCards();
   const colors = useColors();
   const t = useT();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -42,22 +66,22 @@ export function HomeScreen({ navigation }: any) {
       <SafeAreaView style={styles.screen} edges={['top']}>
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
-            <SkeletonPulse style={[styles.skelBlock, { width: 90, height: 11 }]} />
-            <SkeletonPulse style={[styles.skelBlock, { width: 150, height: 30, marginTop: 10 }]} />
-            <SkeletonPulse style={[styles.skelBlock, { width: 120, height: 11, marginTop: 9 }]} />
+            <Shimmer style={[styles.skelBlock, { width: 90, height: 11 }]} />
+            <Shimmer style={[styles.skelBlock, { width: 150, height: 30, marginTop: 10 }]} />
+            <Shimmer style={[styles.skelBlock, { width: 120, height: 11, marginTop: 9 }]} />
           </View>
         </View>
         <View style={[styles.stack, { height: CARD_HEIGHT, marginTop: 18 }]}>
-          <SkeletonPulse style={[styles.stackSlot, styles.skelCard, { top: 0 }]} />
+          <Shimmer style={[styles.stackSlot, styles.skelCard, { top: 0 }]} />
         </View>
         <View style={styles.statusSection}>
           <View style={styles.statusList}>
             {[0, 1].map((i) => (
               <View key={i} style={[styles.statusRow, styles.skelRow]}>
-                <SkeletonPulse style={styles.skelRing} />
+                <Shimmer style={styles.skelRing} />
                 <View style={{ flex: 1, gap: 7 }}>
-                  <SkeletonPulse style={[styles.skelBlock, { width: '55%', height: 12 }]} />
-                  <SkeletonPulse style={[styles.skelBlock, { width: '38%', height: 10 }]} />
+                  <Shimmer style={[styles.skelBlock, { width: '55%', height: 12 }]} />
+                  <Shimmer style={[styles.skelBlock, { width: '38%', height: 10 }]} />
                 </View>
               </View>
             ))}
@@ -128,7 +152,17 @@ export function HomeScreen({ navigation }: any) {
           </View>
         )}
 
-        {cards.length === 0 && (
+        {cards.length === 0 && loadError && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateTitle}>Couldn't load your cards</Text>
+            <Text style={styles.emptyStateBody}>Check your connection and try again.</Text>
+            <Pressable onPress={() => refresh()} style={styles.retryBtn}>
+              <Text style={styles.retryBtnText}>Retry</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {cards.length === 0 && !loadError && (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateTitle}>No cards yet</Text>
             <Text style={styles.emptyStateBody}>
@@ -309,6 +343,15 @@ function makeStyles(colors: ColorTokens) {
     },
     emptyStateTitle: { fontSize: 15, fontWeight: '500', color: colors.ink },
     emptyStateBody: { fontSize: 12.5, color: colors.ink3, marginTop: 6, textAlign: 'center' },
+    retryBtn: {
+      marginTop: 14,
+      paddingVertical: 9,
+      paddingHorizontal: 16,
+      borderRadius: radius.md - 2,
+      borderWidth: 1,
+      borderColor: colors.accent,
+    },
+    retryBtnText: { fontSize: 12.5, fontWeight: '500', color: colors.accent },
     stack: { marginTop: 18, paddingHorizontal: spacing.lg, position: 'relative' },
     stackSlot: { position: 'absolute', left: spacing.lg, right: spacing.lg, height: CARD_HEIGHT },
     cardArt: {

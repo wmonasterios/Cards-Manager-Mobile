@@ -1,5 +1,17 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, Modal, TextInput, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  Alert,
+  ActivityIndicator,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -333,57 +345,64 @@ export function CardDetailScreen({ route, navigation }: Props) {
       </ScrollView>
 
       <Modal visible={editOpen} transparent animationType="fade" onRequestClose={() => setEditOpen(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setEditOpen(false)}>
-          <Pressable style={styles.modalSheet} onPress={() => {}}>
-            <Text style={styles.modalTitle}>{lang === 'es' ? 'Editar tarjeta' : 'Edit card'}</Text>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <Pressable style={styles.modalBackdrop} onPress={() => setEditOpen(false)}>
+            <Pressable style={styles.modalSheet} onPress={() => {}}>
+              <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                <Text style={styles.modalTitle}>{lang === 'es' ? 'Editar tarjeta' : 'Edit card'}</Text>
 
-            <Text style={styles.label}>{lang === 'es' ? 'BANCO' : 'BANK'}</Text>
-            <TextInput
-              value={editBank}
-              onChangeText={setEditBank}
-              placeholderTextColor={colors.ink3}
-              style={styles.modalSearch}
-            />
-            <Text style={styles.modalHint}>
-              {lang === 'es'
-                ? 'Acórtalo si quieres — mientras el nombre del banco no cambie, los próximos estados de cuenta lo seguirán reconociendo.'
-                : "Shorten it if you like — as long as the bank itself doesn't change, future statements will still be recognized."}
-            </Text>
+                <Text style={styles.label}>{lang === 'es' ? 'BANCO' : 'BANK'}</Text>
+                <TextInput
+                  value={editBank}
+                  onChangeText={setEditBank}
+                  placeholderTextColor={colors.ink3}
+                  style={styles.modalSearch}
+                />
+                <Text style={styles.modalHint}>
+                  {lang === 'es'
+                    ? 'Acórtalo si quieres — mientras el nombre del banco no cambie, los próximos estados de cuenta lo seguirán reconociendo.'
+                    : "Shorten it if you like — as long as the bank itself doesn't change, future statements will still be recognized."}
+                </Text>
 
-            <Text style={[styles.label, { marginTop: 14 }]}>{lang === 'es' ? 'APODO' : 'NICKNAME'}</Text>
-            <TextInput
-              value={editNickname}
-              onChangeText={setEditNickname}
-              placeholder={card.bank}
-              placeholderTextColor={colors.ink3}
-              style={styles.modalSearch}
-            />
+                <Text style={[styles.label, { marginTop: 14 }]}>{lang === 'es' ? 'APODO' : 'NICKNAME'}</Text>
+                <TextInput
+                  value={editNickname}
+                  onChangeText={setEditNickname}
+                  placeholder={card.bank}
+                  placeholderTextColor={colors.ink3}
+                  style={styles.modalSearch}
+                />
 
-            <Text style={[styles.label, { marginTop: 14 }]}>{lang === 'es' ? 'COLOR' : 'COLOR'}</Text>
-            <View style={styles.swatchRow}>
-              {CARD_PALETTE_ORDER.map((key) => {
-                const [c0, , c2] = CARD_PALETTE[key];
-                const active = editColorKey === key;
-                return (
-                  <Pressable
-                    key={key}
-                    onPress={() => setEditColorKey(active ? null : key)}
-                    style={[
-                      styles.swatch,
-                      { backgroundColor: c0, borderColor: active ? colors.accent : 'transparent' },
-                    ]}
-                  >
-                    <View style={[styles.swatchInner, { backgroundColor: c2 }]} />
-                  </Pressable>
-                );
-              })}
-            </View>
+                <Text style={[styles.label, { marginTop: 14 }]}>{lang === 'es' ? 'COLOR' : 'COLOR'}</Text>
+                <View style={styles.swatchRow}>
+                  {CARD_PALETTE_ORDER.map((key) => {
+                    const [c0, , c2] = CARD_PALETTE[key];
+                    const active = editColorKey === key;
+                    return (
+                      <Pressable
+                        key={key}
+                        onPress={() => setEditColorKey(active ? null : key)}
+                        style={[
+                          styles.swatch,
+                          { backgroundColor: c0, borderColor: active ? colors.accent : 'transparent' },
+                        ]}
+                      >
+                        <View style={[styles.swatchInner, { backgroundColor: c2 }]} />
+                      </Pressable>
+                    );
+                  })}
+                </View>
 
-            <Pressable onPress={saveEdit} style={styles.saveBtn}>
-              <Text style={styles.saveBtnText}>{lang === 'es' ? 'Guardar' : 'Save'}</Text>
+                <Pressable onPress={saveEdit} style={styles.saveBtn}>
+                  <Text style={styles.saveBtnText}>{lang === 'es' ? 'Guardar' : 'Save'}</Text>
+                </Pressable>
+              </ScrollView>
             </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -514,6 +533,7 @@ function makeStyles(colors: ColorTokens) {
       borderTopRightRadius: radius.xl,
       padding: spacing.xl,
       paddingBottom: spacing.xxl,
+      maxHeight: '80%',
     },
     modalTitle: { fontSize: 16, fontWeight: '500', color: colors.ink, marginBottom: 14 },
     label: { fontSize: 11, fontWeight: '500', color: colors.ink3, letterSpacing: 1, marginBottom: 8 },
