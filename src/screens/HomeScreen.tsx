@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { Animated, View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { radius, spacing, ColorTokens } from '../theme';
@@ -16,11 +16,56 @@ const RING_R = 15;
 export const CARD_HEIGHT = 214;
 const CARD_STEP = 86;
 
+function SkeletonPulse({ style }: { style: any }) {
+  const opacity = useRef(new Animated.Value(0.5)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 1, duration: 650, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.5, duration: 650, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [opacity]);
+  return <Animated.View style={[style, { opacity }]} />;
+}
+
 export function HomeScreen({ navigation }: any) {
-  const { cards, isDemo } = useCards();
+  const { cards, isDemo, loaded } = useCards();
   const colors = useColors();
   const t = useT();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  if (!loaded && cards.length === 0) {
+    return (
+      <SafeAreaView style={styles.screen} edges={['top']}>
+        <View style={styles.header}>
+          <View style={{ flex: 1 }}>
+            <SkeletonPulse style={[styles.skelBlock, { width: 90, height: 11 }]} />
+            <SkeletonPulse style={[styles.skelBlock, { width: 150, height: 30, marginTop: 10 }]} />
+            <SkeletonPulse style={[styles.skelBlock, { width: 120, height: 11, marginTop: 9 }]} />
+          </View>
+        </View>
+        <View style={[styles.stack, { height: CARD_HEIGHT, marginTop: 18 }]}>
+          <SkeletonPulse style={[styles.stackSlot, styles.skelCard, { top: 0 }]} />
+        </View>
+        <View style={styles.statusSection}>
+          <View style={styles.statusList}>
+            {[0, 1].map((i) => (
+              <View key={i} style={[styles.statusRow, styles.skelRow]}>
+                <SkeletonPulse style={styles.skelRing} />
+                <View style={{ flex: 1, gap: 7 }}>
+                  <SkeletonPulse style={[styles.skelBlock, { width: '55%', height: 12 }]} />
+                  <SkeletonPulse style={[styles.skelBlock, { width: '38%', height: 10 }]} />
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const unpaid = cards.filter((c) => !c.paid);
   const totalOwed = unpaid.reduce((n, c) => n + c.remaining, 0);
@@ -329,5 +374,9 @@ function makeStyles(colors: ColorTokens) {
     statusChipText: { fontSize: 10, fontWeight: '500' },
     actionPill: { paddingVertical: 8, paddingHorizontal: 11, borderRadius: radius.pill, borderWidth: 1 },
     actionPillText: { fontSize: 11, fontWeight: '500' },
+    skelBlock: { borderRadius: 6, backgroundColor: colors.line2 },
+    skelCard: { borderRadius: radius.xl, backgroundColor: colors.surface2, height: CARD_HEIGHT },
+    skelRow: { borderColor: colors.line },
+    skelRing: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.line2 },
   });
 }
