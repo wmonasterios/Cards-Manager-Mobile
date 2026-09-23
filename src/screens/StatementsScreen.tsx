@@ -353,6 +353,18 @@ function RealStatementsFlow({ navigation, route }: any) {
     | { kind: 'ambiguous'; candidates: DecoratedCard[] }
     | { kind: 'new' };
 
+  // The bank shown on a statement isn't always printed the same way twice
+  // (legal entity name one month, a shorter product label the next — or a
+  // user-simplified name typed in during review). Since the actual bank a
+  // card belongs to never changes, treat the shorter of two normalized names
+  // being contained in the longer one as the same bank, rather than
+  // requiring an exact string match.
+  const bankNamesOverlap = (a: string, b: string): boolean => {
+    if (!a || !b) return false;
+    const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
+    return shorter.length >= 3 && longer.includes(shorter);
+  };
+
   const resolution: Resolution = useMemo(() => {
     if (!fields) return { kind: 'new' };
     if (filterCard) return { kind: 'forced', card: filterCard };
@@ -360,11 +372,20 @@ function RealStatementsFlow({ navigation, route }: any) {
     const bankNorm = fields.bank.trim().toLowerCase();
     const last4Norm = (fields.last4 ?? '').replace(/\D/g, '').slice(-4) || null;
 
-    const aliasHit = aliases.find((a) => a.bank_text === bankNorm && a.last4 === last4Norm);
+    const aliasHit = aliases.find(
+      (a) => a.last4 === last4Norm && bankNamesOverlap(a.bank_text, bankNorm),
+    );
     const aliasCard = aliasHit ? cards.find((c) => c.id === aliasHit.card_id) : undefined;
     if (aliasCard) return { kind: 'alias', card: aliasCard };
 
-    const bankMatches = cards.filter((c) => c.bank.trim().toLowerCase() === bankNorm);
+    const bankMatches = cards.filter((c) => bankNamesOverlap(c.bank.trim().toLowerCase(), bankNorm));
+    // Several loosely-matching cards (e.g. two cards from the same bank) get
+    // resolved for free when only one of them also has this exact last4 —
+    // no need to ask if the strongest signal already picks a clear winner.
+    const exactLast4 = bankMatches.filter((c) => c.last4 === last4Norm);
+    if (exactLast4.length === 1) {
+      return { kind: 'match', card: exactLast4[0], sameLast4: true };
+    }
     if (bankMatches.length === 1) {
       return { kind: 'match', card: bankMatches[0], sameLast4: bankMatches[0].last4 === last4Norm };
     }
