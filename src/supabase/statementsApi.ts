@@ -116,3 +116,13 @@ export async function getStatement(statementId: string): Promise<DbStatement | n
   if (error) throw error;
   return data;
 }
+
+export async function getStatementEmail(userId: string): Promise<string> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('statement_email_token')
+    .eq('id', userId)
+    .single();
+  if (error) throw error;
+  return `u-${data.statement_email_token}@stmts.poquetapp.com`;
+}

@@ -11,8 +11,9 @@ import { useAppSettings } from '../context/AppSettingsContext';
 import { useAuth } from '../context/AuthContext';
 import { useCards } from '../context/CardsContext';
 import * as Clipboard from 'expo-clipboard';
+import { getStatementEmail } from '../supabase/statementsApi';
 
-const INBOX = 'w.monasterios.7f3a@in.cardsmanager.app';
+const DEMO_INBOX = 'w.monasterios.7f3a@in.cardsmanager.app';
 
 export function SettingsScreen({ navigation }: any) {
   const { lang, t, setLang } = useLocale();
@@ -23,6 +24,14 @@ export function SettingsScreen({ navigation }: any) {
   const { session, signOut } = useAuth();
   const { isDemo } = useCards();
   const [copied, setCopied] = React.useState(false);
+  const [inbox, setInbox] = React.useState(DEMO_INBOX);
+
+  React.useEffect(() => {
+    if (isDemo || !session?.user.id) return;
+    getStatementEmail(session.user.id)
+      .then(setInbox)
+      .catch(() => {});
+  }, [isDemo, session?.user.id]);
 
   const accountEmail = session ? session.user.email ?? t.signedOut : t.signedOut;
   const accountInitials = session?.user.email ? session.user.email.slice(0, 2).toUpperCase() : '–';
@@ -46,7 +55,7 @@ export function SettingsScreen({ navigation }: any) {
   ];
 
   const copyInbox = async () => {
-    await Clipboard.setStringAsync(INBOX);
+    await Clipboard.setStringAsync(inbox);
     setCopied(true);
     setTimeout(() => setCopied(false), 2600);
   };
@@ -145,7 +154,7 @@ export function SettingsScreen({ navigation }: any) {
             <Text style={styles.dataLabel}>{t.inboxLabel}</Text>
             <View style={styles.inboxRow}>
               <Text style={styles.inboxText} numberOfLines={1}>
-                {INBOX}
+                {inbox}
               </Text>
               <Pressable onPress={copyInbox} style={styles.copyBtn}>
                 <Text style={styles.copyBtnText}>{copied ? t.copied : t.copy}</Text>

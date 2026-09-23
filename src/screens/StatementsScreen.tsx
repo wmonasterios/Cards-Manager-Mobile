@@ -36,6 +36,7 @@ import {
   listNeedsReviewStatements,
   getStatement,
   getStatementPdfUrl,
+  getStatementEmail,
 } from '../supabase/statementsApi';
 import { listCardAliases } from '../supabase/cardsApi';
 import { DbStatement, DbCardAlias, ParsedStatement } from '../supabase/types';
@@ -206,12 +207,29 @@ async function pollForCompletion(id: string, maxWaitMs = 90000, intervalMs = 400
 }
 
 function RealStatementsFlow({ navigation, route }: any) {
-  const { lang } = useLocale();
+  const { lang, t } = useLocale();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { session } = useAuth();
   const { refresh, getCard, cards } = useCards();
   const userId = session?.user.id;
+
+  const [emailAddress, setEmailAddress] = useState('');
+  const [emailCopied, setEmailCopied] = useState(false);
+
+  useEffect(() => {
+    if (!userId) return;
+    getStatementEmail(userId)
+      .then(setEmailAddress)
+      .catch(() => {});
+  }, [userId]);
+
+  const copyInbox = async () => {
+    if (!emailAddress) return;
+    await Clipboard.setStringAsync(emailAddress);
+    setEmailCopied(true);
+    setTimeout(() => setEmailCopied(false), 2600);
+  };
 
   const filterCardId: string | undefined = route?.params?.cardId;
   const [showAllCards, setShowAllCards] = useState(false);
@@ -945,6 +963,21 @@ function RealStatementsFlow({ navigation, route }: any) {
                 : 'Pick it from Files or a scanned PDF.'}
             </Text>
           </Pressable>
+
+          {!!emailAddress && (
+            <View style={styles.emailCard}>
+              <Text style={styles.emailTitle}>{t.forward}</Text>
+              <Text style={styles.emailBody}>{t.emailBody}</Text>
+              <View style={styles.inboxRow}>
+                <Text style={styles.inboxText} numberOfLines={1}>
+                  {emailAddress}
+                </Text>
+                <Pressable onPress={copyInbox} style={styles.copyBtn}>
+                  <Text style={styles.copyBtnText}>{emailCopied ? t.copied : t.copy}</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
 
           {history.length > 0 && (
             <>
