@@ -281,10 +281,29 @@ function RealStatementsFlow({ navigation, route }: any) {
 
   const [refreshing, setRefreshing] = useState(false);
 
+  // Statements that arrive by email are parsed server-side without the client
+  // ever calling parseStatement() itself — if that background trigger dropped
+  // for any reason, the row is left stuck on "pending" forever. Nudge it along
+  // from here instead, once per statement per session.
+  const nudgedRef = useRef<Set<string>>(new Set());
+
   const loadHistory = async () => {
     if (!userId) return;
     try {
-      setHistory(await listNeedsReviewStatements(userId));
+      const rows = await listNeedsReviewStatements(userId);
+      setHistory(rows);
+      const staleCutoff = Date.now() - 20_000;
+      for (const s of rows) {
+        if (
+          s.source === 'email' &&
+          s.status === 'pending' &&
+          new Date(s.received_at).getTime() < staleCutoff &&
+          !nudgedRef.current.has(s.id)
+        ) {
+          nudgedRef.current.add(s.id);
+          parseStatement(s.id).then(loadHistory).catch(() => {});
+        }
+      }
     } catch {
       // Non-critical: history is a nice-to-have, not worth surfacing an error for.
     }
