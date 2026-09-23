@@ -293,16 +293,24 @@ function RealStatementsFlow({ navigation, route }: any) {
       const rows = await listNeedsReviewStatements(userId);
       setHistory(rows);
       const staleCutoff = Date.now() - 20_000;
-      for (const s of rows) {
-        if (
-          s.source === 'email' &&
-          s.status === 'pending' &&
-          new Date(s.received_at).getTime() < staleCutoff &&
-          !nudgedRef.current.has(s.id)
-        ) {
+      const nudges = rows
+        .filter(
+          (s) =>
+            s.source === 'email' &&
+            s.status === 'pending' &&
+            new Date(s.received_at).getTime() < staleCutoff &&
+            !nudgedRef.current.has(s.id),
+        )
+        .map((s) => {
           nudgedRef.current.add(s.id);
-          parseStatement(s.id).then(loadHistory).catch(() => {});
-        }
+          return parseStatement(s.id).catch(() => {});
+        });
+      // Awaited so pull-to-refresh keeps spinning for as long as the nudged
+      // parse actually takes, instead of stopping instantly and leaving the
+      // list looking unchanged until a second, unrelated manual refresh.
+      if (nudges.length > 0) {
+        await Promise.all(nudges);
+        setHistory(await listNeedsReviewStatements(userId));
       }
     } catch {
       // Non-critical: history is a nice-to-have, not worth surfacing an error for.
@@ -481,10 +489,10 @@ function RealStatementsFlow({ navigation, route }: any) {
 
   const [openingStatementId, setOpeningStatementId] = useState<string | null>(null);
 
-  const openStatementPdf = async (s: DbStatement) => {
-    setOpeningStatementId(s.id);
+  const openStatementPdf = async (id: string) => {
+    setOpeningStatementId(id);
     try {
-      const url = await getStatementPdfUrl(s.id);
+      const url = await getStatementPdfUrl(id);
       await Linking.openURL(url);
     } catch (err: any) {
       Alert.alert(
@@ -503,7 +511,7 @@ function RealStatementsFlow({ navigation, route }: any) {
     if (s.status === 'needs_review') {
       resumeReview(s);
     } else {
-      openStatementPdf(s);
+      openStatementPdf(s.id);
     }
   };
 
@@ -801,6 +809,22 @@ function RealStatementsFlow({ navigation, route }: any) {
               <View style={styles.noteBanner}>
                 <Text style={styles.noteBannerText}>{fields.notes}</Text>
               </View>
+            )}
+            {!!statementId && (
+              <Pressable
+                onPress={() => openStatementPdf(statementId)}
+                disabled={openingStatementId === statementId}
+                style={styles.viewPdfLink}
+                hitSlop={6}
+              >
+                {openingStatementId === statementId ? (
+                  <ActivityIndicator color={colors.accent} />
+                ) : (
+                  <Text style={styles.viewPdfLinkText}>
+                    {lang === 'es' ? 'Ver PDF original ↗' : 'View original PDF ↗'}
+                  </Text>
+                )}
+              </Pressable>
             )}
           </View>
 
@@ -1513,6 +1537,8 @@ function makeStyles(colors: ColorTokens) {
       borderColor: colors.line2,
     },
     noteBannerText: { fontSize: 12, color: colors.ink2, lineHeight: 17 },
+    viewPdfLink: { marginTop: 14, alignSelf: 'flex-start' },
+    viewPdfLinkText: { fontSize: 12.5, fontWeight: '500', color: colors.accent },
     zeroTxBanner: {
       marginTop: 10,
       padding: 12,
