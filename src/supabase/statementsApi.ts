@@ -96,7 +96,7 @@ export async function getStatementPdfUrl(statementId: string): Promise<string> {
 
   const { data, error: signError } = await supabase.storage
     .from('statements')
-    .createSignedUrl(statement.storage_path, 60 * 5);
+    .createSignedUrl(statement.storage_path, 60 * 15);
   if (signError) throw signError;
   return data.signedUrl;
 }
