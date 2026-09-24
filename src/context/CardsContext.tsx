@@ -15,6 +15,7 @@ import {
   addPaymentRow,
   dbCardToCard,
   deleteCardCompletely,
+  deleteAllUserData,
   updateTransactionCategory,
 } from '../supabase/cardsApi';
 import { listNeedsReviewStatements } from '../supabase/statementsApi';
@@ -35,6 +36,7 @@ type CardsContextValue = {
   isDemo: boolean;
   addRealCard: (input: NewDbCard) => Promise<void>;
   deleteCard: (id: string) => Promise<void>;
+  deleteAllData: () => Promise<void>;
   updateCardDisplay: (id: string, patch: { nickname: string | null; colorKey: string | null; bank: string }) => void;
   updateTxCategory: (txId: string, merchant: string, category: Category, applyToAllWithMerchant: boolean) => Promise<void>;
   refresh: () => Promise<void>;
@@ -217,6 +219,12 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
     [isDemo, loadReal],
   );
 
+  const deleteAllData = useCallback(async () => {
+    if (isDemo || !userId) return;
+    await deleteAllUserData(userId);
+    await loadReal();
+  }, [isDemo, userId, loadReal]);
+
   // Pure display preferences — never touched by statement parsing/applying.
   // (bank is included here because, unlike product/network, apply-statement
   // never overwrites it on an existing card — only sets it once at creation.)
@@ -252,6 +260,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       isDemo,
       addRealCard,
       deleteCard,
+      deleteAllData,
       updateCardDisplay,
       updateTxCategory,
       refresh: loadReal,
@@ -270,6 +279,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       loadError,
       addRealCard,
       deleteCard,
+      deleteAllData,
       updateCardDisplay,
       updateTxCategory,
       loadReal,

@@ -131,6 +131,14 @@ export async function archiveCard(cardId: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function deleteAllUserData(userId: string): Promise<void> {
+  const { data: cards, error } = await supabase.from('cards').select('id').eq('user_id', userId);
+  if (error) throw error;
+  for (const c of cards ?? []) {
+    await deleteCardCompletely(c.id);
+  }
+}
+
 export async function deleteCardCompletely(cardId: string): Promise<void> {
   const { data: statements } = await supabase
     .from('statements')

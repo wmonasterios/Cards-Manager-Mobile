@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { radius, spacing, ColorTokens } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useAppTheme, ThemeMode } from '../theme/ThemeContext';
@@ -12,6 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCards } from '../context/CardsContext';
 import * as Clipboard from 'expo-clipboard';
 import { getStatementEmail } from '../supabase/statementsApi';
+import { buildTransactionsCsv } from '../csv';
 
 const DEMO_INBOX = 'w.monasterios.7f3a@in.cardsmanager.app';
 
@@ -22,9 +25,11 @@ export function SettingsScreen({ navigation }: any) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const settings = useAppSettings();
   const { session, signOut } = useAuth();
-  const { isDemo } = useCards();
+  const { isDemo, cards, deleteAllData } = useCards();
   const [copied, setCopied] = React.useState(false);
   const [inbox, setInbox] = React.useState(DEMO_INBOX);
+  const [exporting, setExporting] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
 
   React.useEffect(() => {
     if (isDemo || !session?.user.id) return;
@@ -58,6 +63,58 @@ export function SettingsScreen({ navigation }: any) {
     await Clipboard.setStringAsync(inbox);
     setCopied(true);
     setTimeout(() => setCopied(false), 2600);
+  };
+
+  const handleExportCsv = async () => {
+    if (isDemo) {
+      Alert.alert(lang === 'es' ? '312 transacciones exportadas a CSV' : '312 transactions exported to CSV');
+      return;
+    }
+    setExporting(true);
+    try {
+      const csv = buildTransactionsCsv(cards);
+      const path = `${FileSystem.cacheDirectory}poquet-transactions.csv`;
+      await FileSystem.writeAsStringAsync(path, csv, { encoding: FileSystem.EncodingType.UTF8 });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(path, { mimeType: 'text/csv', dialogTitle: t.exportCsv });
+      } else {
+        Alert.alert(lang === 'es' ? 'No se pudo compartir el archivo' : 'Could not share the file');
+      }
+    } catch (err: any) {
+      Alert.alert(lang === 'es' ? 'No se pudo exportar' : 'Could not export', err?.message ?? String(err));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleDeleteAll = () => {
+    if (isDemo) {
+      Alert.alert(lang === 'es' ? 'Se pediría confirmación antes de borrar' : 'This would ask for confirmation first');
+      return;
+    }
+    Alert.alert(
+      lang === 'es' ? '¿Borrar todos tus datos?' : 'Delete all your data?',
+      lang === 'es'
+        ? 'Se eliminan permanentemente todas tus tarjetas, transacciones, pagos y estados de cuenta. No se puede deshacer.'
+        : 'This permanently deletes all your cards, transactions, payments and statements. This cannot be undone.',
+      [
+        { text: lang === 'es' ? 'Cancelar' : 'Cancel', style: 'cancel' },
+        {
+          text: lang === 'es' ? 'Borrar todo' : 'Delete everything',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteAllData();
+            } catch (err: any) {
+              Alert.alert(lang === 'es' ? 'No se pudo borrar' : 'Could not delete', err?.message ?? String(err));
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -160,24 +217,26 @@ export function SettingsScreen({ navigation }: any) {
                 <Text style={styles.copyBtnText}>{copied ? t.copied : t.copy}</Text>
               </Pressable>
             </View>
-            {isDemo && (
-              <View style={styles.dataActions}>
-                <Pressable
-                  onPress={() => Alert.alert(lang === 'es' ? '312 transacciones exportadas a CSV' : '312 transactions exported to CSV')}
-                  style={styles.dataBtn}
-                >
+            <View style={styles.dataActions}>
+              <Pressable onPress={handleExportCsv} disabled={exporting} style={[styles.dataBtn, exporting && { opacity: 0.6 }]}>
+                {exporting ? (
+                  <ActivityIndicator color={colors.ink} />
+                ) : (
                   <Text style={styles.dataBtnText}>{t.exportCsv}</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() =>
-                    Alert.alert(lang === 'es' ? 'Se pediría confirmación antes de borrar' : 'This would ask for confirmation first')
-                  }
-                  style={[styles.dataBtn, { borderColor: colors.accentLine }]}
-                >
+                )}
+              </Pressable>
+              <Pressable
+                onPress={handleDeleteAll}
+                disabled={deleting}
+                style={[styles.dataBtn, { borderColor: colors.accentLine }, deleting && { opacity: 0.6 }]}
+              >
+                {deleting ? (
+                  <ActivityIndicator color={colors.accentInk} />
+                ) : (
                   <Text style={[styles.dataBtnText, { color: colors.accentInk }]}>{t.deleteAll}</Text>
-                </Pressable>
-              </View>
-            )}
+                )}
+              </Pressable>
+            </View>
           </View>
 
           <Text style={styles.groupLabel}>{t.about.toUpperCase()}</Text>
