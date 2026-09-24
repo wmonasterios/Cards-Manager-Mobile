@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../supabase/client';
-import { signInWithOAuthProvider } from '../supabase/oauth';
+import { signInWithOAuthProvider, signInWithApple as signInWithAppleNative } from '../supabase/oauth';
 
 type AuthContextValue = {
   session: Session | null;
@@ -12,6 +12,7 @@ type AuthContextValue = {
   confirmSignup: (email: string, code: string) => Promise<{ error: string | null }>;
   resendConfirmation: (email: string) => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
+  signInWithApple: () => Promise<{ error: string | null }>;
 };
 
 const AUTH_TIMEOUT_MS = 12000;
@@ -117,9 +118,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGoogle = () => signInWithOAuthProvider('google');
+  const signInWithApple = () => signInWithAppleNative();
 
   const value = useMemo(
-    () => ({ session, loading, signUp, signIn, signOut, confirmSignup, resendConfirmation, signInWithGoogle }),
+    () => ({
+      session,
+      loading,
+      signUp,
+      signIn,
+      signOut,
+      confirmSignup,
+      resendConfirmation,
+      signInWithGoogle,
+      signInWithApple,
+    }),
     [session, loading],
   );
 

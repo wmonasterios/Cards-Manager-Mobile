@@ -1,10 +1,12 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, Platform, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { RootStackParamList } from '../navigation/types';
 import { radius, spacing, ColorTokens } from '../theme';
 import { useColors } from '../theme/ThemeContext';
+import { useAppTheme } from '../theme/ThemeContext';
 import { BackButton } from '../components/BackButton';
 import { Segmented } from '../components/Segmented';
 import { useAuth } from '../context/AuthContext';
@@ -14,8 +16,9 @@ type Mode = 'signin' | 'signup';
 
 export function AuthScreen({ navigation }: Props) {
   const colors = useColors();
+  const { isDark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { signIn, signUp, confirmSignup, resendConfirmation, signInWithGoogle } = useAuth();
+  const { signIn, signUp, confirmSignup, resendConfirmation, signInWithGoogle, signInWithApple } = useAuth();
 
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
@@ -25,6 +28,12 @@ export function AuthScreen({ navigation }: Props) {
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
+  const [appleAvailable, setAppleAvailable] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    AppleAuthentication.isAvailableAsync().then(setAppleAvailable).catch(() => setAppleAvailable(false));
+  }, []);
 
   const handleGoogle = async () => {
     setGoogleBusy(true);
@@ -32,6 +41,15 @@ export function AuthScreen({ navigation }: Props) {
     setGoogleBusy(false);
     if (error) {
       Alert.alert('Could not sign in with Google', error);
+      return;
+    }
+    navigation.goBack();
+  };
+
+  const handleApple = async () => {
+    const { error } = await signInWithApple();
+    if (error) {
+      Alert.alert('Could not sign in with Apple', error);
       return;
     }
     navigation.goBack();
@@ -192,6 +210,20 @@ export function AuthScreen({ navigation }: Props) {
               <Text style={styles.googleBtnText}>Continue with Google</Text>
             )}
           </Pressable>
+
+          {appleAvailable && (
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={
+                isDark
+                  ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                  : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+              }
+              cornerRadius={radius.md}
+              style={styles.appleBtn}
+              onPress={handleApple}
+            />
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -239,5 +271,6 @@ function makeStyles(colors: ColorTokens) {
       alignItems: 'center',
     },
     googleBtnText: { fontSize: 14, fontWeight: '500', color: colors.ink },
+    appleBtn: { marginTop: 12, width: '100%', height: 48 },
   });
 }

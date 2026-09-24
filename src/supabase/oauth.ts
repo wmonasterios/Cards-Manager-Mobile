@@ -1,5 +1,7 @@
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 import { supabase } from './client';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -36,4 +38,35 @@ export async function signInWithOAuthProvider(provider: 'google' | 'apple'): Pro
   if (result.type !== 'success' || !result.url) return { error: 'Sign-in was not completed.' };
 
   return applySessionFromUrl(result.url);
+}
+
+// The native flow (Face ID / Touch ID, no browser tab) rather than the
+// generic web-based OAuth redirect above — this is what App Review expects
+// for Sign in with Apple on iOS, and what unlocks it as an equivalent
+// option alongside Google per guideline 4.8.
+export async function signInWithApple(): Promise<{ error: string | null }> {
+  try {
+    const rawNonce = Crypto.randomUUID();
+    const hashedNonce = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, rawNonce);
+
+    const credential = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+      nonce: hashedNonce,
+    });
+
+    if (!credential.identityToken) return { error: 'Apple did not return an identity token.' };
+
+    const { error } = await supabase.auth.signInWithIdToken({
+      provider: 'apple',
+      token: credential.identityToken,
+      nonce: rawNonce,
+    });
+    return { error: error?.message ?? null };
+  } catch (e: any) {
+    if (e?.code === 'ERR_REQUEST_CANCELED') return { error: null };
+    return { error: e?.message ?? 'Sign-in with Apple failed.' };
+  }
 }
