@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DecoratedCard } from './decorate';
 import { supabase } from './supabase/client';
+import { Lang } from './i18n/dict';
 
 const REMINDER_IDS_KEY = 'cardsManager:notif:reminderIds';
 const WEEKLY_ID_KEY = 'cardsManager:notif:weeklyId';
@@ -88,6 +89,14 @@ export async function scheduleWeeklySummary() {
     },
   });
   await AsyncStorage.setItem(WEEKLY_ID_KEY, JSON.stringify([id]));
+}
+
+export async function syncProfileLang(userId: string, lang: Lang): Promise<void> {
+  try {
+    await supabase.from('profiles').update({ lang }).eq('id', userId);
+  } catch {
+    // Best-effort — worst case, server-sent notifications fall back to English.
+  }
 }
 
 export async function registerPushToken(userId: string): Promise<void> {
