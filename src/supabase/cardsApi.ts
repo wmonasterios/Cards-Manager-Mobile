@@ -1,6 +1,6 @@
 import { supabase } from './client';
 import { DbCard, DbCardAlias, DbPayment, DbTransaction, NewDbCard } from './types';
-import { ALL_CATEGORIES, Card, Category, Transaction } from '../data';
+import { ALL_CATEGORIES, Card, Category, InstalmentPlan, Transaction } from '../data';
 
 function shortDate(iso: string | null): string {
   if (!iso) return '';
@@ -20,12 +20,48 @@ function dbTransactionToTransaction(row: DbTransaction): Transaction {
     iso: row.occurred_on,
     amount: Number(row.amount),
     category,
+    plan: row.plan ?? undefined,
+    rate: row.plan_rate ?? undefined,
     statementId: row.statement_id ?? undefined,
     categorySource: row.category_source ?? undefined,
   };
 }
 
+// A statement only ever shows one line per month for an ongoing instalment
+// purchase (e.g. "4/12" this month, "5/12" next), so there's no stable plan
+// id to group by across months — the best available signal is merchant name,
+// taking the most recently seen line as that plan's current status.
+function parsePlanProgress(planLabel: string): { current: number; total: number } | null {
+  const match = planLabel.match(/(\d+)\s*(?:\/|de|of)\s*(\d+)/i);
+  if (!match) return null;
+  return { current: Number(match[1]), total: Number(match[2]) };
+}
+
+function buildInstalmentPlans(transactions: DbTransaction[]): InstalmentPlan[] {
+  const latestByMerchant = new Map<string, DbTransaction>();
+  for (const row of transactions) {
+    if (!row.plan) continue;
+    const key = row.merchant.trim().toLowerCase();
+    const existing = latestByMerchant.get(key);
+    if (!existing || row.occurred_on > existing.occurred_on) latestByMerchant.set(key, row);
+  }
+  return Array.from(latestByMerchant.values()).map((row) => {
+    const progress = parsePlanProgress(row.plan!);
+    const monthly = Math.abs(Number(row.amount));
+    const remainingInstalments = progress ? Math.max(0, progress.total - progress.current) : 0;
+    return {
+      merchant: row.merchant,
+      plan: row.plan!,
+      rate: row.plan_rate ?? '',
+      monthly,
+      remaining: remainingInstalments * monthly,
+      pct: progress ? Math.round((progress.current / progress.total) * 100) : 0,
+    };
+  });
+}
+
 export function dbCardToCard(row: DbCard, transactions: DbTransaction[] = []): Card {
+  const cardTx = transactions.filter((t) => t.card_id === row.id);
   return {
     id: row.id,
     bank: row.bank,
@@ -42,13 +78,10 @@ export function dbCardToCard(row: DbCard, transactions: DbTransaction[] = []): C
     cutoffIso: row.cutoff_date ?? undefined,
     plansNote: '',
     cycleNote: '',
-    plans: [],
+    plans: buildInstalmentPlans(cardTx),
     nickname: row.nickname ?? undefined,
     colorKey: row.color_key ?? undefined,
-    tx: transactions
-      .filter((t) => t.card_id === row.id)
-      .sort((a, b) => (a.occurred_on < b.occurred_on ? 1 : -1))
-      .map(dbTransactionToTransaction),
+    tx: cardTx.sort((a, b) => (a.occurred_on < b.occurred_on ? 1 : -1)).map(dbTransactionToTransaction),
   };
 }
 

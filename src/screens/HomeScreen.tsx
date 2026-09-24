@@ -111,10 +111,10 @@ export function HomeScreen({ navigation }: any) {
   };
 
   const nextDueText = !unpaid.length
-    ? 'Everything is paid this cycle'
+    ? t.everythingPaidCycle
     : isDemo
-      ? 'Banco Aliado due in 4 days — US$ 171.01 minimum'
-      : `${unpaid.length} card${unpaid.length > 1 ? 's' : ''} with a balance due`;
+      ? t.demoDueBanner
+      : `${unpaid.length} ${t.cardsWord} ${t.withBalanceDue}`;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -154,20 +154,18 @@ export function HomeScreen({ navigation }: any) {
 
         {cards.length === 0 && loadError && (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateTitle}>Couldn't load your cards</Text>
-            <Text style={styles.emptyStateBody}>Check your connection and try again.</Text>
+            <Text style={styles.emptyStateTitle}>{t.couldntLoadCards}</Text>
+            <Text style={styles.emptyStateBody}>{t.checkConnectionRetry}</Text>
             <Pressable onPress={() => refresh()} style={styles.retryBtn}>
-              <Text style={styles.retryBtnText}>Retry</Text>
+              <Text style={styles.retryBtnText}>{t.retry}</Text>
             </Pressable>
           </View>
         )}
 
         {cards.length === 0 && !loadError && (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateTitle}>No cards yet</Text>
-            <Text style={styles.emptyStateBody}>
-              Tap the + button above to add your first card.
-            </Text>
+            <Text style={styles.emptyStateTitle}>{t.noCardsYet}</Text>
+            <Text style={styles.emptyStateBody}>{t.tapPlusAddFirst}</Text>
           </View>
         )}
 

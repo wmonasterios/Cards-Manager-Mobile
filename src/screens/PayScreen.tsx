@@ -34,7 +34,12 @@ export function PayScreen({ route, navigation }: Props) {
 
   if (!card) return null;
 
-  const payAmount = mode === 'min' ? card.min : mode === 'custom' ? parseFloat(custom) || 0 : card.remaining;
+  const payAmount =
+    mode === 'min'
+      ? Math.max(0, card.min - card.paidAmt)
+      : mode === 'custom'
+        ? parseFloat(custom) || 0
+        : card.remaining;
   const afterAmount = Math.max(0, card.remaining - payAmount);
 
   const locale = lang === 'es' ? 'es-PA' : 'en-US';
@@ -59,7 +64,11 @@ export function PayScreen({ route, navigation }: Props) {
     }
     const paidOnIso = when === 'today' ? toIso(todayDate) : toIso(dueDate);
     addPayment(card.id, payAmount, whenLabel, paidOnIso);
-    Alert.alert(`${money('US$', payAmount)} registered on ${card.displayName}`);
+    Alert.alert(
+      t.paymentRegisteredTemplate
+        .replace('{amount}', money('US$', payAmount))
+        .replace('{bank}', card.displayName),
+    );
     navigation.goBack();
   };
 

@@ -93,21 +93,21 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
   );
 
   const statusNote = tx.declined
-    ? `Declined by ${card.displayName} — over limit`
+    ? t.declinedTemplate.replace('{bank}', card.displayName)
     : tx.amount > 0
-      ? `Payment credited to ${card.displayName}`
-      : `Posted · ${card.displayName} ${card.last4}`;
+      ? t.creditedTemplate.replace('{bank}', card.displayName)
+      : t.postedTemplate.replace('{bank}', card.displayName).replace('{last4}', card.last4);
 
   const rows = [
     { label: t.card, value: `${card.displayName} ${card.product}` },
     { label: t.category, value: categoryLabel(tx.category) },
-    { label: t.dateLabel, value: `${tx.date}, 2026` },
-    { label: t.plan, value: tx.plan ? `${tx.plan} · 0%` : t.single },
+    { label: t.dateLabel, value: `${tx.date}, ${tx.iso.slice(0, 4)}` },
+    { label: t.plan, value: tx.plan ? `${tx.plan}${tx.rate ? ` · ${tx.rate}` : ''}` : t.single },
     { label: t.inCycle, value: card.cycleNote },
     { label: t.originalDesc, value: tx.merchant.toUpperCase() },
   ];
 
-  const sourceNote = `Read from the ${card.displayName} statement PDF received on ${card.cutoff}. Amounts can differ from the bank app until the next statement arrives.`;
+  const sourceNote = t.sourceNoteTemplate.replace('{bank}', card.displayName).replace('{cutoff}', card.cutoff);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>

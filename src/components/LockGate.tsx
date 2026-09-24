@@ -3,11 +3,13 @@ import { View, Text, Pressable, AppState, StyleSheet } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useColors } from '../theme/ThemeContext';
 import { useAppSettings } from '../context/AppSettingsContext';
+import { useLocale } from '../i18n/LocaleContext';
 import { radius } from '../theme';
 
 export function LockGate({ children }: { children: React.ReactNode }) {
   const { faceLock } = useAppSettings();
   const colors = useColors();
+  const { t } = useLocale();
   const styles = stylesFor(colors);
   const [locked, setLocked] = useState(faceLock);
   const appState = useRef(AppState.currentState);
@@ -27,7 +29,7 @@ export function LockGate({ children }: { children: React.ReactNode }) {
         return;
       }
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Unlock Cards Manager',
+        promptMessage: t.unlockPrompt,
       });
       setLocked(!result.success);
     } catch {
@@ -36,7 +38,7 @@ export function LockGate({ children }: { children: React.ReactNode }) {
     } finally {
       authenticating.current = false;
     }
-  }, [faceLock]);
+  }, [faceLock, t]);
 
   useEffect(() => {
     if (faceLock) {
@@ -66,10 +68,10 @@ export function LockGate({ children }: { children: React.ReactNode }) {
 
   return (
     <View style={styles.screen}>
-      <Text style={styles.title}>Cards Manager</Text>
-      <Text style={styles.sub}>Unlock with Face ID to continue.</Text>
+      <Text style={styles.title}>{t.lockTitle}</Text>
+      <Text style={styles.sub}>{t.lockSub}</Text>
       <Pressable onPress={tryUnlock} style={styles.btn}>
-        <Text style={styles.btnText}>Unlock</Text>
+        <Text style={styles.btnText}>{t.unlock}</Text>
       </Pressable>
     </View>
   );

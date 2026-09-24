@@ -14,7 +14,7 @@ export function ProgressBar({
   height?: number;
 }) {
   const colors = useColors();
-  const clamped = Math.max(0, Math.min(100, pct));
+  const clamped = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0;
   return (
     <View
       style={{

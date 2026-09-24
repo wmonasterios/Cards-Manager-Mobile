@@ -65,7 +65,7 @@ export function decorateCard(
   // Marking a card Paid without registering a specific payment amount still
   // means the whole balance is settled — don't leave the old balance showing.
   const remaining = paid ? 0 : Math.max(0, c.balance - paidAmt);
-  const usedPct = Math.round((remaining / c.limit) * 100);
+  const usedPct = c.limit > 0 ? Math.round((remaining / c.limit) * 100) : 0;
   const fmtC = (n: number) => money(c.cur, n);
 
   return {

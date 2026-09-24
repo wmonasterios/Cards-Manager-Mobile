@@ -38,6 +38,10 @@ export function AddCardScreen({ navigation }: Props) {
       Alert.alert('Enter the bank name first.');
       return;
     }
+    if (!creditLimit.trim() || parseFloat(creditLimit) <= 0) {
+      Alert.alert('Enter a credit limit greater than zero.');
+      return;
+    }
     setBusy(true);
     try {
       await addRealCard({

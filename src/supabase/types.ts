@@ -78,6 +78,8 @@ export type DbTransaction = {
   category: string | null;
   category_source: string | null;
   dedup_key: string;
+  plan: string | null;
+  plan_rate: string | null;
   created_at: string;
 };
 
@@ -86,6 +88,8 @@ export type ParsedTransaction = {
   merchant: string;
   amount: number;
   category?: string | null;
+  plan?: string | null;
+  plan_rate?: string | null;
 };
 
 export type ParsedStatement = {

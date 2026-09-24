@@ -177,8 +177,11 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
     (id: string, amount: number, when: string, paidOnIso?: string) => {
       if (isDemo) {
         setDemoPayments((prev) => ({ ...prev, [id]: [...(prev[id] ?? []), { amount, when }] }));
-        const card = CARDS.find((c) => c.id === id);
-        if (card && amount >= card.balance - 0.01) {
+        // Compare against what's left right now (already net of prior payments
+        // this cycle), not the card's original balance, or a second/third
+        // partial payment that finally covers it never gets marked paid.
+        const current = cards.find((c) => c.id === id);
+        if (current && amount >= current.remaining - 0.01) {
           setDemoPaid((prev) => ({ ...prev, [id]: true }));
         }
         return;

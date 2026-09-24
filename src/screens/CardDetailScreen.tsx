@@ -203,7 +203,7 @@ export function CardDetailScreen({ route, navigation }: Props) {
               </View>
               <View style={styles.heroBottom}>
                 <Text style={styles.heroLast4}>{card.last4}</Text>
-                <Text style={styles.heroCur}>Balances in USD</Text>
+                <Text style={styles.heroCur}>{t.balancesInUsd}</Text>
               </View>
             </CardArt>
           </Pressable>
@@ -223,7 +223,7 @@ export function CardDetailScreen({ route, navigation }: Props) {
           <View style={styles.tile}>
             <Text style={styles.tileLabel}>{t.minPay}</Text>
             <Text style={styles.tileValue}>{card.minText}</Text>
-            <Text style={styles.tileNote}>Full payment {card.balanceText}</Text>
+            <Text style={styles.tileNote}>{t.fullPaymentWord} {card.balanceText}</Text>
           </View>
           <View style={styles.tile}>
             <Text style={styles.tileLabel}>{t.creditUsed}</Text>
@@ -250,7 +250,9 @@ export function CardDetailScreen({ route, navigation }: Props) {
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>{t.plans}</Text>
-              <Text style={styles.sectionNote}>{card.plansNote}</Text>
+              <Text style={styles.sectionNote}>
+                {card.plans.length} {t.activePlansWord}
+              </Text>
             </View>
             <View style={{ marginTop: 10, gap: 8 }}>
               {card.plans.map((p) => (
@@ -259,14 +261,17 @@ export function CardDetailScreen({ route, navigation }: Props) {
                     <Text style={styles.planMerchant}>{p.merchant}</Text>
                     <Text style={styles.planMonthly}>
                       {money(card.cur, p.monthly)}
-                      <Text style={styles.planPer}> /mo</Text>
+                      <Text style={styles.planPer}> {t.perMonthShort}</Text>
                     </Text>
                   </View>
                   <View style={styles.planSubRow}>
                     <Text style={styles.planSub}>
-                      Instalment {p.plan} · {p.rate}
+                      {t.instalmentWord} {p.plan}
+                      {p.rate ? ` · ${p.rate}` : ''}
                     </Text>
-                    <Text style={styles.planSub}>{money(card.cur, p.remaining)} left</Text>
+                    <Text style={styles.planSub}>
+                      {money(card.cur, p.remaining)} {t.leftWord}
+                    </Text>
                   </View>
                   <View style={{ marginTop: 9 }}>
                     <ProgressBar pct={p.pct} fill={colors.bar} />
@@ -331,7 +336,7 @@ export function CardDetailScreen({ route, navigation }: Props) {
             ))}
           </View>
           {rangeTx.length === 0 && (
-            <Text style={styles.emptyNote}>No transactions in this range.</Text>
+            <Text style={styles.emptyNote}>{t.noTxRange}</Text>
           )}
           {(rangeTx.length > shown.length || showAll) && rangeTx.length > 0 && (
             <Pressable onPress={() => setShowAll((v) => !v)} style={styles.moreBtn}>

@@ -46,6 +46,7 @@ export type Transaction = {
   amount: number; // negative = charge, positive = credit/payment
   category: Category;
   plan?: string;
+  rate?: string;
   declined?: boolean;
   statementId?: string;
   categorySource?: string;

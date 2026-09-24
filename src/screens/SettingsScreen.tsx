@@ -160,22 +160,24 @@ export function SettingsScreen({ navigation }: any) {
                 <Text style={styles.copyBtnText}>{copied ? t.copied : t.copy}</Text>
               </Pressable>
             </View>
-            <View style={styles.dataActions}>
-              <Pressable
-                onPress={() => Alert.alert(lang === 'es' ? '312 transacciones exportadas a CSV' : '312 transactions exported to CSV')}
-                style={styles.dataBtn}
-              >
-                <Text style={styles.dataBtnText}>{t.exportCsv}</Text>
-              </Pressable>
-              <Pressable
-                onPress={() =>
-                  Alert.alert(lang === 'es' ? 'Se pediría confirmación antes de borrar' : 'This would ask for confirmation first')
-                }
-                style={[styles.dataBtn, { borderColor: colors.accentLine }]}
-              >
-                <Text style={[styles.dataBtnText, { color: colors.accentInk }]}>{t.deleteAll}</Text>
-              </Pressable>
-            </View>
+            {isDemo && (
+              <View style={styles.dataActions}>
+                <Pressable
+                  onPress={() => Alert.alert(lang === 'es' ? '312 transacciones exportadas a CSV' : '312 transactions exported to CSV')}
+                  style={styles.dataBtn}
+                >
+                  <Text style={styles.dataBtnText}>{t.exportCsv}</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() =>
+                    Alert.alert(lang === 'es' ? 'Se pediría confirmación antes de borrar' : 'This would ask for confirmation first')
+                  }
+                  style={[styles.dataBtn, { borderColor: colors.accentLine }]}
+                >
+                  <Text style={[styles.dataBtnText, { color: colors.accentInk }]}>{t.deleteAll}</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
 
           <Text style={styles.groupLabel}>{t.about.toUpperCase()}</Text>
