@@ -1,5 +1,9 @@
-name: Publish EAS Update
+name: Publish EAS Update (preview)
 
+# Every push to main lands here — the "preview" channel, meant for your own
+# test builds (dev client / internal TestFlight / internal APK), never the
+# build submitted to the App Store or Play Store. See eas-update-production.yml
+# and DEPLOY.md for how a release actually reaches production.
 on:
   push:
     branches: [main]

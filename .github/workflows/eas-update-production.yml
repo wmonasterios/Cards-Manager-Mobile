@@ -1,0 +1,48 @@
+name: Publish EAS Update (production)
+
+# Deliberately separate from eas-update.yml (which fires on every push to
+# main). This one only runs when a release is explicitly tagged, or someone
+# triggers it by hand — pushing to main should never, by itself, reach the
+# channel that live App Store / Play Store builds are listening on.
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      message:
+        description: Update message
+        required: false
+        default: Manual production update
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    # Optional but recommended: add a required reviewer under GitHub →
+    # Settings → Environments → production, so a tag push or manual dispatch
+    # waits for approval before it actually publishes.
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install EAS CLI
+        run: npm install --global eas-cli
+
+      - name: Publish update
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          INPUT_MESSAGE: ${{ github.event.inputs.message }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          MSG="$INPUT_MESSAGE"
+          if [ -z "$MSG" ]; then
+            MSG="Release $REF_NAME"
+          fi
+          eas update --branch production --non-interactive --message "$MSG"
