@@ -19,3 +19,15 @@ export function navigateToStatementReview(statementId: string) {
     navigationRef.navigate('Tabs', { screen: 'Statements', params: { statementId } });
   });
 }
+
+export function navigateToStatements() {
+  navigateWhenReady(() => {
+    navigationRef.navigate('Tabs', { screen: 'Statements' });
+  });
+}
+
+export function navigateToCardDetail(cardId: string) {
+  navigateWhenReady(() => {
+    navigationRef.navigate('CardDetail', { cardId });
+  });
+}

@@ -4,7 +4,7 @@ import { useAppSettings } from '../context/AppSettingsContext';
 import { useCards } from '../context/CardsContext';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../i18n/LocaleContext';
-import { navigateToStatementReview } from '../navigation/navigationRef';
+import { navigateToStatementReview, navigateToStatements, navigateToCardDetail } from '../navigation/navigationRef';
 import {
   schedulePaymentReminders,
   cancelPaymentReminders,
@@ -15,8 +15,24 @@ import {
 } from '../notifications';
 
 function handleNotificationResponse(response: Notifications.NotificationResponse) {
-  const statementId = response.notification.request.content.data?.statementId;
-  if (typeof statementId === 'string') navigateToStatementReview(statementId);
+  const data = response.notification.request.content.data ?? {};
+  const statementId = data.statementId;
+  const cardId = data.cardId;
+  switch (data.type) {
+    case 'statement_ready':
+      if (typeof statementId === 'string') navigateToStatementReview(statementId);
+      return;
+    case 'statement_received':
+      navigateToStatements();
+      return;
+    case 'payment_reminder':
+      if (typeof cardId === 'string') navigateToCardDetail(cardId);
+      return;
+    default:
+      // Older/unknown payloads: fall back to whichever id is present.
+      if (typeof statementId === 'string') navigateToStatementReview(statementId);
+      else if (typeof cardId === 'string') navigateToCardDetail(cardId);
+  }
 }
 
 export function NotificationsSync() {

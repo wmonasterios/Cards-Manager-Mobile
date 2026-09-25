@@ -59,6 +59,7 @@ export async function schedulePaymentReminders(cards: DecoratedCard[]) {
       content: {
         title: `${card.displayName} due in 3 days`,
         body: `${card.balanceText} · minimum ${card.minText}`,
+        data: { cardId: card.id, type: 'payment_reminder' },
       },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fireAt },
     });
