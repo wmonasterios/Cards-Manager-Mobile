@@ -508,6 +508,25 @@ function RealStatementsFlow({ navigation, route }: any) {
     setStage('review');
   };
 
+  // Deep link from a "statement ready to review" push notification — jump
+  // straight into its review screen instead of leaving the user on the list.
+  const notifStatementId: string | undefined = route?.params?.statementId;
+  useEffect(() => {
+    if (!notifStatementId) return;
+    let cancelled = false;
+    getStatement(notifStatementId)
+      .then((s) => {
+        if (!cancelled && s) resumeReview(s);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) navigation.setParams({ statementId: undefined });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [notifStatementId]);
+
   const [openingStatementId, setOpeningStatementId] = useState<string | null>(null);
 
   const openStatementPdf = async (id: string) => {

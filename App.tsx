@@ -10,6 +10,7 @@ import { AppSettingsProvider, useAppSettings } from './src/context/AppSettingsCo
 import { AuthProvider } from './src/context/AuthContext';
 import { LockGate } from './src/components/LockGate';
 import { NotificationsSync } from './src/components/NotificationsSync';
+import { navigationRef } from './src/navigation/navigationRef';
 
 function AppContent() {
   const { colors, isDark } = useAppTheme();
@@ -35,7 +36,7 @@ function AppContent() {
 
   return (
     <LockGate>
-      <NavigationContainer theme={navTheme}>
+      <NavigationContainer theme={navTheme} ref={navigationRef}>
         <RootNavigator />
       </NavigationContainer>
     </LockGate>

@@ -1,8 +1,10 @@
 import { useEffect } from 'react';
+import * as Notifications from 'expo-notifications';
 import { useAppSettings } from '../context/AppSettingsContext';
 import { useCards } from '../context/CardsContext';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../i18n/LocaleContext';
+import { navigateToStatementReview } from '../navigation/navigationRef';
 import {
   schedulePaymentReminders,
   cancelPaymentReminders,
@@ -11,6 +13,11 @@ import {
   registerPushToken,
   syncProfileLang,
 } from '../notifications';
+
+function handleNotificationResponse(response: Notifications.NotificationResponse) {
+  const statementId = response.notification.request.content.data?.statementId;
+  if (typeof statementId === 'string') navigateToStatementReview(statementId);
+}
 
 export function NotificationsSync() {
   const { reminder, weekly, notifyNew, loaded: settingsLoaded } = useAppSettings();
@@ -50,6 +57,17 @@ export function NotificationsSync() {
       registerPushToken(session.user.id);
     }
   }, [notifyNew, session?.user.id]);
+
+  // Tapping a "statement ready to review" push should jump straight to that
+  // statement's review screen — both for a tap while the app is running and
+  // for a cold start launched by tapping the notification.
+  useEffect(() => {
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) handleNotificationResponse(response);
+    });
+    const sub = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
+    return () => sub.remove();
+  }, []);
 
   return null;
 }
