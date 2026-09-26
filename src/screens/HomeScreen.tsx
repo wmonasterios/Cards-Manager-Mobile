@@ -7,6 +7,7 @@ import { radius, spacing, ColorTokens } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useT } from '../i18n/LocaleContext';
 import { CardArt } from '../components/CardArt';
+import { DraggableCardStack } from '../components/DraggableCardStack';
 import { useCards } from '../context/CardsContext';
 import { money } from '../format';
 import { deriveStatus, StatusRow } from '../status';
@@ -56,10 +57,11 @@ function Shimmer({ style }: { style: any }) {
 }
 
 export function HomeScreen({ navigation }: any) {
-  const { cards, isDemo, loaded, loadError, refresh } = useCards();
+  const { cards, isDemo, loaded, loadError, refresh, reorderCards } = useCards();
   const colors = useColors();
   const t = useT();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [reordering, setReordering] = useState(false);
 
   if (!loaded && cards.length === 0) {
     return (
@@ -116,9 +118,31 @@ export function HomeScreen({ navigation }: any) {
       ? t.demoDueBanner
       : `${unpaid.length} ${t.cardsWord} ${t.withBalanceDue}`;
 
+  const renderCardFace = (c: (typeof cards)[number]) => (
+    <>
+      <View style={styles.cardTopRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.cardBank}>{c.displayName}</Text>
+          <Text style={styles.cardSub}>
+            {c.displaySub} · {c.last4}
+          </Text>
+        </View>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={styles.cardBalance}>{c.balanceText}</Text>
+          <Text style={styles.cardSub}>{c.dueShort}</Text>
+        </View>
+      </View>
+      <Text style={styles.cardNetwork}>{c.network.toUpperCase()}</Text>
+    </>
+  );
+
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={!reordering}
+      >
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
             <Text style={styles.kicker}>{t.totalOwed.toUpperCase()}</Text>
@@ -128,22 +152,41 @@ export function HomeScreen({ navigation }: any) {
             </Text>
           </View>
           <View style={styles.headerActions}>
-            <Pressable
-              onPress={() => navigation.navigate('Transactions', {})}
-              style={styles.iconBtn}
-              hitSlop={6}
-            >
-              <Text style={styles.iconBtnText}>{'⌕'}</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => navigation.navigate('Statements')}
-              style={[styles.iconBtn, styles.iconBtnAccent]}
-              hitSlop={6}
-            >
-              <Text style={[styles.iconBtnText, { color: colors.accent }]}>+</Text>
-            </Pressable>
+            {reordering ? (
+              <Pressable onPress={() => setReordering(false)} style={[styles.iconBtn, styles.reorderDoneBtn]}>
+                <Text style={styles.reorderDoneText}>{t.done}</Text>
+              </Pressable>
+            ) : (
+              <>
+                <Pressable
+                  onPress={() => navigation.navigate('Transactions', {})}
+                  style={styles.iconBtn}
+                  hitSlop={6}
+                >
+                  <Text style={styles.iconBtnText}>{'⌕'}</Text>
+                </Pressable>
+                {cards.length > 1 && (
+                  <Pressable onPress={() => setReordering(true)} style={styles.iconBtn} hitSlop={6}>
+                    <Text style={styles.iconBtnText}>{'⇅'}</Text>
+                  </Pressable>
+                )}
+                <Pressable
+                  onPress={() => navigation.navigate('Statements')}
+                  style={[styles.iconBtn, styles.iconBtnAccent]}
+                  hitSlop={6}
+                >
+                  <Text style={[styles.iconBtnText, { color: colors.accent }]}>+</Text>
+                </Pressable>
+              </>
+            )}
           </View>
         </View>
+
+        {reordering && (
+          <View style={styles.reorderHintBanner}>
+            <Text style={styles.reorderHintText}>{t.reorderHint}</Text>
+          </View>
+        )}
 
         {cards.length > 0 && (
           <View style={styles.dueBanner}>
@@ -169,31 +212,39 @@ export function HomeScreen({ navigation }: any) {
           </View>
         )}
 
-        <View style={[styles.stack, { height: cards.length ? stackHeight : 0 }]}>
-          {cards.map((c, i) => (
-            <Pressable
-              key={c.id}
-              onPress={() => navigation.navigate('CardDetail', { cardId: c.id })}
-              style={[styles.stackSlot, { top: i * CARD_STEP, zIndex: 10 + i }]}
-            >
-              <CardArt cardId={c.id} colorKey={c.colorKey} style={styles.cardArt}>
-                <View style={styles.cardTopRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.cardBank}>{c.displayName}</Text>
-                    <Text style={styles.cardSub}>
-                      {c.displaySub} · {c.last4}
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.cardBalance}>{c.balanceText}</Text>
-                    <Text style={styles.cardSub}>{c.dueShort}</Text>
-                  </View>
-                </View>
-                <Text style={styles.cardNetwork}>{c.network.toUpperCase()}</Text>
+        {reordering ? (
+          <DraggableCardStack
+            cards={cards}
+            cardHeight={CARD_HEIGHT}
+            step={CARD_STEP}
+            sideInset={spacing.lg}
+            style={styles.stack}
+            onReorder={reorderCards}
+            renderCard={(c, dragging) => (
+              <CardArt
+                cardId={c.id}
+                colorKey={c.colorKey}
+                style={[styles.cardArt, dragging && styles.cardArtDragging]}
+              >
+                {renderCardFace(c)}
               </CardArt>
-            </Pressable>
-          ))}
-        </View>
+            )}
+          />
+        ) : (
+          <View style={[styles.stack, { height: cards.length ? stackHeight : 0 }]}>
+            {cards.map((c, i) => (
+              <Pressable
+                key={c.id}
+                onPress={() => navigation.navigate('CardDetail', { cardId: c.id })}
+                style={[styles.stackSlot, { top: i * CARD_STEP, zIndex: 10 + i }]}
+              >
+                <CardArt cardId={c.id} colorKey={c.colorKey} style={styles.cardArt}>
+                  {renderCardFace(c)}
+                </CardArt>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
         {cards.length > 0 && (
           <View style={styles.statusSection}>
@@ -314,6 +365,19 @@ function makeStyles(colors: ColorTokens) {
     },
     iconBtnAccent: { borderColor: colors.accent },
     iconBtnText: { color: colors.ink, fontSize: 18 },
+    reorderDoneBtn: { width: undefined, paddingHorizontal: 16, borderColor: colors.accent },
+    reorderDoneText: { color: colors.accentInk2, fontSize: 13, fontWeight: '600' },
+    reorderHintBanner: {
+      marginTop: 14,
+      marginHorizontal: spacing.xl,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: radius.md,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.hair4,
+    },
+    reorderHintText: { fontSize: 12, color: colors.ink2, textAlign: 'center' },
     dueBanner: {
       marginTop: 14,
       marginHorizontal: spacing.xl,
@@ -363,6 +427,7 @@ function makeStyles(colors: ColorTokens) {
       shadowOffset: { width: 0, height: -12 },
       elevation: 6,
     },
+    cardArtDragging: { shadowOpacity: 0.8, shadowRadius: 34, elevation: 12 },
     cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
     cardBank: { fontSize: 15, fontWeight: '600', color: colors.onArt, letterSpacing: 0.2 },
     cardSub: { fontSize: 11.5, color: 'rgba(243,245,254,0.62)', marginTop: 3 },

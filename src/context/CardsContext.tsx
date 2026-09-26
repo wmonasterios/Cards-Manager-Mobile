@@ -17,6 +17,7 @@ import {
   deleteCardCompletely,
   deleteAllUserData,
   updateTransactionCategory,
+  reorderCards as reorderCardsApi,
 } from '../supabase/cardsApi';
 import { listNeedsReviewStatements } from '../supabase/statementsApi';
 import { DbCard, DbTransaction, DbStatement, NewDbCard } from '../supabase/types';
@@ -39,6 +40,7 @@ type CardsContextValue = {
   deleteAllData: () => Promise<void>;
   updateCardDisplay: (id: string, patch: { nickname: string | null; colorKey: string | null; bank: string }) => void;
   updateTxCategory: (txId: string, merchant: string, category: Category, applyToAllWithMerchant: boolean) => Promise<void>;
+  reorderCards: (orderedIds: string[]) => void;
   refresh: () => Promise<void>;
 };
 
@@ -55,6 +57,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
     'cards.payments',
     {},
   );
+  const [demoOrder, setDemoOrder, demoOrderLoaded] = usePersistedState<string[]>('cards.order', []);
 
   // Real mode: cards, payments and transactions the signed-in user owns in Supabase.
   const [dbCards, setDbCards] = useState<DbCard[]>([]);
@@ -126,10 +129,18 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
     return () => sub.remove();
   }, [userId, loadReal]);
 
-  const baseCards: Card[] = useMemo(
-    () => (isDemo ? CARDS : dbCards.map((c) => dbCardToCard(c, dbTransactions))),
-    [isDemo, dbCards, dbTransactions],
-  );
+  // Demo mode has no server-side sort_order to persist a drag-reorder into,
+  // so the chosen order is kept on-device as a list of ids — anything not in
+  // it (new to the catalogue, or not yet reordered) just keeps its original
+  // relative order at the end.
+  const baseCards: Card[] = useMemo(() => {
+    if (!isDemo) return dbCards.map((c) => dbCardToCard(c, dbTransactions));
+    if (demoOrder.length === 0) return CARDS;
+    const byId = new Map(CARDS.map((c) => [c.id, c]));
+    const ordered = demoOrder.map((id) => byId.get(id)).filter((c): c is Card => !!c);
+    const remaining = CARDS.filter((c) => !demoOrder.includes(c.id));
+    return [...ordered, ...remaining];
+  }, [isDemo, dbCards, dbTransactions, demoOrder]);
 
   const paidMap = useMemo(
     () => (isDemo ? demoPaid : Object.fromEntries(dbCards.map((c) => [c.id, c.paid_this_cycle]))),
@@ -248,6 +259,25 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
     [isDemo, userId, loadReal],
   );
 
+  const reorderCards = useCallback(
+    (orderedIds: string[]) => {
+      if (isDemo) {
+        setDemoOrder(orderedIds);
+        return;
+      }
+      // Optimistic: reflect the new order immediately, then persist. A failed
+      // write falls back to whatever the server actually has, rather than
+      // leaving the screen showing an order that never saved.
+      setDbCards((prev) => {
+        const byId = new Map(prev.map((c) => [c.id, c]));
+        const reordered = orderedIds.map((id) => byId.get(id)).filter((c): c is DbCard => !!c);
+        return reordered.length === prev.length ? reordered : prev;
+      });
+      reorderCardsApi(orderedIds).catch(() => loadReal());
+    },
+    [isDemo, setDemoOrder, loadReal],
+  );
+
   const value = useMemo(
     () => ({
       cards,
@@ -255,7 +285,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       togglePaid,
       addPayment,
       paymentHistory,
-      loaded: authLoading ? false : isDemo ? demoPaidLoaded && demoPaymentsLoaded : realLoaded,
+      loaded: authLoading ? false : isDemo ? demoPaidLoaded && demoPaymentsLoaded && demoOrderLoaded : realLoaded,
       loadError: isDemo ? false : loadError,
       isDemo,
       addRealCard,
@@ -263,6 +293,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       deleteAllData,
       updateCardDisplay,
       updateTxCategory,
+      reorderCards,
       refresh: loadReal,
     }),
     [
@@ -275,6 +306,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       isDemo,
       demoPaidLoaded,
       demoPaymentsLoaded,
+      demoOrderLoaded,
       realLoaded,
       loadError,
       addRealCard,
@@ -282,6 +314,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       deleteAllData,
       updateCardDisplay,
       updateTxCategory,
+      reorderCards,
       loadReal,
     ],
   );

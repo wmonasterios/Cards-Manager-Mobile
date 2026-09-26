@@ -23,6 +23,7 @@ export type DbCard = {
   archived: boolean;
   nickname: string | null;
   color_key: string | null;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 };

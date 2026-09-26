@@ -91,9 +91,22 @@ export async function listCards(userId: string): Promise<DbCard[]> {
     .select('*')
     .eq('user_id', userId)
     .eq('archived', false)
-    .order('created_at', { ascending: true });
+    .order('sort_order', { ascending: true });
   if (error) throw error;
   return data ?? [];
+}
+
+// Persists a user's drag-to-reorder of their card stack. `sort_order` is a
+// plain integer column (not the identity sequence itself, which keeps
+// advancing so newly-created cards always default to the end) — reassigning
+// it to 0..N-1 here is safe since every read of it is already scoped to one
+// user's cards.
+export async function reorderCards(orderedCardIds: string[]): Promise<void> {
+  const results = await Promise.all(
+    orderedCardIds.map((id, index) => supabase.from('cards').update({ sort_order: index }).eq('id', id)),
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw failed.error;
 }
 
 // Every (bank text, last4) combination that has ever been confirmed to
