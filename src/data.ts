@@ -50,6 +50,7 @@ export type Transaction = {
   declined?: boolean;
   statementId?: string;
   categorySource?: string;
+  excludedFromSpend?: boolean;
 };
 
 export type InstalmentPlan = {

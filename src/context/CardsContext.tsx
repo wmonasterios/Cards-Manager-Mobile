@@ -17,6 +17,7 @@ import {
   deleteCardCompletely,
   deleteAllUserData,
   updateTransactionCategory,
+  setTransactionExcluded as setTransactionExcludedApi,
   reorderCards as reorderCardsApi,
 } from '../supabase/cardsApi';
 import { listNeedsReviewStatements } from '../supabase/statementsApi';
@@ -40,6 +41,7 @@ type CardsContextValue = {
   deleteAllData: () => Promise<void>;
   updateCardDisplay: (id: string, patch: { nickname: string | null; colorKey: string | null; bank: string }) => void;
   updateTxCategory: (txId: string, merchant: string, category: Category, applyToAllWithMerchant: boolean) => Promise<void>;
+  setTxExcluded: (txId: string, excluded: boolean) => void;
   reorderCards: (orderedIds: string[]) => void;
   refresh: () => Promise<void>;
 };
@@ -259,6 +261,15 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
     [isDemo, userId, loadReal],
   );
 
+  const setTxExcluded = useCallback(
+    (txId: string, excluded: boolean) => {
+      if (isDemo) return;
+      setDbTransactions((prev) => prev.map((t) => (t.id === txId ? { ...t, excluded_from_spend: excluded } : t)));
+      setTransactionExcludedApi(txId, excluded).catch(() => loadReal());
+    },
+    [isDemo, loadReal],
+  );
+
   const reorderCards = useCallback(
     (orderedIds: string[]) => {
       if (isDemo) {
@@ -293,6 +304,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       deleteAllData,
       updateCardDisplay,
       updateTxCategory,
+      setTxExcluded,
       reorderCards,
       refresh: loadReal,
     }),
@@ -314,6 +326,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       deleteAllData,
       updateCardDisplay,
       updateTxCategory,
+      setTxExcluded,
       reorderCards,
       loadReal,
     ],

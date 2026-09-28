@@ -8,7 +8,7 @@ import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { useCards } from '../context/CardsContext';
 import { TxRow } from '../components/TxRow';
-import { getAvailableMonths, analyseInsights, fmtMoney } from '../insightsAnalysis';
+import { getAvailableMonths, analyseInsights, analyseByCard, fmtMoney } from '../insightsAnalysis';
 
 export function InsightsScreen({ navigation }: any) {
   const { lang, t } = useLocale();
@@ -26,7 +26,10 @@ export function InsightsScreen({ navigation }: any) {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      if (next.size === cards.length) return prev; // never exclude every card
+      // Excluding the last remaining card means "go back to All" instead of
+      // silently doing nothing (which is what a plain "never exclude every
+      // card" guard would do here).
+      if (next.size === cards.length) return new Set();
       return next;
     });
   };
@@ -56,6 +59,22 @@ export function InsightsScreen({ navigation }: any) {
     () => (monthIso ? analyseInsights(includedCards, monthIso, prevMonthIso, selCat, selWeek, colors) : null),
     [includedCards, monthIso, prevMonthIso, selCat, selWeek, colors],
   );
+
+  // Independent of the top card filter (uses every card, not includedCards) —
+  // it's itself a navigation control, so filtering it by the top chips would
+  // make it show only whatever's already selected.
+  const cardBreakdown = useMemo(
+    () => (monthIso ? analyseByCard(cards, monthIso, selWeek) : []),
+    [cards, monthIso, selWeek],
+  );
+  const isolatedCardId = includedCards.length === 1 ? includedCards[0].id : null;
+  const pickCard = (cardId: string) => {
+    if (isolatedCardId === cardId) {
+      setExcludedCardIds(new Set());
+    } else {
+      setExcludedCardIds(new Set(cards.filter((c) => c.id !== cardId).map((c) => c.id)));
+    }
+  };
 
   const pickCategory = (name: string) => {
     setSelCat((prev) => (prev === name ? null : name));
@@ -277,6 +296,36 @@ export function InsightsScreen({ navigation }: any) {
                 </View>
               )}
             </View>
+
+            {/* By card — a second axis on the same month/week, always across every
+                card (not whatever the top filter already narrowed to), so tapping
+                it is always a useful shortcut rather than a no-op. */}
+            {cards.length > 1 && cardBreakdown.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>{sectionTitle(t.byCard)}</Text>
+                <View style={styles.listCard}>
+                  {cardBreakdown.map((c) => (
+                    <Pressable
+                      key={c.cardId}
+                      style={[styles.catRow, isolatedCardId === c.cardId && { backgroundColor: colors.tint }]}
+                      onPress={() => pickCard(c.cardId)}
+                    >
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <View style={styles.catRowHead}>
+                          <Text style={styles.catName} numberOfLines={1}>{c.name}</Text>
+                          <Text style={styles.catPct}>{pctText(c.share)}</Text>
+                        </View>
+                        <View style={styles.catBarTrack}>
+                          <View style={[styles.catBarFill, { width: `${Math.max(c.share, 1.5)}%`, backgroundColor: colors.accent }]} />
+                        </View>
+                        <Text style={styles.catCount}>{c.count} {txWord(c.count)}</Text>
+                      </View>
+                      <Text style={styles.catAmount}>{fmtMoney(c.amount)}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
 
             {/* Transactions — the actual, individual charges behind the numbers above.
                 Filtered by whichever week/category is selected; sorted biggest first. */}

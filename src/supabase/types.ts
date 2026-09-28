@@ -81,6 +81,7 @@ export type DbTransaction = {
   dedup_key: string;
   plan: string | null;
   plan_rate: string | null;
+  excluded_from_spend: boolean;
   created_at: string;
 };
 

@@ -24,6 +24,7 @@ function dbTransactionToTransaction(row: DbTransaction): Transaction {
     rate: row.plan_rate ?? undefined,
     statementId: row.statement_id ?? undefined,
     categorySource: row.category_source ?? undefined,
+    excludedFromSpend: row.excluded_from_spend,
   };
 }
 
@@ -187,6 +188,11 @@ export async function listTransactions(userId: string): Promise<DbTransaction[]>
     .order('occurred_on', { ascending: false });
   if (error) throw error;
   return data ?? [];
+}
+
+export async function setTransactionExcluded(txId: string, excluded: boolean): Promise<void> {
+  const { error } = await supabase.from('transactions').update({ excluded_from_spend: excluded }).eq('id', txId);
+  if (error) throw error;
 }
 
 export async function updateTransactionCategory(

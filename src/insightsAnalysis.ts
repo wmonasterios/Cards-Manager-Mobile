@@ -88,7 +88,7 @@ export function analyseInsights(
 ): InsightsAnalysis {
   const allTx = flattenTx(cards);
   const monthTx = allTx.filter((t) => t.iso.slice(0, 7) === monthIso);
-  const monthSpendTx = monthTx.filter((t) => t.amount < 0 && !t.declined);
+  const monthSpendTx = monthTx.filter((t) => t.amount < 0 && !t.declined && !t.excludedFromSpend);
   const spendTx = weekIdx === null ? monthSpendTx : monthSpendTx.filter((t) => weekOf(t.iso) === weekIdx);
 
   const spent = spendTx.reduce((n, t) => n - t.amount, 0);
@@ -126,7 +126,10 @@ export function analyseInsights(
     weekSums[weekOf(t.iso)] += -t.amount;
   }
   const weekMax = Math.max(...weekSums, 1);
-  const avgWeek = weekSums.reduce((a, b) => a + b, 0) / 5;
+  // Averaged over the weeks that actually had spending, not a fixed /5 — a
+  // month with a single busy week shouldn't report an average a fifth of it.
+  const weeksWithSpend = weekSums.filter((v) => v > 0).length;
+  const avgWeek = weeksWithSpend > 0 ? weekSums.reduce((a, b) => a + b, 0) / weeksWithSpend : 0;
 
   // Individual transactions, not grouped by merchant — the same real chain shows up
   // under several slightly different names on statements (e.g. "PRICESMART PANAMA
@@ -134,20 +137,49 @@ export function analyseInsights(
   // one merchant's spend across several meaningless rows. Showing the actual
   // transactions sidesteps that entirely and doubles as the category drill-down.
   const monthWithCard = flattenTxWithCard(cards).filter(
-    ({ tx }) => tx.iso.slice(0, 7) === monthIso && tx.amount < 0 && !tx.declined,
+    ({ tx }) => tx.iso.slice(0, 7) === monthIso && tx.amount < 0 && !tx.declined && !tx.excludedFromSpend,
   );
   const weekWithCard = weekIdx === null ? monthWithCard : monthWithCard.filter(({ tx }) => weekOf(tx.iso) === weekIdx);
   const filteredTx = (selCat === null ? weekWithCard : weekWithCard.filter(({ tx }) => tx.category === selCat))
     .slice()
     .sort((a, b) => Math.abs(b.tx.amount) - Math.abs(a.tx.amount));
 
-  const prevTx = prevMonthIso ? allTx.filter((t) => t.iso.slice(0, 7) === prevMonthIso && t.amount < 0 && !t.declined) : [];
+  const prevTx = prevMonthIso
+    ? allTx.filter((t) => t.iso.slice(0, 7) === prevMonthIso && t.amount < 0 && !t.declined && !t.excludedFromSpend)
+    : [];
   const prevSpent = prevTx.reduce((n, t) => n - t.amount, 0);
   const delta = weekIdx === null && prevTx.length >= 3 && prevSpent ? Math.round(((spent - prevSpent) / prevSpent) * 100) : null;
 
   const sel = categories.find((c) => c.name === selCat) ?? null;
 
   return { txCount: monthTx.length, spent, categories, arcs, filteredTx, weekSums, weekMax, avgWeek, delta, sel };
+}
+
+export type CardSlice = { cardId: string; name: string; amount: number; count: number; share: number };
+
+// Always computed from every card the user has (not whatever the top card
+// filter currently excludes) and ignoring the category filter, the same way
+// the week bars ignore it — this is itself a navigation control, not a
+// filtered result, so narrowing it by another filter would make it useless
+// to tap.
+export function analyseByCard(cards: DecoratedCard[], monthIso: string, weekIdx: number | null): CardSlice[] {
+  const rows = cards
+    .map((c) => {
+      const tx = c.dtx.filter(
+        (t) =>
+          t.iso.slice(0, 7) === monthIso &&
+          t.amount < 0 &&
+          !t.declined &&
+          !t.excludedFromSpend &&
+          (weekIdx === null || weekOf(t.iso) === weekIdx),
+      );
+      return { cardId: c.id, name: `${c.displayName} ${c.last4}`, amount: tx.reduce((n, t) => n - t.amount, 0), count: tx.length };
+    })
+    .filter((r) => r.count > 0);
+  const total = rows.reduce((n, r) => n + r.amount, 0);
+  return rows
+    .map((r) => ({ ...r, share: total ? (r.amount / total) * 100 : 0 }))
+    .sort((a, b) => b.amount - a.amount);
 }
 
 export function fmtMoney(n: number): string {

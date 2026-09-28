@@ -17,7 +17,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'TransactionDetail'>;
 
 export function TransactionDetailScreen({ route, navigation }: Props) {
   const { txId, cardId } = route.params;
-  const { getCard, isDemo, updateTxCategory } = useCards();
+  const { getCard, isDemo, updateTxCategory, setTxExcluded } = useCards();
   const card = getCard(cardId);
   const tx = card?.dtx.find((t) => t.id === txId);
   const colors = useColors();
@@ -55,6 +55,17 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
     }
     setCategoryQuery('');
     setPickerOpen(true);
+  };
+
+  const toggleExcluded = () => {
+    if (isDemo) {
+      Alert.alert(
+        t.excludeFromSpend,
+        lang === 'es' ? 'Crea una cuenta para excluir transacciones del gasto.' : 'Create an account to exclude transactions from spend.',
+      );
+      return;
+    }
+    setTxExcluded(tx.id, !tx.excludedFromSpend);
   };
 
   const pickCategory = (category: Category) => {
@@ -103,7 +114,6 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
     { label: t.category, value: categoryLabel(tx.category) },
     { label: t.dateLabel, value: `${tx.date}, ${tx.iso.slice(0, 4)}` },
     { label: t.plan, value: tx.plan ? `${tx.plan}${tx.rate ? ` · ${tx.rate}` : ''}` : t.single },
-    { label: t.inCycle, value: card.cycleNote },
     { label: t.originalDesc, value: tx.merchant.toUpperCase() },
   ];
 
@@ -128,6 +138,12 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
         </View>
 
         <View style={styles.section}>
+          {!!tx.excludedFromSpend && (
+            <View style={styles.noteBanner}>
+              <Text style={styles.noteBannerText}>{t.excludedFromSpendNote}</Text>
+            </View>
+          )}
+
           <View style={styles.listCard}>
             {rows.map((r) => (
               <View key={r.label} style={styles.row}>
@@ -149,6 +165,11 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
               </Pressable>
               <Pressable onPress={openCategoryPicker} style={styles.sourceBtn}>
                 <Text style={styles.sourceBtnText}>{t.changeCategory}</Text>
+              </Pressable>
+              <Pressable onPress={toggleExcluded} style={styles.sourceBtn}>
+                <Text style={styles.sourceBtnText}>
+                  {tx.excludedFromSpend ? t.includeInSpend : t.excludeFromSpend}
+                </Text>
               </Pressable>
             </View>
           </View>
@@ -228,6 +249,15 @@ function makeStyles(colors: ColorTokens) {
     },
     rowLabel: { fontSize: 13, color: colors.ink2b },
     rowValue: { fontSize: 13, fontWeight: '500', color: colors.ink, textAlign: 'right', flexShrink: 1 },
+    noteBanner: {
+      marginBottom: 12,
+      padding: 12,
+      borderRadius: radius.md,
+      backgroundColor: colors.surface2,
+      borderWidth: 1,
+      borderColor: colors.line2,
+    },
+    noteBannerText: { fontSize: 12, color: colors.ink2, lineHeight: 17 },
     sourceCard: {
       marginTop: 12,
       padding: 14,

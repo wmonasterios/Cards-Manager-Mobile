@@ -35,13 +35,16 @@ function startOfMonth(iso: string): string {
 
 // Word-prefix search instead of a raw substring scan — typing "Copa" should
 // match "Copa Airlines" but not some unrelated merchant string that merely
-// happens to contain "copa" with no word boundary around it. Each
-// space-separated query word must prefix-match some word in the text.
+// happens to contain "copa" with no word boundary around it. Each query word
+// must prefix-match some word in the text. The query is tokenized the same
+// way as the haystack (not just on whitespace) so searching an amount like
+// "149.58" splits into "149"/"58" exactly like the haystack's own copy of it.
 function matchesSearch(haystack: string, q: string): boolean {
   if (!q) return true;
   const words = haystack.toLowerCase().split(/[^a-z0-9à-ÿ]+/i).filter(Boolean);
   return q
-    .split(/\s+/)
+    .toLowerCase()
+    .split(/[^a-z0-9à-ÿ]+/i)
     .filter(Boolean)
     .every((qw) => words.some((w) => w.startsWith(qw)));
 }
@@ -91,7 +94,7 @@ export function TransactionsScreen({ route, navigation }: Props) {
         if (
           q &&
           !matchesSearch(
-            `${tx.merchant} ${tx.sub} ${categoryLabel(tx.category)} ${card.displayName} ${card.bank} ${card.product} ${card.last4}`,
+            `${tx.merchant} ${tx.sub} ${categoryLabel(tx.category)} ${card.displayName} ${card.bank} ${card.product} ${card.last4} ${Math.abs(tx.amount).toFixed(2)}`,
             q,
           )
         ) {
@@ -128,11 +131,9 @@ export function TransactionsScreen({ route, navigation }: Props) {
 
   const chooseCard = (id: string | null) => {
     setSelCardId((cur) => (cur === id ? null : id));
-    setCardOpen(false);
   };
   const chooseCategory = (cat: string) => {
     setSelCategory((cur) => (cur === cat ? null : cat));
-    setCategoryOpen(false);
   };
 
   return (
