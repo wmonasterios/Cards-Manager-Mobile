@@ -37,6 +37,14 @@ export const darkColors = {
   seg7: '#3f424d',
 };
 
+// Previous light palette kept everything — surfaces, hairlines, and the
+// "active" chip/pill fill — inside one narrow band of pale lavender, so
+// selected states barely read as different from the resting background.
+// This keeps the same purple family (for continuity with dark mode and the
+// brand) but gives "active" states a solid, saturated fill with white ink
+// (mirroring how dark mode's own tint2/onTint2 pair already works) instead
+// of a slightly-less-pale pastel, and deepens hairlines/borders enough to
+// actually read as edges against the light background.
 export const lightColors: ColorTokens = {
   bg: '#e9ebf6',
   surface: '#f7f8fd',
@@ -45,32 +53,32 @@ export const lightColors: ColorTokens = {
   ink2: '#595d6c',
   ink3: '#6b6f80',
   ink2b: '#3f424d',
-  line: '#cfd3e5',
-  line2: '#e4e7f5',
-  tint: '#e7e5fe',
-  tint2: '#d2cefd',
-  accentLine: '#b5abfc',
-  accentInk: '#423a6a',
-  accentInk2: '#5d5294',
-  onTint2: '#2b2741',
-  accent: '#796cbf',
-  bar: '#796cbf',
+  line: '#c3c8de',
+  line2: '#dde1f0',
+  tint: '#ded9fb',
+  tint2: '#7a6cc0',
+  accentLine: '#a89bf5',
+  accentInk: '#3a3363',
+  accentInk2: '#544a8c',
+  onTint2: '#ffffff',
+  accent: '#6a5cc2',
+  bar: '#6a5cc2',
   tintInk2: '#3f424d',
   tintInk3: '#3f424d',
-  tintInk: '#423a6a',
+  tintInk: '#ffffff',
   onArt: '#f3f5fe',
   hair: 'rgba(41,43,49,0.08)',
   hair2: 'rgba(41,43,49,0.1)',
   hair3: 'rgba(41,43,49,0.12)',
-  hair4: 'rgba(41,43,49,0.16)',
-  hair5: 'rgba(41,43,49,0.18)',
-  seg1: '#5d5294',
-  seg2: '#796cbf',
-  seg3: '#9184d9',
-  seg4: '#b5abfc',
-  seg5: '#423a6a',
-  seg6: '#8b8fa0',
-  seg7: '#cfd3e5',
+  hair4: 'rgba(41,43,49,0.18)',
+  hair5: 'rgba(41,43,49,0.22)',
+  seg1: '#544a8c',
+  seg2: '#6a5cc2',
+  seg3: '#8879d6',
+  seg4: '#a89bf5',
+  seg5: '#3a3363',
+  seg6: '#767a8c',
+  seg7: '#4a4d5e',
 };
 
 // Default export kept for call sites that only ever run in dark mode (rare).
