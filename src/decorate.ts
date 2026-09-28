@@ -35,7 +35,7 @@ export type DecoratedCard = Card & {
   dtx: DecoratedTransaction[];
 };
 
-export type Payment = { amount: number; when: string };
+export type Payment = { amount: number; when: string; paidOnIso?: string };
 
 export function decorateTransaction(t: Transaction, card: Card, colors: ColorTokens): DecoratedTransaction {
   const categoryColors = getCategoryColors(colors);

@@ -30,13 +30,20 @@ const WEEKDAY_LABELS: Record<'en' | 'es', string[]> = {
 
 const MONTH_ABBR_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-type DayEvent = { card: string; note: string; amount: string; min: string; due: boolean };
+type DayEvent = {
+  kind: 'due' | 'paid';
+  card: string;
+  note: string;
+  amount: string;
+  min?: string;
+  cardId?: string;
+};
 
-export function CalendarScreen() {
+export function CalendarScreen({ navigation }: any) {
   const { lang, t } = useLocale();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { cards, isDemo } = useCards();
+  const { cards, isDemo, paymentHistory } = useCards();
   const { reminder, toggleReminder } = useAppSettings();
 
   const today = useMemo(() => new Date(), []);
@@ -72,7 +79,7 @@ export function CalendarScreen() {
 
   const unpaid = cards.filter((c) => !c.paid);
   const usdTotal = unpaid.reduce((n, c) => n + c.remaining, 0);
-  const monthDueText = `${unpaid.length} ${lang === 'es' ? 'pagos' : 'payments'} · ${money('US$', usdTotal)} ${lang === 'es' ? 'en total' : 'total'}`;
+  const monthDueText = `${unpaid.length} ${t.cardsWord} ${t.withBalanceDue} · ${money('US$', usdTotal)}`;
 
   const eventsByDay = useMemo(() => {
     const map: Record<number, DayEvent[]> = {};
@@ -83,7 +90,7 @@ export function CalendarScreen() {
       const currentMonAbbr = MONTH_ABBR_EN[month];
       for (const u of UPCOMING[lang]) {
         if (u.mon !== currentMonAbbr) continue;
-        add(Number(u.day), { card: u.card, note: u.note, amount: u.amount, min: u.min, due: u.due });
+        add(Number(u.day), { kind: 'due', card: u.card, note: u.note, amount: u.amount, min: u.min });
       }
     } else {
       for (const c of unpaid) {
@@ -91,17 +98,32 @@ export function CalendarScreen() {
         const d = new Date(c.dueIso + 'T00:00:00');
         if (d.getFullYear() !== year || d.getMonth() !== month) continue;
         add(d.getDate(), {
+          kind: 'due',
           card: `${c.displayName} ${c.product}`.trim(),
           note: c.dueShort,
           amount: c.balanceText,
           min: c.minText,
-          due: true,
+          cardId: c.id,
         });
+      }
+      for (const c of cards) {
+        for (const p of paymentHistory(c.id)) {
+          if (!p.paidOnIso) continue;
+          const d = new Date(p.paidOnIso + 'T00:00:00');
+          if (d.getFullYear() !== year || d.getMonth() !== month) continue;
+          add(d.getDate(), {
+            kind: 'paid',
+            card: `${c.displayName} ${c.product}`.trim(),
+            note: lang === 'es' ? 'Pagado' : 'Paid',
+            amount: money(c.cur, p.amount),
+            cardId: c.id,
+          });
+        }
       }
     }
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDemo, unpaid, lang, month, year]);
+  }, [isDemo, unpaid, cards, paymentHistory, lang, month, year]);
 
   const dayEvents = eventsByDay[selectedDay] ?? [];
   const isToday = isCurrentMonth && selectedDay === today.getDate();
@@ -156,7 +178,9 @@ export function CalendarScreen() {
             <View style={styles.grid}>
               {cells.map((n, i) => {
                 if (n === null) return <View key={i} style={styles.cell} />;
-                const due = eventsByDay[n]?.length > 0;
+                const events = eventsByDay[n] ?? [];
+                const hasEvents = events.length > 0;
+                const hasDue = events.some((e) => e.kind === 'due');
                 const sel = selectedDay === n;
                 return (
                   <Pressable
@@ -165,16 +189,24 @@ export function CalendarScreen() {
                     style={[
                       styles.cell,
                       styles.dayCell,
-                      { backgroundColor: sel ? colors.tint2 : due ? colors.line2 : 'transparent' },
+                      { backgroundColor: sel ? colors.tint2 : hasEvents ? colors.line2 : 'transparent' },
                     ]}
                   >
-                    <Text style={[styles.dayNum, { color: sel ? colors.onTint2 : due ? colors.ink : colors.ink3 }]}>
+                    <Text style={[styles.dayNum, { color: sel ? colors.onTint2 : hasEvents ? colors.ink : colors.ink3 }]}>
                       {n}
                     </Text>
                     <View
                       style={[
                         styles.dayDot,
-                        { backgroundColor: due ? (sel ? colors.onTint2 : colors.accentInk2) : 'transparent' },
+                        {
+                          backgroundColor: !hasEvents
+                            ? 'transparent'
+                            : sel
+                              ? colors.onTint2
+                              : hasDue
+                                ? colors.accentInk2
+                                : colors.ink3,
+                        },
                       ]}
                     />
                   </Pressable>
@@ -196,24 +228,37 @@ export function CalendarScreen() {
             </View>
           ) : (
             <View style={{ marginTop: 10, gap: 8 }}>
-              {dayEvents.map((u, i) => (
-                <View key={i} style={styles.upRow}>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={styles.upCard} numberOfLines={1}>
-                      {u.card}
-                    </Text>
-                    <Text style={[styles.upNote, { color: u.due ? colors.accentInk : colors.ink2 }]} numberOfLines={1}>
-                      {u.note}
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.upAmount}>{u.amount}</Text>
-                    <Text style={styles.upMin}>
-                      {t.minWord.toLowerCase()} {u.min}
-                    </Text>
-                  </View>
-                </View>
-              ))}
+              {dayEvents.map((u, i) => {
+                const cardId = u.cardId;
+                return (
+                  <Pressable
+                    key={i}
+                    style={styles.upRow}
+                    disabled={!cardId}
+                    onPress={cardId ? () => navigation.navigate('CardDetail', { cardId }) : undefined}
+                  >
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.upCard} numberOfLines={1}>
+                        {u.card}
+                      </Text>
+                      <Text
+                        style={[styles.upNote, { color: u.kind === 'due' ? colors.accentInk : colors.ink2 }]}
+                        numberOfLines={1}
+                      >
+                        {u.note}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={styles.upAmount}>{u.amount}</Text>
+                      {u.min !== undefined && (
+                        <Text style={styles.upMin}>
+                          {t.minWord.toLowerCase()} {u.min}
+                        </Text>
+                      )}
+                    </View>
+                  </Pressable>
+                );
+              })}
             </View>
           )}
         </View>

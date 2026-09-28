@@ -90,7 +90,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       const byCard: Record<string, Payment[]> = {};
       for (const p of paymentsRows) {
         const list = byCard[p.card_id] ?? (byCard[p.card_id] = []);
-        list.push({ amount: Number(p.amount), when: p.note || shortDate(p.paid_on) });
+        list.push({ amount: Number(p.amount), when: p.note || shortDate(p.paid_on), paidOnIso: p.paid_on });
       }
       setDbPayments(byCard);
       setLoadError(false);
