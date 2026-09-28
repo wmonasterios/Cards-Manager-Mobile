@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CARDS, Card, Category, DEMO_REVIEW_COUNTS } from '../data';
 import { decorateCard, DecoratedCard, Payment } from '../decorate';
 import { useT } from '../i18n/LocaleContext';
@@ -25,6 +26,31 @@ import { DbCard, DbTransaction, DbStatement, NewDbCard } from '../supabase/types
 
 function shortDate(iso: string) {
   return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
+}
+
+// A category change made while offline is applied locally right away, then
+// queued here for a real attempt the next time loadReal() runs with
+// connectivity — otherwise it would just silently revert on the next
+// successful refresh, since refreshing only re-fetches, it doesn't replay
+// what never reached the server.
+const CATEGORY_QUEUE_KEY = 'cardsManager:queue:categoryChanges';
+type PendingCategoryChange = { txId: string; merchant: string; category: Category; applyToAllWithMerchant: boolean };
+
+async function readCategoryQueue(): Promise<PendingCategoryChange[]> {
+  try {
+    const raw = await AsyncStorage.getItem(CATEGORY_QUEUE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeCategoryQueue(queue: PendingCategoryChange[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(CATEGORY_QUEUE_KEY, JSON.stringify(queue));
+  } catch {
+    // Best-effort — worst case the change is only ever applied locally.
+  }
 }
 
 type CardsContextValue = {
@@ -77,6 +103,20 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
 
   const loadReal = useCallback(async () => {
     if (!userId) return;
+    // Try to actually persist anything queued from an offline edit before
+    // pulling fresh data — if this fails too, it just stays queued.
+    const queue = await readCategoryQueue();
+    if (queue.length > 0) {
+      const stillPending: PendingCategoryChange[] = [];
+      for (const op of queue) {
+        try {
+          await updateTransactionCategory(userId, op.txId, op.merchant, op.category, op.applyToAllWithMerchant);
+        } catch {
+          stillPending.push(op);
+        }
+      }
+      await writeCategoryQueue(stillPending);
+    }
     try {
       const [cardsRows, paymentsRows, transactionRows, statementRows] = await Promise.all([
         listCards(userId),
@@ -255,8 +295,26 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
   const updateTxCategory = useCallback(
     async (txId: string, merchant: string, category: Category, applyToAllWithMerchant: boolean) => {
       if (isDemo || !userId) return;
-      await updateTransactionCategory(userId, txId, merchant, category, applyToAllWithMerchant);
-      await loadReal();
+      // Applied locally right away regardless of connectivity — the merchant
+      // match here is a same-name exact match, a reasonable immediate
+      // approximation of the server's own chain-matching RPC, which still
+      // runs for real (with its fuller logic) once the write actually goes
+      // through, live or via the retry queue.
+      setDbTransactions((prev) =>
+        prev.map((t) =>
+          t.id === txId || (applyToAllWithMerchant && t.merchant === merchant)
+            ? { ...t, category, category_source: 'manual' }
+            : t,
+        ),
+      );
+      try {
+        await updateTransactionCategory(userId, txId, merchant, category, applyToAllWithMerchant);
+        await loadReal();
+      } catch {
+        const queue = await readCategoryQueue();
+        queue.push({ txId, merchant, category, applyToAllWithMerchant });
+        await writeCategoryQueue(queue);
+      }
     },
     [isDemo, userId, loadReal],
   );

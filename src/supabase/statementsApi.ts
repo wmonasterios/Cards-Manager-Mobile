@@ -1,8 +1,15 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Crypto from 'expo-crypto';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { decode } from 'base64-arraybuffer';
 import { supabase } from './client';
 import { DbStatement, ParsedStatement } from './types';
+
+// There's no static "empty" state for statements that's meaningfully
+// different from "we just can't reach the server" — email-triggered ones can
+// land at any time — so the last successful fetch is mirrored to disk and
+// used whenever a live fetch fails, instead of surfacing an empty list.
+const STATEMENTS_CACHE_KEY = 'cardsManager:cache:statements';
 
 export async function readPdfForUpload(fileUri: string): Promise<{ base64: string; hash: string }> {
   const base64 = await FileSystem.readAsStringAsync(fileUri, {
@@ -102,13 +109,25 @@ export async function getStatementPdfUrl(statementId: string): Promise<string> {
 }
 
 export async function listNeedsReviewStatements(userId: string): Promise<DbStatement[]> {
-  const { data, error } = await supabase
-    .from('statements')
-    .select('*')
-    .eq('user_id', userId)
-    .order('received_at', { ascending: false });
-  if (error) throw error;
-  return data ?? [];
+  try {
+    const { data, error } = await supabase
+      .from('statements')
+      .select('*')
+      .eq('user_id', userId)
+      .order('received_at', { ascending: false });
+    if (error) throw error;
+    const rows = data ?? [];
+    AsyncStorage.setItem(STATEMENTS_CACHE_KEY, JSON.stringify(rows)).catch(() => {});
+    return rows;
+  } catch (err) {
+    try {
+      const cached = await AsyncStorage.getItem(STATEMENTS_CACHE_KEY);
+      if (cached) return JSON.parse(cached);
+    } catch {
+      // Corrupted cache — fall through and surface the original error.
+    }
+    throw err;
+  }
 }
 
 export async function getStatement(statementId: string): Promise<DbStatement | null> {
