@@ -85,6 +85,25 @@ export function DraggableCardStack({
   const liftScale = useRef(new Animated.Value(1)).current;
   const startIndexRef = useRef(0);
 
+  // On release, the card's transform source switches from `dragTranslateY`
+  // (tracking the finger) to its resting per-card Animated.Value — if that
+  // resting value still held its old, pre-drag position, the switch itself
+  // would jump there before springing back to the right spot (the "bump"
+  // this replaced). Seeding the resting value with exactly where the finger
+  // left off, before flipping `draggingId`, makes the switch invisible: the
+  // spring animation then carries it the rest of the way from that same spot.
+  const settle = (id: string, dy: number) => {
+    const finalIndex = orderRef.current.indexOf(id);
+    const restingY = getTranslateY(id, finalIndex);
+    restingY.setValue(startIndexRef.current * step + dy);
+    setDraggingId(null);
+    Animated.parallel([
+      Animated.spring(restingY, { toValue: finalIndex * step, useNativeDriver: true, friction: 8, tension: 60 }),
+      Animated.spring(liftScale, { toValue: 1, useNativeDriver: true }),
+    ]).start();
+    onReorder(orderRef.current);
+  };
+
   const responders = useMemo(
     () =>
       new Map(
@@ -117,21 +136,8 @@ export function DraggableCardStack({
                   setOrder(next);
                 }
               },
-              onPanResponderRelease: () => {
-                setDraggingId(null);
-                Animated.parallel([
-                  Animated.spring(dragDeltaY, { toValue: 0, useNativeDriver: true }),
-                  Animated.spring(liftScale, { toValue: 1, useNativeDriver: true }),
-                ]).start();
-                onReorder(orderRef.current);
-              },
-              onPanResponderTerminate: () => {
-                setDraggingId(null);
-                Animated.parallel([
-                  Animated.spring(dragDeltaY, { toValue: 0, useNativeDriver: true }),
-                  Animated.spring(liftScale, { toValue: 1, useNativeDriver: true }),
-                ]).start();
-              },
+              onPanResponderRelease: (_, g) => settle(id, g.dy),
+              onPanResponderTerminate: (_, g) => settle(id, g.dy),
             }),
           ] as const;
         }),
