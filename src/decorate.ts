@@ -61,7 +61,16 @@ export function decorateCard(
   reviewCount = 0,
 ): DecoratedCard {
   const paid = paidOverride !== undefined ? paidOverride : c.balance === 0;
-  const paidAmt = payments.reduce((n, p) => n + p.amount, 0);
+  // Only payments made after the current statement's own cutoff count against
+  // its balance — anything on or before that date was already the bank's own
+  // problem to net out, and the "Saldo" on this very statement already did:
+  // without this, a payment made against last cycle's balance (before a new
+  // statement rolls in and reports its own, already-net balance) keeps
+  // getting subtracted forever, eventually zeroing out every future balance.
+  const relevantPayments = c.cutoffIso
+    ? payments.filter((p) => !p.paidOnIso || p.paidOnIso > c.cutoffIso!)
+    : payments;
+  const paidAmt = relevantPayments.reduce((n, p) => n + p.amount, 0);
   // Marking a card Paid without registering a specific payment amount still
   // means the whole balance is settled — don't leave the old balance showing.
   const remaining = paid ? 0 : Math.max(0, c.balance - paidAmt);
