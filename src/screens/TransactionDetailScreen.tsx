@@ -166,12 +166,22 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
               <Pressable onPress={openCategoryPicker} style={styles.sourceBtn}>
                 <Text style={styles.sourceBtnText}>{t.changeCategory}</Text>
               </Pressable>
-              <Pressable onPress={toggleExcluded} style={styles.sourceBtn}>
-                <Text style={styles.sourceBtnText}>
-                  {tx.excludedFromSpend ? t.includeInSpend : t.excludeFromSpend}
-                </Text>
-              </Pressable>
             </View>
+          </View>
+
+          <View style={styles.toggleRow}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={styles.toggleTitle}>{t.excludeFromSpend}</Text>
+              <Text style={styles.toggleSub}>
+                {tx.excludedFromSpend ? t.excludedFromSpendActive : t.excludedFromSpendInactive}
+              </Text>
+            </View>
+            <Pressable
+              onPress={toggleExcluded}
+              style={[styles.switchTrack, { backgroundColor: tx.excludedFromSpend ? '#ff453a' : '#34c759' }]}
+            >
+              <View style={[styles.switchKnob, { left: tx.excludedFromSpend ? 20 : 2 }]} />
+            </Pressable>
           </View>
         </View>
       </ScrollView>
@@ -276,6 +286,27 @@ function makeStyles(colors: ColorTokens) {
       borderColor: colors.hair4,
     },
     sourceBtnText: { fontSize: 12, fontWeight: '500', color: colors.ink },
+    toggleRow: {
+      marginTop: 12,
+      padding: 14,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.line,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    toggleTitle: { fontSize: 13.5, fontWeight: '500', color: colors.ink },
+    toggleSub: { fontSize: 11.5, color: colors.ink2, marginTop: 4, lineHeight: 16 },
+    switchTrack: { width: 44, height: 26, borderRadius: 999 },
+    switchKnob: {
+      position: 'absolute',
+      top: 2,
+      width: 22,
+      height: 22,
+      borderRadius: 999,
+      backgroundColor: '#ffffff',
+    },
     modalBackdrop: {
       flex: 1,
       backgroundColor: 'rgba(0,0,0,0.5)',
