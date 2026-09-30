@@ -10,7 +10,7 @@ import { CardArt } from '../components/CardArt';
 import { DraggableCardStack } from '../components/DraggableCardStack';
 import { useCards } from '../context/CardsContext';
 import { money } from '../format';
-import { deriveStatus, StatusRow } from '../status';
+import { deriveStatus, priorityOrder, dueDateOrder, StatusRow } from '../status';
 
 const RING_R = 15;
 
@@ -185,6 +185,20 @@ export function HomeScreen({ navigation }: any) {
         {reordering && (
           <View style={styles.reorderHintBanner}>
             <Text style={styles.reorderHintText}>{t.reorderHint}</Text>
+            <View style={styles.reorderSortRow}>
+              <Pressable
+                onPress={() => reorderCards(priorityOrder(cards, todayIso))}
+                style={styles.reorderSortBtn}
+              >
+                <Text style={styles.reorderSortBtnText}>{t.sortByPriority}</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => reorderCards(dueDateOrder(cards))}
+                style={styles.reorderSortBtn}
+              >
+                <Text style={styles.reorderSortBtnText}>{t.sortByDueDate}</Text>
+              </Pressable>
+            </View>
           </View>
         )}
 
@@ -378,6 +392,16 @@ function makeStyles(colors: ColorTokens) {
       borderColor: colors.hair4,
     },
     reorderHintText: { fontSize: 12, color: colors.ink2, textAlign: 'center' },
+    reorderSortRow: { flexDirection: 'row', gap: 8, marginTop: 10, justifyContent: 'center' },
+    reorderSortBtn: {
+      paddingVertical: 7,
+      paddingHorizontal: 12,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.accentLine,
+      backgroundColor: colors.tint,
+    },
+    reorderSortBtnText: { fontSize: 11.5, fontWeight: '500', color: colors.accentInk },
     dueBanner: {
       marginTop: 14,
       marginHorizontal: spacing.xl,

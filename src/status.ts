@@ -152,3 +152,41 @@ export function deriveStatus(cards: DecoratedCard[], todayIso: string, t: Dict, 
     note: actCount ? `${actCount} ${t.cardsWord} · ${rows.length - actCount} ${t.onTrack}` : t.everythingOnTrack,
   };
 }
+
+// Same urgency signals as deriveStatus above (late statement > needs review >
+// payment due soon > up to date), collapsed into a single ordering instead of
+// a per-row display — used by the Cards tab's manual-reorder screen for its
+// "sort by priority" shortcut. Kept independent of deriveStatus (rather than
+// derived from its rows) so it doesn't need a Dict/ColorTokens just to sort.
+export function priorityOrder(cards: DecoratedCard[], todayIso: string): string[] {
+  return cards
+    .map((c) => {
+      const hasStatement = !!c.cutoffIso;
+      const nextCutoffIso = hasStatement ? addMonths(c.cutoffIso!, 1) : null;
+      const stmtLate = !hasStatement || (nextCutoffIso !== null && todayIso > nextCutoffIso);
+      const dueDays = c.dueIso ? daysBetween(todayIso, c.dueIso) : 999;
+      const tier = stmtLate
+        ? 0
+        : c.reviewCount > 0
+          ? 1
+          : !c.paid && dueDays <= 5
+            ? 2
+            : !c.paid && dueDays <= 12
+              ? 3
+              : !c.paid
+                ? 4
+                : 5;
+      return { id: c.id, tier, dueDays };
+    })
+    .sort((a, b) => (a.tier !== b.tier ? a.tier - b.tier : a.dueDays - b.dueDays))
+    .map((s) => s.id);
+}
+
+// Purely the next payment due date, soonest first — cards with no statement
+// yet (no due date at all) sort last.
+export function dueDateOrder(cards: DecoratedCard[]): string[] {
+  return cards
+    .map((c) => ({ id: c.id, dueIso: c.dueIso ?? '9999-99-99' }))
+    .sort((a, b) => a.dueIso.localeCompare(b.dueIso))
+    .map((s) => s.id);
+}
