@@ -280,6 +280,10 @@ function RealStatementsFlow({ navigation, route }: any) {
   useEffect(() => () => clearInterval(parseTicker.current), []);
 
   const [refreshing, setRefreshing] = useState(false);
+  // Only matters while history is still empty — once something has loaded
+  // (even a stale cached copy), a later failed refresh shouldn't blank the
+  // screen or hide what's already showing behind an error banner.
+  const [historyError, setHistoryError] = useState(false);
 
   // Statements that arrive by email are parsed server-side without the client
   // ever calling parseStatement() itself — if that background trigger dropped
@@ -292,6 +296,7 @@ function RealStatementsFlow({ navigation, route }: any) {
     try {
       const rows = await listNeedsReviewStatements(userId);
       setHistory(rows);
+      setHistoryError(false);
       const staleCutoff = Date.now() - 20_000;
       const nudges = rows
         .filter(
@@ -313,7 +318,11 @@ function RealStatementsFlow({ navigation, route }: any) {
         setHistory(await listNeedsReviewStatements(userId));
       }
     } catch {
-      // Non-critical: history is a nice-to-have, not worth surfacing an error for.
+      // Silent if we already have something to show (even stale) — but with
+      // nothing at all on screen, this is the only thing standing between a
+      // real fetch failure and a blank screen that looks just like a brand
+      // new, statement-free account.
+      setHistoryError(true);
     }
   };
 
@@ -1037,6 +1046,25 @@ function RealStatementsFlow({ navigation, route }: any) {
           </Text>
         </View>
 
+        {historyError && history.length === 0 && (
+          <View style={styles.section}>
+            <View style={styles.loadErrorBanner}>
+              <Text style={styles.loadErrorText}>
+                {lang === 'es'
+                  ? 'No pudimos cargar tu historial de estados de cuenta.'
+                  : "We couldn't load your statement history."}
+              </Text>
+              <Pressable onPress={onRefresh} disabled={refreshing} style={styles.loadErrorRetryBtn}>
+                {refreshing ? (
+                  <ActivityIndicator color={colors.accent} />
+                ) : (
+                  <Text style={styles.loadErrorRetryText}>{lang === 'es' ? 'Reintentar' : 'Retry'}</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        )}
+
         <View style={styles.section}>
           <Pressable onPress={pickAndUpload} style={styles.uploadBtn}>
             <Text style={styles.uploadBtnTitle}>{lang === 'es' ? 'Subir estado de cuenta (PDF)' : 'Upload statement (PDF)'}</Text>
@@ -1409,6 +1437,28 @@ function makeStyles(colors: ColorTokens) {
     },
     parseProgressPct: { fontSize: 13, fontWeight: '600', color: colors.ink },
     parseProgressTime: { fontSize: 12, color: colors.ink3 },
+    loadErrorBanner: {
+      padding: 14,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.hair4,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    loadErrorText: { flex: 1, fontSize: 12.5, color: colors.ink2, lineHeight: 18 },
+    loadErrorRetryBtn: {
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: radius.md - 2,
+      borderWidth: 1,
+      borderColor: colors.accent,
+      minWidth: 76,
+      alignItems: 'center',
+    },
+    loadErrorRetryText: { fontSize: 12.5, fontWeight: '500', color: colors.accent },
     uploadBtn: {
       borderWidth: 1,
       borderStyle: 'dashed',
