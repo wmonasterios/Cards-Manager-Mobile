@@ -19,6 +19,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import { FunctionsFetchError } from '@supabase/supabase-js';
 import { radius, spacing, ColorTokens } from '../theme';
+import { isOfflineError, offlineMessage } from '../errors';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { BackButton } from '../components/BackButton';
@@ -160,10 +161,8 @@ function statusLabel(status: DbStatement['status'], lang: 'en' | 'es') {
 // (dropped connection, no signal) — the raw SDK message ("Failed to send a
 // request to the Edge Function") isn't actionable, so point at the network instead.
 function friendlyErrorMessage(err: any, lang: 'en' | 'es'): string {
-  if (err instanceof FunctionsFetchError) {
-    return lang === 'es'
-      ? 'No se pudo conectar con el servidor. Revisa tu conexión a internet e intenta de nuevo.'
-      : 'Could not reach the server. Check your internet connection and try again.';
+  if (err instanceof FunctionsFetchError || isOfflineError(err)) {
+    return offlineMessage(lang);
   }
   if (err instanceof ParseStallError) {
     return lang === 'es'

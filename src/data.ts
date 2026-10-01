@@ -7,13 +7,11 @@ export type Category =
   | 'fuel'
   | 'shopping'
   | 'home'
-  | 'clothing'
   | 'beauty'
   | 'pharmacy'
   | 'health'
   | 'entertainment'
   | 'subscriptions'
-  | 'recreation'
   | 'kids'
   | 'education'
   | 'travel'
@@ -31,8 +29,8 @@ export type Category =
   | 'other';
 
 export const ALL_CATEGORIES: Category[] = [
-  'dining', 'groceries', 'transport', 'fuel', 'shopping', 'home', 'clothing', 'beauty',
-  'pharmacy', 'health', 'entertainment', 'subscriptions', 'recreation', 'kids', 'education',
+  'dining', 'groceries', 'transport', 'fuel', 'shopping', 'home', 'beauty',
+  'pharmacy', 'health', 'entertainment', 'subscriptions', 'kids', 'education',
   'travel', 'hotels', 'insurance', 'utilities', 'government', 'housing', 'fees', 'payment',
   'transfer', 'cash', 'topup', 'taxes', 'other',
 ];

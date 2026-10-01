@@ -12,6 +12,7 @@ import { useCards } from '../context/CardsContext';
 import { ALL_CATEGORIES, Category } from '../data';
 import { getStatementPdfUrl } from '../supabase/statementsApi';
 import { recordSuggestionFeedback } from '../supabase/cardsApi';
+import { isOfflineError, offlineMessage } from '../errors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TransactionDetail'>;
 
@@ -41,7 +42,7 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
     } catch (err: any) {
       Alert.alert(
         lang === 'es' ? 'No se pudo abrir el PDF' : 'Could not open the PDF',
-        err?.message ?? String(err),
+        isOfflineError(err) ? offlineMessage(lang) : (err?.message ?? String(err)),
       );
     } finally {
       setOpeningStatement(false);
