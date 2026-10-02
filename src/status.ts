@@ -64,8 +64,13 @@ export function deriveStatus(cards: DecoratedCard[], todayIso: string, t: Dict, 
     const daysLate = hasStatement && nextCutoffIso ? Math.max(daysBetween(nextCutoffIso, todayIso), 0) : 0;
 
     const dueDays = c.dueIso ? daysBetween(todayIso, c.dueIso) : 999;
-    const urgent = !c.paid && dueDays <= 5;
-    const soon = !c.paid && dueDays <= 12;
+    const daysToNextCutoff = hasStatement && nextCutoffIso ? Math.max(daysBetween(todayIso, nextCutoffIso), 0) : 999;
+    // Once a card is paid off there's no due date left to count down to — the
+    // next thing it actually needs is its next statement, so the ring keeps
+    // counting down to that cutoff instead of freezing at 0 for a month.
+    const days = c.paid ? daysToNextCutoff : dueDays;
+    const urgent = !stmtLate && days <= 5;
+    const soon = !stmtLate && days <= 12;
     const act = stmtLate || urgent || c.reviewCount > 0;
 
     const chips: StatusChip[] = [];
@@ -87,11 +92,14 @@ export function deriveStatus(cards: DecoratedCard[], todayIso: string, t: Dict, 
       });
     }
     if (c.paid && !stmtLate) {
-      chips.push({ text: t.upToDate, bg: 'transparent', ink: colors.ink3 });
+      chips.push({
+        text: urgent || soon ? `${t.cutoffInWord} ${days} ${t.daysWord}` : t.upToDate,
+        bg: urgent ? colors.tint : 'transparent',
+        ink: urgent ? colors.accentInk : colors.ink3,
+      });
     }
 
     // Ring: days remaining out of a ~30-day cycle; a late statement fills it whole.
-    const days = stmtLate ? daysLate : dueDays;
     const frac = stmtLate ? 1 : Math.min(Math.max(1 - days / 30, 0.05), 1);
 
     const sub = stmtLate
@@ -110,7 +118,7 @@ export function deriveStatus(cards: DecoratedCard[], todayIso: string, t: Dict, 
     // The ring's inner unit always just says "days" — what those days count
     // down to (a late statement, a payment, or the next cycle) is spelled out
     // in the caption below the ring instead, so the ring itself stays terse.
-    const ringCaption = stmtLate ? t.ringLateCaption : !c.paid ? t.ringPayCaption : t.ringOpenCaption;
+    const ringCaption = stmtLate ? t.ringLateCaption : !c.paid ? t.ringPayCaption : t.ringNextStatementCaption;
 
     return {
       card: c,
@@ -165,20 +173,24 @@ export function priorityOrder(cards: DecoratedCard[], todayIso: string): string[
       const nextCutoffIso = hasStatement ? addMonths(c.cutoffIso!, 1) : null;
       const stmtLate = !hasStatement || (nextCutoffIso !== null && todayIso > nextCutoffIso);
       const dueDays = c.dueIso ? daysBetween(todayIso, c.dueIso) : 999;
+      const daysToNextCutoff = hasStatement && nextCutoffIso ? Math.max(daysBetween(todayIso, nextCutoffIso), 0) : 999;
+      // Mirrors deriveStatus: once paid, what's actually approaching is the
+      // next cutoff, not the (already met) due date.
+      const days = c.paid ? daysToNextCutoff : dueDays;
       const tier = stmtLate
         ? 0
         : c.reviewCount > 0
           ? 1
-          : !c.paid && dueDays <= 5
+          : days <= 5
             ? 2
-            : !c.paid && dueDays <= 12
+            : days <= 12
               ? 3
               : !c.paid
                 ? 4
                 : 5;
-      return { id: c.id, tier, dueDays };
+      return { id: c.id, tier, days };
     })
-    .sort((a, b) => (a.tier !== b.tier ? a.tier - b.tier : a.dueDays - b.dueDays))
+    .sort((a, b) => (a.tier !== b.tier ? a.tier - b.tier : a.days - b.days))
     .map((s) => s.id);
 }
 

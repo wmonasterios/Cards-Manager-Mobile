@@ -1089,6 +1089,12 @@ function RealStatementsFlow({ navigation, route }: any) {
             </View>
           )}
 
+          <Pressable onPress={() => navigation.navigate('AddCard')} style={styles.manualLink} hitSlop={6}>
+            <Text style={styles.manualLinkText}>
+              {lang === 'es' ? '¿Prefieres agregarla a mano? Agregar tarjeta manualmente' : 'Prefer to enter it by hand? Add a card manually'}
+            </Text>
+          </Pressable>
+
           {history.length > 0 && (
             <>
               <View style={styles.historyHeadRow}>
@@ -1217,12 +1223,6 @@ function RealStatementsFlow({ navigation, route }: any) {
               )}
             </>
           )}
-
-          <Pressable onPress={() => navigation.navigate('AddCard')} style={styles.manualLink} hitSlop={6}>
-            <Text style={styles.manualLinkText}>
-              {lang === 'es' ? '¿Prefieres agregarla a mano? Agregar tarjeta manualmente' : 'Prefer to enter it by hand? Add a card manually'}
-            </Text>
-          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
