@@ -14,11 +14,22 @@ import { useAuth } from '../context/AuthContext';
 type Props = NativeStackScreenProps<RootStackParamList, 'Auth'>;
 type Mode = 'signin' | 'signup';
 
-export function AuthScreen({ navigation }: Props) {
+export function AuthScreen({ navigation, route }: Props) {
   const colors = useColors();
   const { isDark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { signIn, signUp, confirmSignup, resendConfirmation, signInWithGoogle, signInWithApple } = useAuth();
+
+  // Reached from onboarding's "add my first statement" CTA: once signed in,
+  // land straight in Statements to continue that upload instead of bouncing
+  // back to the onboarding screen behind this modal.
+  const finish = () => {
+    if (route.params?.fromOnboarding) {
+      navigation.replace('Tabs', { screen: 'Statements' });
+    } else {
+      navigation.goBack();
+    }
+  };
 
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
@@ -43,7 +54,7 @@ export function AuthScreen({ navigation }: Props) {
       Alert.alert('Could not sign in with Google', error);
       return;
     }
-    navigation.goBack();
+    finish();
   };
 
   const handleApple = async () => {
@@ -52,7 +63,7 @@ export function AuthScreen({ navigation }: Props) {
       Alert.alert('Could not sign in with Apple', error);
       return;
     }
-    navigation.goBack();
+    finish();
   };
 
   const submit = async () => {
@@ -71,7 +82,7 @@ export function AuthScreen({ navigation }: Props) {
       setAwaitingCode(true);
       return;
     }
-    navigation.goBack();
+    finish();
   };
 
   const submitCode = async () => {
@@ -86,7 +97,7 @@ export function AuthScreen({ navigation }: Props) {
       Alert.alert('Could not confirm your account', error);
       return;
     }
-    navigation.goBack();
+    finish();
   };
 
   const resendCode = async () => {

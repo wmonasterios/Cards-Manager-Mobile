@@ -1,10 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
 import { useAppSettings } from '../context/AppSettingsContext';
 import { useCards } from '../context/CardsContext';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../i18n/LocaleContext';
-import { navigateToStatementReview, navigateToStatements, navigateToCardDetail } from '../navigation/navigationRef';
+import {
+  navigateToStatementReview,
+  navigateToStatements,
+  navigateToCardDetail,
+  navigateToNotifPrimer,
+} from '../navigation/navigationRef';
 import {
   schedulePaymentReminders,
   cancelPaymentReminders,
@@ -36,10 +41,12 @@ function handleNotificationResponse(response: Notifications.NotificationResponse
 }
 
 export function NotificationsSync() {
-  const { reminder, weekly, notifyNew, loaded: settingsLoaded } = useAppSettings();
+  const { reminder, weekly, notifyNew, notifPrimerSeen, completeNotifPrimer, loaded: settingsLoaded } =
+    useAppSettings();
   const { cards, isDemo, loaded: cardsLoaded } = useCards();
   const { session } = useAuth();
   const { lang } = useLocale();
+  const primerAsked = useRef(false);
 
   // The server sends its own push notifications (statement received/parsed/
   // saved) without ever seeing this device's language setting — keep the
@@ -50,14 +57,31 @@ export function NotificationsSync() {
     }
   }, [lang, session?.user.id]);
 
+  // Default-on preferences (reminders, new-statement pushes) must never
+  // silently trigger the native OS permission dialog on first sign-in —
+  // that's what the explainer screen is for. Only once the account has gone
+  // through it (enabled or declined) do the effects below actually ask.
   useEffect(() => {
-    if (!settingsLoaded || !cardsLoaded || isDemo) return;
+    if (!settingsLoaded || isDemo || !session || notifPrimerSeen || primerAsked.current) return;
+    primerAsked.current = true;
+    Notifications.getPermissionsAsync().then((current) => {
+      if (current.status === 'undetermined') {
+        navigateToNotifPrimer();
+      } else {
+        // Already decided at the OS level from a previous install — nothing to prime.
+        completeNotifPrimer();
+      }
+    });
+  }, [settingsLoaded, isDemo, session, notifPrimerSeen, completeNotifPrimer]);
+
+  useEffect(() => {
+    if (!settingsLoaded || !cardsLoaded || isDemo || !notifPrimerSeen) return;
     if (reminder) {
       schedulePaymentReminders(cards);
     } else {
       cancelPaymentReminders();
     }
-  }, [reminder, cards, isDemo, settingsLoaded, cardsLoaded]);
+  }, [reminder, cards, isDemo, settingsLoaded, cardsLoaded, notifPrimerSeen]);
 
   useEffect(() => {
     if (!settingsLoaded) return;
@@ -69,10 +93,10 @@ export function NotificationsSync() {
   }, [weekly, settingsLoaded]);
 
   useEffect(() => {
-    if (notifyNew && session?.user.id) {
+    if (notifyNew && notifPrimerSeen && session?.user.id) {
       registerPushToken(session.user.id);
     }
-  }, [notifyNew, session?.user.id]);
+  }, [notifyNew, notifPrimerSeen, session?.user.id]);
 
   // Tapping a "statement ready to review" push should jump straight to that
   // statement's review screen — both for a tap while the app is running and

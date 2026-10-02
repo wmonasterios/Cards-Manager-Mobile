@@ -182,6 +182,13 @@ export function HomeScreen({ navigation }: any) {
           </View>
         </View>
 
+        {isDemo && (
+          <Pressable onPress={() => navigation.navigate('Auth')} style={styles.demoBanner}>
+            <Text style={styles.demoBannerText}>{t.demoModeBanner}</Text>
+            <Text style={styles.demoBannerCta}>{t.demoModeBannerCta}</Text>
+          </Pressable>
+        )}
+
         {reordering && (
           <View style={styles.reorderHintBanner}>
             <Text style={styles.reorderHintText}>{t.reorderHint}</Text>
@@ -381,6 +388,18 @@ function makeStyles(colors: ColorTokens) {
     iconBtnText: { color: colors.ink, fontSize: 18 },
     reorderDoneBtn: { width: undefined, paddingHorizontal: 16, borderColor: colors.accent },
     reorderDoneText: { color: colors.accentInk2, fontSize: 13, fontWeight: '600' },
+    demoBanner: {
+      marginTop: 14,
+      marginHorizontal: spacing.xl,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: radius.md,
+      backgroundColor: colors.tint,
+      borderWidth: 1,
+      borderColor: colors.tint2,
+    },
+    demoBannerText: { fontSize: 12.5, fontWeight: '600', color: colors.accentInk },
+    demoBannerCta: { fontSize: 11.5, color: colors.accentInk2, marginTop: 3 },
     reorderHintBanner: {
       marginTop: 14,
       marginHorizontal: spacing.xl,

@@ -25,6 +25,15 @@ export async function requestNotificationPermission(): Promise<boolean> {
   return result.granted;
 }
 
+// Read-only check used by the automatic scheduling below — it must never be
+// the thing that pops the native OS prompt. Only an explicit tap (the
+// notifications explainer screen, or flipping a toggle in Settings) does
+// that, via requestNotificationPermission above.
+async function hasNotificationPermission(): Promise<boolean> {
+  const current = await Notifications.getPermissionsAsync();
+  return current.granted;
+}
+
 async function readIds(key: string): Promise<string[]> {
   try {
     const raw = await AsyncStorage.getItem(key);
@@ -46,7 +55,7 @@ export async function cancelPaymentReminders() {
 
 export async function schedulePaymentReminders(cards: DecoratedCard[]) {
   await cancelAndClear(REMINDER_IDS_KEY);
-  const granted = await requestNotificationPermission();
+  const granted = await hasNotificationPermission();
   if (!granted) return;
 
   const ids: string[] = [];
@@ -74,7 +83,7 @@ export async function cancelWeeklySummary() {
 
 export async function scheduleWeeklySummary() {
   await cancelAndClear(WEEKLY_ID_KEY);
-  const granted = await requestNotificationPermission();
+  const granted = await hasNotificationPermission();
   if (!granted) return;
 
   const id = await Notifications.scheduleNotificationAsync({
@@ -101,7 +110,7 @@ export async function syncProfileLang(userId: string, lang: Lang): Promise<void>
 }
 
 export async function registerPushToken(userId: string): Promise<void> {
-  const granted = await requestNotificationPermission();
+  const granted = await hasNotificationPermission();
   if (!granted) return;
   const projectId = Constants.expoConfig?.extra?.eas?.projectId;
   if (!projectId) return;

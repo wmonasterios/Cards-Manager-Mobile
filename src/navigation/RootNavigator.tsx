@@ -14,6 +14,7 @@ import { ReportScreen } from '../screens/ReportScreen';
 import { FixScreen } from '../screens/FixScreen';
 import { AuthScreen } from '../screens/AuthScreen';
 import { AddCardScreen } from '../screens/AddCardScreen';
+import { NotifPrimerScreen } from '../screens/NotifPrimerScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -43,6 +44,7 @@ export function RootNavigator() {
       <Stack.Screen name="Fix" component={FixScreen} options={{ presentation: 'modal' }} />
       <Stack.Screen name="Auth" component={AuthScreen} options={{ presentation: 'modal' }} />
       <Stack.Screen name="AddCard" component={AddCardScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen name="NotifPrimer" component={NotifPrimerScreen} options={{ presentation: 'modal', gestureEnabled: false }} />
     </Stack.Navigator>
   );
 }

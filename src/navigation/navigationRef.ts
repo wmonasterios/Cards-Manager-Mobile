@@ -31,3 +31,9 @@ export function navigateToCardDetail(cardId: string) {
     navigationRef.navigate('CardDetail', { cardId });
   });
 }
+
+export function navigateToNotifPrimer() {
+  navigateWhenReady(() => {
+    navigationRef.navigate('NotifPrimer');
+  });
+}

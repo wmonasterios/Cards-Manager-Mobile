@@ -18,6 +18,7 @@ export type RootStackParamList = {
   Best: undefined;
   Report: undefined;
   Fix: undefined;
-  Auth: undefined;
+  Auth: { fromOnboarding?: boolean } | undefined;
   AddCard: undefined;
+  NotifPrimer: undefined;
 };

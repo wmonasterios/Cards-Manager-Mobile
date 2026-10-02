@@ -15,6 +15,7 @@ import { useCards } from '../context/CardsContext';
 import * as Clipboard from 'expo-clipboard';
 import { getStatementEmail } from '../supabase/statementsApi';
 import { buildTransactionsCsv } from '../csv';
+import { requestNotificationPermission } from '../notifications';
 
 const DEMO_INBOX = 'w.monasterios.7f3a@in.cardsmanager.app';
 
@@ -52,10 +53,23 @@ export function SettingsScreen({ navigation }: any) {
     }
   };
 
+  // Turning one of these ON is itself the explicit, self-explaining moment to
+  // ask for the OS permission — unlike the automatic scheduling in
+  // NotificationsSync, which only ever acts on a permission already granted.
+  const toggleNotifSetting = (on: boolean, toggle: () => void) => async () => {
+    if (!on) {
+      // Resolve the prompt (or confirm it's already granted) before flipping
+      // the setting, so the scheduler that reacts to it sees the final status.
+      await requestNotificationPermission();
+      settings.completeNotifPrimer();
+    }
+    toggle();
+  };
+
   const toggles = [
-    { label: t.reminders, sub: t.remindersSub, on: settings.reminder, toggle: settings.toggleReminder },
-    { label: t.notifyNew, sub: t.notifyNewSub, on: settings.notifyNew, toggle: settings.toggleNotifyNew },
-    { label: t.weekly, sub: t.weeklySub, on: settings.weekly, toggle: settings.toggleWeekly },
+    { label: t.reminders, sub: t.remindersSub, on: settings.reminder, toggle: toggleNotifSetting(settings.reminder, settings.toggleReminder) },
+    { label: t.notifyNew, sub: t.notifyNewSub, on: settings.notifyNew, toggle: toggleNotifSetting(settings.notifyNew, settings.toggleNotifyNew) },
+    { label: t.weekly, sub: t.weeklySub, on: settings.weekly, toggle: toggleNotifSetting(settings.weekly, settings.toggleWeekly) },
     { label: t.faceLock, sub: t.faceLockSub, on: settings.faceLock, toggle: settings.toggleFaceLock },
   ];
 

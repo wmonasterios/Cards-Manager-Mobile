@@ -13,12 +13,12 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Onboarding'>;
 const STEPS: Record<'en' | 'es', { n: string; title: string; body: string }[]> = {
   en: [
     { n: '1', title: 'Add your first statement', body: 'Upload the PDF your bank sends, or forward the email. No bank passwords, no Open Banking.' },
-    { n: '2', title: 'We read the numbers', body: 'Balance, minimum payment, due date, cut-off, credit limit and instalment purchases — BAC, Banco Aliado and Davibank.' },
+    { n: '2', title: 'We read the numbers', body: 'Balance, minimum payment, due date, cut-off, credit limit and instalment purchases, read straight from the PDF.' },
     { n: '3', title: 'Every card in one place', body: 'One home with all your cards, what you owe and what is due first. Reminders three days before each due date.' },
   ],
   es: [
     { n: '1', title: 'Agrega tu primer estado de cuenta', body: 'Sube el PDF que te manda el banco, o reenvía el correo. Sin claves del banco, sin Open Banking.' },
-    { n: '2', title: 'Leemos los números', body: 'Saldo, pago mínimo, fecha de pago, corte, límite y compras a cuotas — BAC, Banco Aliado y Davibank.' },
+    { n: '2', title: 'Leemos los números', body: 'Saldo, pago mínimo, fecha de pago, corte, límite y compras a cuotas, leídos directo del PDF.' },
     { n: '3', title: 'Todas tus tarjetas en un lugar', body: 'Un home con todas las tarjetas, cuánto debes y qué vence primero. Recordatorios tres días antes.' },
   ],
 };
@@ -30,8 +30,10 @@ export function OnboardingScreen({ navigation }: Props) {
   const { completeOnboarding } = useAppSettings();
 
   const start = () => {
+    // Saying you want to add a statement already means real intent — send
+    // them to create an account first rather than into the demo-data flow.
     completeOnboarding();
-    navigation.replace('Tabs', { screen: 'Statements' });
+    navigation.navigate('Auth', { fromOnboarding: true });
   };
 
   const skip = () => {

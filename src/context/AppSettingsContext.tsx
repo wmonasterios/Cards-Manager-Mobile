@@ -7,14 +7,16 @@ type Settings = {
   weekly: boolean;
   faceLock: boolean;
   onboarded: boolean;
+  notifPrimerSeen: boolean;
 };
 
 const DEFAULT_SETTINGS: Settings = {
   reminder: true,
   notifyNew: true,
   weekly: false,
-  faceLock: true,
+  faceLock: false,
   onboarded: false,
+  notifPrimerSeen: false,
 };
 
 type AppSettingsValue = Settings & {
@@ -23,6 +25,7 @@ type AppSettingsValue = Settings & {
   toggleWeekly: () => void;
   toggleFaceLock: () => void;
   completeOnboarding: () => void;
+  completeNotifPrimer: () => void;
   loaded: boolean;
 };
 
@@ -44,6 +47,7 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
       toggleWeekly: () => toggle('weekly'),
       toggleFaceLock: () => toggle('faceLock'),
       completeOnboarding: () => setSettings((prev) => ({ ...prev, onboarded: true })),
+      completeNotifPrimer: () => setSettings((prev) => ({ ...prev, notifPrimerSeen: true })),
       loaded,
     }),
     [settings, toggle, setSettings, loaded],
