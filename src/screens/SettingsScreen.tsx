@@ -17,7 +17,7 @@ import { getStatementEmail } from '../supabase/statementsApi';
 import { buildTransactionsCsv } from '../csv';
 import { requestNotificationPermission } from '../notifications';
 
-const DEMO_INBOX = 'w.monasterios.7f3a@in.cardsmanager.app';
+const DEMO_INBOX = 'demo.user.7f3a@in.cardsmanager.app';
 
 export function SettingsScreen({ navigation }: any) {
   const { lang, t, setLang } = useLocale();

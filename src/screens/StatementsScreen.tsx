@@ -46,7 +46,7 @@ import { DecoratedCard } from '../decorate';
 type UploadStage = 'idle' | 'parsing' | 'review';
 type RealStage = 'idle' | 'uploading' | 'parsing' | 'review' | 'error';
 
-const INBOX = 'w.monasterios.7f3a@in.cardsmanager.app';
+const INBOX = 'demo.user.7f3a@in.cardsmanager.app';
 
 const PARSE_STEPS: Record<'en' | 'es', { label: string; mark: string; done: boolean }[]> = {
   en: [
