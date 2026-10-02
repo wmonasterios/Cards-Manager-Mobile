@@ -80,10 +80,12 @@ need a real interactive session.
    This uploads the build to App Store Connect. Apple takes a few minutes to
    "process" it before it's selectable in TestFlight.
 4. **In App Store Connect → your app → TestFlight**, fill in once:
-   - **Test Information**: what testers should try, your contact email,
-     and the **Privacy Policy URL** — use
+   - **Test Information**: what testers should try, contact email
+     `support@poquetapp.com` (forwards to your gmail via ImprovMX), and the
+     **Privacy Policy URL** — use
      `https://github.com/wmonasterios/cards-manager-mobile/blob/main/PRIVACY.md`
-     (or your own hosted copy of `PRIVACY.md`).
+     (or host `PRIVACY.md` directly on `poquetapp.com` later if you want a
+     nicer-looking URL).
    - Answer the **Export Compliance** question (standard encryption only —
      HTTPS — so "No" to using non-exempt encryption is almost always right).
 5. **Add testers**:

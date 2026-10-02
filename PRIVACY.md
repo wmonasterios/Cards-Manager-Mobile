@@ -55,7 +55,7 @@ reflected here with an updated date.
 
 ## Contact
 
-Questions about this policy or your data: **wmonasterios@gmail.com**
+Questions about this policy or your data: **support@poquetapp.com**
 
 ---
 
@@ -120,4 +120,4 @@ importantes se reflejarán aquí con una fecha actualizada.
 
 ## Contacto
 
-Preguntas sobre esta política o tus datos: **wmonasterios@gmail.com**
+Preguntas sobre esta política o tus datos: **support@poquetapp.com**
