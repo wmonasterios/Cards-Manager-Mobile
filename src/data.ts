@@ -1,4 +1,4 @@
-import { cardArt, CARD_PALETTE, CARD_PALETTE_ORDER } from './theme';
+import { cardArt, CARD_INK, CARD_PALETTE, CARD_PALETTE_ORDER } from './theme';
 
 export type Category =
   | 'dining'
@@ -226,11 +226,20 @@ export const DEMO_REVIEW_COUNTS: Record<string, number> = { aliado: 1 };
 // picked a color, get one hashed from their id — so two real cards never
 // default to looking identical, which used to always happen (every real
 // card id fell through to the same cardArt.bac2 fallback).
-export function artGradient(id: string, colorKey?: string): [string, string, string] {
-  if (colorKey && CARD_PALETTE[colorKey]) return CARD_PALETTE[colorKey];
+export function artKey(id: string, colorKey?: string): string {
+  if (colorKey && CARD_PALETTE[colorKey]) return colorKey;
   if (cardArt[id]) return cardArt[id];
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
-  const key = CARD_PALETTE_ORDER[hash % CARD_PALETTE_ORDER.length];
-  return CARD_PALETTE[key];
+  return CARD_PALETTE_ORDER[hash % CARD_PALETTE_ORDER.length];
+}
+
+export function artGradient(id: string, colorKey?: string): [string, string, string] {
+  return CARD_PALETTE[artKey(id, colorKey)];
+}
+
+// Text colors to use on top of a card's art (dark on vivid fills, light on
+// violet/slate).
+export function artInk(id: string, colorKey?: string): { main: string; sub: string } {
+  return CARD_INK[artKey(id, colorKey)];
 }

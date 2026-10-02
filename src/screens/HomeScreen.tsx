@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
 import { radius, spacing, ColorTokens } from '../theme';
+import { artInk } from '../data';
 import { useColors } from '../theme/ThemeContext';
 import { useT } from '../i18n/LocaleContext';
 import { CardArt } from '../components/CardArt';
@@ -118,23 +119,26 @@ export function HomeScreen({ navigation }: any) {
       ? t.demoDueBanner
       : `${unpaid.length} ${t.cardsWord} ${t.withBalanceDue}`;
 
-  const renderCardFace = (c: (typeof cards)[number]) => (
-    <>
-      <View style={styles.cardTopRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.cardBank}>{c.displayName}</Text>
-          <Text style={styles.cardSub}>
-            {c.displaySub} · {c.last4}
-          </Text>
+  const renderCardFace = (c: (typeof cards)[number]) => {
+    const ink = artInk(c.id, c.colorKey);
+    return (
+      <>
+        <View style={styles.cardTopRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.cardBank, { color: ink.main }]}>{c.displayName}</Text>
+            <Text style={[styles.cardSub, { color: ink.sub }]}>
+              {c.displaySub} · {c.last4}
+            </Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={[styles.cardBalance, { color: ink.main }]}>{c.balanceText}</Text>
+            <Text style={[styles.cardSub, { color: ink.sub }]}>{c.dueShort}</Text>
+          </View>
         </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text style={styles.cardBalance}>{c.balanceText}</Text>
-          <Text style={styles.cardSub}>{c.dueShort}</Text>
-        </View>
-      </View>
-      <Text style={styles.cardNetwork}>{c.network.toUpperCase()}</Text>
-    </>
-  );
+        <Text style={[styles.cardNetwork, { color: ink.sub }]}>{c.network.toUpperCase()}</Text>
+      </>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>

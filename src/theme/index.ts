@@ -1,84 +1,99 @@
-// Nocturne design-system tokens, taken from the Cards Manager mockup.
+// Poquet design-system tokens — the unified redesign: "Neón" for dark mode,
+// "Confeti" (warm paper + vivid accents) for light mode. Both modes share the
+// same vivid categorical palette (cards, categories, chart series), so a card
+// or a category looks the same whichever mode is on.
 export type ColorTokens = typeof darkColors;
 
-export const darkColors = {
-  bg: '#161826',
-  surface: '#232532',
-  surface2: '#1d1f2b',
-  ink: '#e9e9ed',
-  ink2: '#9397ab',
-  ink3: '#75798c',
-  ink2b: '#b2b6ca',
-  line: '#3f424d',
-  line2: '#292b31',
-  tint: '#2b2741',
-  tint2: '#423a6a',
-  accentLine: '#5d5294',
-  accentInk: '#d2cefd',
-  accentInk2: '#b5abfc',
-  onTint2: '#f5f4ff',
-  accent: '#9184d9',
-  bar: '#796cbf',
-  tintInk2: '#e4e7f5',
-  tintInk3: '#cfd3e5',
-  tintInk: '#e7e5fe',
-  onArt: '#f3f5fe',
-  hair: 'rgba(233,233,237,0.08)',
-  hair2: 'rgba(233,233,237,0.1)',
-  hair3: 'rgba(233,233,237,0.12)',
-  hair4: 'rgba(233,233,237,0.16)',
-  hair5: 'rgba(233,233,237,0.18)',
-  seg1: '#b5abfc',
-  seg2: '#9184d9',
-  seg3: '#796cbf',
-  seg4: '#5d5294',
-  seg5: '#423a6a',
-  seg6: '#6b6f80',
-  seg7: '#3f424d',
+// Shared vivid palette. Every fill here takes dark ink (#121212) except violet.
+export const VIVID = {
+  coral: '#FF5A47',
+  violet: '#9F4FFF',
+  honey: '#FFBB26',
+  sky: '#64C6FF',
+  pink: '#FF58AE',
+  green: '#00C978',
+  sun: '#FFCD6C',
+  lavender: '#C9A3FF',
+  grey: '#8A8FA8',
 };
 
-// Previous light palette kept everything — surfaces, hairlines, and the
-// "active" chip/pill fill — inside one narrow band of pale lavender, so
-// selected states barely read as different from the resting background.
-// This keeps the same purple family (for continuity with dark mode and the
-// brand) but gives "active" states a solid, saturated fill with white ink
-// (mirroring how dark mode's own tint2/onTint2 pair already works) instead
-// of a slightly-less-pale pastel, and deepens hairlines/borders enough to
-// actually read as edges against the light background.
+export const darkColors = {
+  bg: '#0B0E1C',
+  surface: '#141A30',
+  surface2: '#10162B',
+  ink: '#F4F5FA',
+  ink2: '#C9CCDA',
+  ink3: '#9AA0B8',
+  ink2b: '#DCDFEA',
+  line: '#2A3356',
+  line2: '#1B2240',
+  tint: '#1F2650',
+  tint2: '#C8FF4D',
+  accentLine: '#C8FF4D',
+  accentInk: '#C8FF4D',
+  accentInk2: '#C8FF4D',
+  onTint2: '#0A0E1F',
+  accent: '#C8FF4D',
+  bar: '#C8FF4D',
+  tintInk2: '#C9CCDA',
+  tintInk3: '#C9CCDA',
+  tintInk: '#0A0E1F',
+  onArt: '#F4F5FA',
+  hair: 'rgba(244,245,250,0.08)',
+  hair2: 'rgba(244,245,250,0.1)',
+  hair3: 'rgba(244,245,250,0.12)',
+  hair4: 'rgba(244,245,250,0.16)',
+  hair5: 'rgba(244,245,250,0.18)',
+  // Chart series, by rank. seg1 doubles as "urgent/late" and seg3 as "soon"
+  // in the Home status rings (see status.ts), hence coral and honey there.
+  seg1: VIVID.coral,
+  seg2: VIVID.violet,
+  seg3: VIVID.honey,
+  seg4: VIVID.sky,
+  seg5: VIVID.pink,
+  seg6: VIVID.green,
+  seg7: VIVID.grey,
+  // Category icon tiles: vivid fills with dark ink, in both modes.
+  catBg: [VIVID.sun, VIVID.sky, VIVID.pink, VIVID.lavender, VIVID.green, '#FF8A65'] as string[],
+  catInk: '#121212',
+};
+
 export const lightColors: ColorTokens = {
-  bg: '#e9ebf6',
-  surface: '#f7f8fd',
-  surface2: '#eef0f9',
-  ink: '#292b31',
-  ink2: '#595d6c',
-  ink3: '#6b6f80',
-  ink2b: '#3f424d',
-  line: '#c3c8de',
-  line2: '#dde1f0',
-  tint: '#ded9fb',
-  tint2: '#7a6cc0',
-  accentLine: '#a89bf5',
-  accentInk: '#3a3363',
-  accentInk2: '#544a8c',
-  onTint2: '#ffffff',
-  accent: '#6a5cc2',
-  bar: '#6a5cc2',
-  tintInk2: '#3f424d',
-  tintInk3: '#3f424d',
-  tintInk: '#ffffff',
-  onArt: '#f3f5fe',
-  hair: 'rgba(41,43,49,0.08)',
-  hair2: 'rgba(41,43,49,0.1)',
-  hair3: 'rgba(41,43,49,0.12)',
-  hair4: 'rgba(41,43,49,0.18)',
-  hair5: 'rgba(41,43,49,0.22)',
-  seg1: '#544a8c',
-  seg2: '#6a5cc2',
-  seg3: '#8879d6',
-  seg4: '#a89bf5',
-  seg5: '#3a3363',
-  seg6: '#767a8c',
-  seg7: '#4a4d5e',
+  bg: '#FBFAF9',
+  surface: '#FFFFFF',
+  surface2: '#F6F4EF',
+  ink: '#121212',
+  ink2: '#474645',
+  ink3: '#6F6E6C',
+  ink2b: '#343433',
+  line: '#E2DDD5',
+  line2: '#F2F0ED',
+  tint: '#FFF1D6',
+  tint2: '#121212',
+  accentLine: '#121212',
+  accentInk: '#121212',
+  accentInk2: '#C93200',
+  onTint2: '#FBFAF9',
+  accent: '#121212',
+  bar: '#121212',
+  tintInk2: '#343433',
+  tintInk3: '#343433',
+  tintInk: '#FBFAF9',
+  onArt: '#FFFFFF',
+  hair: 'rgba(18,18,18,0.06)',
+  hair2: 'rgba(18,18,18,0.08)',
+  hair3: 'rgba(18,18,18,0.1)',
+  hair4: 'rgba(18,18,18,0.14)',
+  hair5: 'rgba(18,18,18,0.18)',
+  seg1: VIVID.coral,
+  seg2: VIVID.violet,
+  seg3: VIVID.honey,
+  seg4: VIVID.sky,
+  seg5: VIVID.pink,
+  seg6: VIVID.green,
+  seg7: VIVID.grey,
+  catBg: [VIVID.sun, VIVID.sky, VIVID.pink, VIVID.lavender, VIVID.green, '#FF8A65'],
+  catInk: '#121212',
 };
 
 // Default export kept for call sites that only ever run in dark mode (rare).
@@ -118,14 +133,7 @@ const CATEGORY_ORDER = Object.keys(CATEGORY_ICONS);
 export function getCategoryColors(
   c: ColorTokens,
 ): Record<string, { bg: string; ink: string; icon: string }> {
-  const pairs = [
-    { bg: c.line, ink: c.tintInk2 },
-    { bg: c.tint, ink: c.accentInk },
-    { bg: c.line2, ink: c.tintInk3 },
-    { bg: c.tint2, ink: c.tintInk },
-    { bg: c.tint, ink: c.accentInk2 },
-    { bg: c.line, ink: c.ink2 },
-  ];
+  const pairs = c.catBg.map((bg) => ({ bg, ink: c.catInk }));
   const result: Record<string, { bg: string; ink: string; icon: string }> = {};
   CATEGORY_ORDER.forEach((id, i) => {
     result[id] = { ...pairs[i % pairs.length], icon: CATEGORY_ICONS[id] };
@@ -149,27 +157,44 @@ export function chartSeriesColors(c: ColorTokens): string[] {
   return [c.seg1, c.seg2, c.seg3, c.seg4, c.seg5, c.seg6, c.seg7];
 }
 
-// Fixed gradients for the demo catalogue's hardcoded card ids.
-export const cardArt: Record<string, [string, string, string]> = {
-  aliado: ['#131b30', '#22375f', '#2f4d84'],
-  bac: ['#2a1420', '#5a2333', '#7c3145'],
-  davi: ['#19202b', '#2c3a47', '#3e5163'],
-  bac2: ['#1b1e27', '#31353f', '#474c58'],
-};
-
 // A curated palette real cards can be assigned to — either automatically (by
 // hashing the card's id, so cards look different from each other by default)
-// or explicitly, when the user picks a color for a card.
+// or explicitly, when the user picks a color for a card. The keys are stored
+// in the database (cards.color_key), so existing keys must never be renamed;
+// only their colors change. Gradients are deliberately subtle (one hue,
+// lighter toward the corner) — the decoration shapes in CardArt carry the
+// "design", not a dark-to-light ramp.
 export const CARD_PALETTE: Record<string, [string, string, string]> = {
-  violet: ['#1c1730', '#332a5c', '#4a3d86'],
-  ocean: ['#0f1f2e', '#1c3a54', '#2a5980'],
-  forest: ['#12261c', '#1f4231', '#2d6247'],
-  ember: ['#2a1420', '#5a2333', '#7c3145'],
-  slate: ['#1b1e27', '#31353f', '#474c58'],
-  gold: ['#2a2210', '#5c4a1c', '#8a7128'],
+  violet: ['#8A3BF0', '#9F4FFF', '#B577FF'],
+  ocean: ['#3DB2F5', '#64C6FF', '#8DD7FF'],
+  forest: ['#00B36B', '#00C978', '#40DA98'],
+  ember: ['#FF4433', '#FF5A47', '#FF7B6B'],
+  slate: ['#1E2338', '#2A3150', '#3B4468'],
+  gold: ['#FFB31A', '#FFCD6C', '#FFDB8F'],
+  pink: ['#FF3E9F', '#FF58AE', '#FF7EC1'],
+};
+
+// Text color on top of each card color: dark on the light/vivid fills, light
+// on violet and slate. `sub` is the secondary line (product, network, dates).
+export const CARD_INK: Record<string, { main: string; sub: string }> = {
+  violet: { main: '#FFFFFF', sub: 'rgba(255,255,255,0.78)' },
+  ocean: { main: '#121212', sub: 'rgba(18,18,18,0.7)' },
+  forest: { main: '#121212', sub: 'rgba(18,18,18,0.7)' },
+  ember: { main: '#121212', sub: 'rgba(18,18,18,0.7)' },
+  slate: { main: '#F4F5FA', sub: 'rgba(244,245,250,0.7)' },
+  gold: { main: '#121212', sub: 'rgba(18,18,18,0.7)' },
+  pink: { main: '#121212', sub: 'rgba(18,18,18,0.7)' },
 };
 
 export const CARD_PALETTE_ORDER = Object.keys(CARD_PALETTE);
+
+// Fixed palette keys for the demo catalogue's hardcoded card ids.
+export const cardArt: Record<string, string> = {
+  aliado: 'ocean',
+  bac: 'ember',
+  davi: 'forest',
+  bac2: 'violet',
+};
 
 export const radius = { sm: 8, md: 12, lg: 14, xl: 16, pill: 999 };
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24 };

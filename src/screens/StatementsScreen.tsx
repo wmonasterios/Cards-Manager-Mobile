@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import { FunctionsFetchError } from '@supabase/supabase-js';
-import { radius, spacing, ColorTokens } from '../theme';
+import { radius, spacing, ColorTokens, CARD_PALETTE } from '../theme';
 import { isOfflineError, offlineMessage } from '../errors';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
@@ -1567,8 +1567,8 @@ function makeStyles(colors: ColorTokens) {
       borderWidth: 1,
       borderColor: colors.tint2,
     },
-    matchThumb: { width: 46, height: 30, borderRadius: 5, backgroundColor: '#2e4a7d' },
-    matchTitle: { fontSize: 13, fontWeight: '500', color: colors.onArt },
+    matchThumb: { width: 46, height: 30, borderRadius: 5, backgroundColor: CARD_PALETTE.ocean[1] },
+    matchTitle: { fontSize: 13, fontWeight: '500', color: colors.ink },
     matchSub: { fontSize: 11, color: colors.accentInk, marginTop: 3 },
     fieldRow: {
       borderTopWidth: 1,

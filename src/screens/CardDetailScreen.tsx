@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { radius, spacing, ColorTokens, CARD_PALETTE, CARD_PALETTE_ORDER } from '../theme';
+import { artInk } from '../data';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { CardArt } from '../components/CardArt';
@@ -154,6 +155,7 @@ export function CardDetailScreen({ route, navigation }: Props) {
   // typed/picked right now — the same live-preview feel as changing a photo
   // and seeing the avatar update before you've hit save.
   const heroColorKey = editOpen ? editColorKey : card.colorKey;
+  const heroInk = artInk(card.id, heroColorKey ?? undefined);
   const previewNickname = editOpen ? editNickname.trim() : card.nickname ?? '';
   const previewBank = editOpen ? editBank.trim() || card.bank : card.bank;
   const heroName = previewNickname || previewBank;
@@ -192,18 +194,18 @@ export function CardDetailScreen({ route, navigation }: Props) {
             <CardArt cardId={card.id} colorKey={heroColorKey ?? undefined} style={styles.hero}>
               <View style={styles.heroTop}>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.heroBank} numberOfLines={1}>
+                  <Text style={[styles.heroBank, { color: heroInk.main }]} numberOfLines={1}>
                     {heroName}
                   </Text>
-                  <Text style={styles.heroSub} numberOfLines={2}>
+                  <Text style={[styles.heroSub, { color: heroInk.sub }]} numberOfLines={2}>
                     {heroSub}
                   </Text>
                 </View>
-                <Text style={styles.heroNetwork}>{card.network.toUpperCase()}</Text>
+                <Text style={[styles.heroNetwork, { color: heroInk.sub }]}>{card.network.toUpperCase()}</Text>
               </View>
               <View style={styles.heroBottom}>
-                <Text style={styles.heroLast4}>{card.last4}</Text>
-                <Text style={styles.heroCur}>{t.balancesInUsd}</Text>
+                <Text style={[styles.heroLast4, { color: heroInk.main }]}>{card.last4}</Text>
+                <Text style={[styles.heroCur, { color: heroInk.sub }]}>{t.balancesInUsd}</Text>
               </View>
             </CardArt>
           </Pressable>
