@@ -44,7 +44,6 @@ export function OnboardingScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.kicker}>{t.firstRun.toUpperCase()}</Text>
         <Text style={styles.title}>{t.onbTitle}</Text>
         <Text style={styles.sub}>{t.onbSub}</Text>
 
@@ -77,8 +76,7 @@ function makeStyles(colors: ColorTokens) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.bg },
     scrollContent: { paddingTop: 24, paddingHorizontal: 24, paddingBottom: 40 },
-    kicker: { fontSize: 11, fontWeight: '500', letterSpacing: 1.4, color: colors.ink3 },
-    title: { fontSize: 32, fontFamily: fonts.displayMedium, color: colors.ink, marginTop: 14, letterSpacing: -0.4, lineHeight: 38 },
+    title: { fontSize: 32, fontFamily: fonts.displayMedium, color: colors.ink, letterSpacing: -0.4, lineHeight: 38 },
     sub: { fontSize: 13, color: colors.ink2, marginTop: 12, lineHeight: 20, maxWidth: 320 },
     stepRow: {
       flexDirection: 'row',
