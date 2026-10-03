@@ -63,6 +63,9 @@ export function HomeScreen({ navigation }: any) {
   const t = useT();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [reordering, setReordering] = useState(false);
+  // Which shortcut produced the current order, so the matching button can
+  // stay highlighted — cleared on any manual drag, since that invalidates it.
+  const [activeSort, setActiveSort] = useState<'priority' | 'dueDate' | null>(null);
 
   if (!loaded && cards.length === 0) {
     return (
@@ -198,16 +201,26 @@ export function HomeScreen({ navigation }: any) {
             <Text style={styles.reorderHintText}>{t.reorderHint}</Text>
             <View style={styles.reorderSortRow}>
               <Pressable
-                onPress={() => reorderCards(priorityOrder(cards, todayIso))}
-                style={styles.reorderSortBtn}
+                onPress={() => {
+                  reorderCards(priorityOrder(cards, todayIso));
+                  setActiveSort('priority');
+                }}
+                style={[styles.reorderSortBtn, activeSort === 'priority' && styles.reorderSortBtnActive]}
               >
-                <Text style={styles.reorderSortBtnText}>{t.sortByPriority}</Text>
+                <Text style={[styles.reorderSortBtnText, activeSort === 'priority' && styles.reorderSortBtnTextActive]}>
+                  {t.sortByPriority}
+                </Text>
               </Pressable>
               <Pressable
-                onPress={() => reorderCards(dueDateOrder(cards))}
-                style={styles.reorderSortBtn}
+                onPress={() => {
+                  reorderCards(dueDateOrder(cards));
+                  setActiveSort('dueDate');
+                }}
+                style={[styles.reorderSortBtn, activeSort === 'dueDate' && styles.reorderSortBtnActive]}
               >
-                <Text style={styles.reorderSortBtnText}>{t.sortByDueDate}</Text>
+                <Text style={[styles.reorderSortBtnText, activeSort === 'dueDate' && styles.reorderSortBtnTextActive]}>
+                  {t.sortByDueDate}
+                </Text>
               </Pressable>
             </View>
           </View>
@@ -244,7 +257,10 @@ export function HomeScreen({ navigation }: any) {
             step={CARD_STEP}
             sideInset={spacing.lg}
             style={styles.stack}
-            onReorder={reorderCards}
+            onReorder={(order) => {
+              reorderCards(order);
+              setActiveSort(null);
+            }}
             renderCard={(c, dragging) => (
               <CardArt
                 cardId={c.id}
@@ -425,6 +441,8 @@ function makeStyles(colors: ColorTokens) {
       backgroundColor: colors.tint,
     },
     reorderSortBtnText: { fontSize: 11.5, fontWeight: '500', color: colors.accentInk },
+    reorderSortBtnActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+    reorderSortBtnTextActive: { color: colors.onTint2 },
     dueBanner: {
       marginTop: 14,
       marginHorizontal: spacing.xl,

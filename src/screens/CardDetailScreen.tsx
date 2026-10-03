@@ -473,7 +473,8 @@ function makeStyles(colors: ColorTokens) {
       paddingHorizontal: spacing.xl,
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 10,
+      justifyContent: 'space-between',
+      rowGap: 10,
     },
     tile: {
       width: '47.5%',

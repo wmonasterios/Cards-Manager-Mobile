@@ -188,17 +188,25 @@ export function priorityOrder(cards: DecoratedCard[], todayIso: string): string[
               : !c.paid
                 ? 4
                 : 5;
-      return { id: c.id, tier, days };
+      return { id: c.id, tier, days, remaining: c.remaining };
     })
-    .sort((a, b) => (a.tier !== b.tier ? a.tier - b.tier : a.days - b.days))
+    .sort((a, b) => {
+      if (a.tier !== b.tier) return a.tier - b.tier;
+      if (a.days !== b.days) return a.days - b.days;
+      // Same urgency tier, same days out — break the tie by whoever owes
+      // more, so two cards due the same day don't just freeze in whatever
+      // order they happened to be dragged into before the button was tapped.
+      return b.remaining - a.remaining;
+    })
     .map((s) => s.id);
 }
 
 // Purely the next payment due date, soonest first — cards with no statement
-// yet (no due date at all) sort last.
+// yet (no due date at all) sort last. Same-day ties break by balance (larger
+// first), for the same reason priorityOrder does above.
 export function dueDateOrder(cards: DecoratedCard[]): string[] {
   return cards
-    .map((c) => ({ id: c.id, dueIso: c.dueIso ?? '9999-99-99' }))
-    .sort((a, b) => a.dueIso.localeCompare(b.dueIso))
+    .map((c) => ({ id: c.id, dueIso: c.dueIso ?? '9999-99-99', remaining: c.remaining }))
+    .sort((a, b) => a.dueIso.localeCompare(b.dueIso) || b.remaining - a.remaining)
     .map((s) => s.id);
 }
