@@ -28,6 +28,7 @@ function handleNotificationResponse(response: Notifications.NotificationResponse
       if (typeof statementId === 'string') navigateToStatementReview(statementId);
       return;
     case 'statement_received':
+    case 'gmail_forwarding_code':
       navigateToStatements();
       return;
     case 'payment_reminder':
