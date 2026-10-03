@@ -20,13 +20,16 @@
     "android": {
       "package": "com.poquet",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0B0E1C",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": ["android.permission.USE_BIOMETRIC", "android.permission.USE_FINGERPRINT"]
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -42,6 +45,24 @@
     "updates": {
       "url": "https://u.expo.dev/9171c902-aff1-4ca1-a115-3fc3ae3809ee"
     },
-    "plugins": ["expo-local-authentication", "expo-notifications", "expo-apple-authentication", "expo-sharing"]
+    "plugins": [
+      "expo-local-authentication",
+      "expo-notifications",
+      "expo-apple-authentication",
+      "expo-sharing",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FBFAF9",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "dark": {
+            "backgroundColor": "#0B0E1C",
+            "image": "./assets/splash-icon-dark.png"
+          }
+        }
+      ]
+    ]
   }
 }
