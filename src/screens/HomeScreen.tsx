@@ -179,7 +179,7 @@ export function HomeScreen({ navigation }: any) {
                   style={[styles.iconBtn, styles.iconBtnAccent]}
                   hitSlop={6}
                 >
-                  <Text style={[styles.iconBtnText, { color: colors.onTint2 }]}>+</Text>
+                  <Text style={styles.iconBtnText}>+</Text>
                 </Pressable>
               </>
             )}
@@ -343,7 +343,7 @@ export function HomeScreen({ navigation }: any) {
                   </View>
 
                   <View style={[styles.actionPill, { borderColor: colors.line }]}>
-                    <Text style={[styles.actionPillText, { color: r.act ? colors.accent : colors.ink3 }]}>
+                    <Text style={[styles.actionPillText, { color: r.act ? colors.ink : colors.ink3 }]}>
                       {r.actionLabel}
                     </Text>
                   </View>
@@ -388,7 +388,7 @@ function makeStyles(colors: ColorTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    iconBtnAccent: { borderColor: colors.accent, backgroundColor: colors.accent },
+    iconBtnAccent: {},
     iconBtnText: { color: colors.ink, fontSize: 18 },
     reorderDoneBtn: { width: undefined, paddingHorizontal: 16, borderColor: colors.line },
     reorderDoneText: { color: colors.accentInk2, fontSize: 13, fontWeight: '600' },
@@ -503,9 +503,10 @@ function makeStyles(colors: ColorTokens) {
       backgroundColor: colors.surface,
       borderWidth: 1,
     },
-    ringWrap: { alignItems: 'center' },
+    // Fixed width so every ring lines up, whatever the caption length.
+    ringWrap: { alignItems: 'center', width: 60 },
     ring: { width: 44, height: 44, position: 'relative' },
-    ringCaption: { fontSize: 8.5, color: colors.ink3, marginTop: 4, maxWidth: 56, textAlign: 'center' },
+    ringCaption: { fontSize: 8.5, color: colors.ink3, marginTop: 4, width: 60, textAlign: 'center' },
     ringTextWrap: {
       position: 'absolute',
       top: 0,
