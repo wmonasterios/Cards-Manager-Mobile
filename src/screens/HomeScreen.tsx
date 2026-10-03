@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
 import { radius, spacing, ColorTokens } from '../theme';
+import { artInk } from '../data';
 import { useColors } from '../theme/ThemeContext';
 import { useT } from '../i18n/LocaleContext';
 import { CardArt } from '../components/CardArt';
@@ -118,23 +119,26 @@ export function HomeScreen({ navigation }: any) {
       ? t.demoDueBanner
       : `${unpaid.length} ${t.cardsWord} ${t.withBalanceDue}`;
 
-  const renderCardFace = (c: (typeof cards)[number]) => (
-    <>
-      <View style={styles.cardTopRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.cardBank}>{c.displayName}</Text>
-          <Text style={styles.cardSub}>
-            {c.displaySub} · {c.last4}
-          </Text>
+  const renderCardFace = (c: (typeof cards)[number]) => {
+    const ink = artInk(c.id, c.colorKey);
+    return (
+      <>
+        <View style={styles.cardTopRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.cardBank, { color: ink.main }]}>{c.displayName}</Text>
+            <Text style={[styles.cardSub, { color: ink.sub }]}>
+              {c.displaySub} · {c.last4}
+            </Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={[styles.cardBalance, { color: ink.main }]}>{c.balanceText}</Text>
+            <Text style={[styles.cardSub, { color: ink.sub }]}>{c.dueShort}</Text>
+          </View>
         </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text style={styles.cardBalance}>{c.balanceText}</Text>
-          <Text style={styles.cardSub}>{c.dueShort}</Text>
-        </View>
-      </View>
-      <Text style={styles.cardNetwork}>{c.network.toUpperCase()}</Text>
-    </>
-  );
+        <Text style={[styles.cardNetwork, { color: ink.sub }]}>{c.network.toUpperCase()}</Text>
+      </>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -175,7 +179,7 @@ export function HomeScreen({ navigation }: any) {
                   style={[styles.iconBtn, styles.iconBtnAccent]}
                   hitSlop={6}
                 >
-                  <Text style={[styles.iconBtnText, { color: colors.accent }]}>+</Text>
+                  <Text style={styles.iconBtnText}>+</Text>
                 </Pressable>
               </>
             )}
@@ -285,7 +289,7 @@ export function HomeScreen({ navigation }: any) {
                 <Pressable
                   key={r.card.id}
                   onPress={() => goToAction(r)}
-                  style={[styles.statusRow, { borderColor: r.act ? colors.tint2 : colors.line }]}
+                  style={[styles.statusRow, { borderColor: colors.line }]}
                 >
                   <View style={styles.ringWrap}>
                     <View style={styles.ring}>
@@ -338,8 +342,8 @@ export function HomeScreen({ navigation }: any) {
                     )}
                   </View>
 
-                  <View style={[styles.actionPill, { borderColor: r.act ? colors.accent : colors.hair4 }]}>
-                    <Text style={[styles.actionPillText, { color: r.act ? colors.accent : colors.ink3 }]}>
+                  <View style={[styles.actionPill, { borderColor: colors.line }]}>
+                    <Text style={[styles.actionPillText, { color: r.act ? colors.ink : colors.ink3 }]}>
                       {r.actionLabel}
                     </Text>
                   </View>
@@ -384,9 +388,9 @@ function makeStyles(colors: ColorTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    iconBtnAccent: { borderColor: colors.accent },
+    iconBtnAccent: {},
     iconBtnText: { color: colors.ink, fontSize: 18 },
-    reorderDoneBtn: { width: undefined, paddingHorizontal: 16, borderColor: colors.accent },
+    reorderDoneBtn: { width: undefined, paddingHorizontal: 16, borderColor: colors.line },
     reorderDoneText: { color: colors.accentInk2, fontSize: 13, fontWeight: '600' },
     demoBanner: {
       marginTop: 14,
@@ -396,7 +400,7 @@ function makeStyles(colors: ColorTokens) {
       borderRadius: radius.md,
       backgroundColor: colors.tint,
       borderWidth: 1,
-      borderColor: colors.tint2,
+      borderColor: colors.line,
     },
     demoBannerText: { fontSize: 12.5, fontWeight: '600', color: colors.accentInk },
     demoBannerCta: { fontSize: 11.5, color: colors.accentInk2, marginTop: 3 },
@@ -417,7 +421,7 @@ function makeStyles(colors: ColorTokens) {
       paddingHorizontal: 12,
       borderRadius: radius.pill,
       borderWidth: 1,
-      borderColor: colors.accentLine,
+      borderColor: colors.line,
       backgroundColor: colors.tint,
     },
     reorderSortBtnText: { fontSize: 11.5, fontWeight: '500', color: colors.accentInk },
@@ -432,7 +436,7 @@ function makeStyles(colors: ColorTokens) {
       borderRadius: radius.md,
       backgroundColor: colors.tint,
       borderWidth: 1,
-      borderColor: colors.tint2,
+      borderColor: colors.line,
     },
     dueDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accentInk2 },
     dueText: { fontSize: 12.5, fontWeight: '500', color: colors.accentInk, flexShrink: 1 },
@@ -454,9 +458,9 @@ function makeStyles(colors: ColorTokens) {
       paddingHorizontal: 16,
       borderRadius: radius.md - 2,
       borderWidth: 1,
-      borderColor: colors.accent,
+      borderColor: colors.line,
     },
-    retryBtnText: { fontSize: 12.5, fontWeight: '500', color: colors.accent },
+    retryBtnText: { fontSize: 12.5, fontWeight: '500', color: colors.ink },
     stack: { marginTop: 18, paddingHorizontal: spacing.lg, position: 'relative' },
     stackSlot: { position: 'absolute', left: spacing.lg, right: spacing.lg, height: CARD_HEIGHT },
     cardArt: {
@@ -499,9 +503,10 @@ function makeStyles(colors: ColorTokens) {
       backgroundColor: colors.surface,
       borderWidth: 1,
     },
-    ringWrap: { alignItems: 'center' },
+    // Fixed width so every ring lines up, whatever the caption length.
+    ringWrap: { alignItems: 'center', width: 60 },
     ring: { width: 44, height: 44, position: 'relative' },
-    ringCaption: { fontSize: 8.5, color: colors.ink3, marginTop: 4, maxWidth: 56, textAlign: 'center' },
+    ringCaption: { fontSize: 8.5, color: colors.ink3, marginTop: 4, width: 60, textAlign: 'center' },
     ringTextWrap: {
       position: 'absolute',
       top: 0,

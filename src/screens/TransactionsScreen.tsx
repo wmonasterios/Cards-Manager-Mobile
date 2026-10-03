@@ -332,7 +332,7 @@ function makeStyles(colors: ColorTokens) {
       paddingVertical: 6,
     },
     filterHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, minWidth: 0 },
-    filterSummary: { fontSize: 11.5, fontWeight: '500', color: colors.accent, flexShrink: 1 },
+    filterSummary: { fontSize: 11.5, fontWeight: '500', color: colors.ink, flexShrink: 1 },
     filterLabel: {
       fontSize: 11,
       fontWeight: '600',
@@ -360,8 +360,8 @@ function makeStyles(colors: ColorTokens) {
     note: { fontSize: 11.5, color: colors.ink3, lineHeight: 16, flexShrink: 1 },
     summaryActions: { flexDirection: 'row', alignItems: 'baseline', gap: 12 },
     summaryToggle: { fontSize: 11.5, fontWeight: '500', color: colors.ink3 },
-    summaryToggleActive: { color: colors.accent },
-    sortLink: { fontSize: 11.5, fontWeight: '500', color: colors.accent },
+    summaryToggleActive: { color: colors.ink },
+    sortLink: { fontSize: 11.5, fontWeight: '500', color: colors.ink },
     section: { paddingHorizontal: spacing.lg, marginTop: 14 },
     listCard: {
       borderRadius: radius.lg,

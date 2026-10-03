@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import { FunctionsFetchError } from '@supabase/supabase-js';
-import { radius, spacing, ColorTokens } from '../theme';
+import { radius, spacing, ColorTokens, CARD_PALETTE } from '../theme';
 import { isOfflineError, offlineMessage } from '../errors';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
@@ -1340,7 +1340,7 @@ export function StatementsScreen({ navigation, route }: any) {
                 <View
                   style={[
                     styles.stepMark,
-                    { borderColor: p.done ? colors.accentLine : colors.line },
+                    { borderColor: colors.line },
                   ]}
                 >
                   <Text style={[styles.stepMarkText, { color: p.done ? colors.accentInk : colors.ink2 }]}>
@@ -1453,15 +1453,15 @@ function makeStyles(colors: ColorTokens) {
       paddingHorizontal: 14,
       borderRadius: radius.md - 2,
       borderWidth: 1,
-      borderColor: colors.accent,
+      borderColor: colors.line,
       minWidth: 76,
       alignItems: 'center',
     },
-    loadErrorRetryText: { fontSize: 12.5, fontWeight: '500', color: colors.accent },
+    loadErrorRetryText: { fontSize: 12.5, fontWeight: '500', color: colors.ink },
     uploadBtn: {
       borderWidth: 1,
       borderStyle: 'dashed',
-      borderColor: colors.accentLine,
+      borderColor: colors.line,
       borderRadius: radius.xl,
       backgroundColor: colors.surface2,
       padding: 22,
@@ -1495,12 +1495,12 @@ function makeStyles(colors: ColorTokens) {
       paddingHorizontal: 10,
       borderRadius: radius.sm,
       borderWidth: 1,
-      borderColor: colors.accent,
+      borderColor: colors.line,
     },
-    copyBtnText: { fontSize: 11, fontWeight: '500', color: colors.accent },
+    copyBtnText: { fontSize: 11, fontWeight: '500', color: colors.ink },
     historyTitle: { fontSize: 16, fontWeight: '500', color: colors.ink, marginTop: 22 },
     historyHeadRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 },
-    historyFilterLink: { fontSize: 12, fontWeight: '500', color: colors.accent, marginTop: 22 },
+    historyFilterLink: { fontSize: 12, fontWeight: '500', color: colors.ink, marginTop: 22 },
     historyEmptyNote: { fontSize: 12.5, color: colors.ink3, marginTop: 10, lineHeight: 18 },
     listCard: {
       marginTop: 10,
@@ -1565,10 +1565,10 @@ function makeStyles(colors: ColorTokens) {
       borderRadius: radius.lg,
       backgroundColor: colors.tint,
       borderWidth: 1,
-      borderColor: colors.tint2,
+      borderColor: colors.line,
     },
-    matchThumb: { width: 46, height: 30, borderRadius: 5, backgroundColor: '#2e4a7d' },
-    matchTitle: { fontSize: 13, fontWeight: '500', color: colors.onArt },
+    matchThumb: { width: 46, height: 30, borderRadius: 5, backgroundColor: CARD_PALETTE.ocean[1] },
+    matchTitle: { fontSize: 13, fontWeight: '500', color: colors.ink },
     matchSub: { fontSize: 11, color: colors.accentInk, marginTop: 3 },
     fieldRow: {
       borderTopWidth: 1,
@@ -1592,9 +1592,10 @@ function makeStyles(colors: ColorTokens) {
       borderRadius: radius.md,
       borderWidth: 1,
       borderColor: colors.accent,
+      backgroundColor: colors.accent,
       alignItems: 'center',
     },
-    saveBtnText: { fontSize: 13.5, fontWeight: '500', color: colors.accent },
+    saveBtnText: { fontSize: 13.5, fontWeight: '500', color: colors.onTint2 },
     discardBtn: {
       paddingVertical: 13,
       paddingHorizontal: 15,
@@ -1627,18 +1628,18 @@ function makeStyles(colors: ColorTokens) {
     },
     noteBannerText: { fontSize: 12, color: colors.ink2, lineHeight: 17 },
     viewPdfLink: { marginTop: 14, alignSelf: 'flex-start' },
-    viewPdfLinkText: { fontSize: 12.5, fontWeight: '500', color: colors.accent },
+    viewPdfLinkText: { fontSize: 12.5, fontWeight: '500', color: colors.ink },
     zeroTxBanner: {
       marginTop: 10,
       padding: 12,
       borderRadius: radius.md,
       backgroundColor: colors.tint,
       borderWidth: 1,
-      borderColor: colors.tint2,
+      borderColor: colors.line,
     },
     zeroTxBannerText: { fontSize: 12, color: colors.accentInk, lineHeight: 17 },
     manualLink: { marginTop: 18, alignItems: 'center' },
-    manualLinkText: { fontSize: 12, color: colors.accent, fontWeight: '500' },
+    manualLinkText: { fontSize: 12, color: colors.ink, fontWeight: '500' },
     matchInlineBanner: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1648,17 +1649,17 @@ function makeStyles(colors: ColorTokens) {
       borderRadius: radius.lg,
       backgroundColor: colors.tint,
       borderWidth: 1,
-      borderColor: colors.tint2,
+      borderColor: colors.line,
     },
     matchInlineTitle: { fontSize: 12.5, fontWeight: '500', color: colors.accentInk, flex: 1 },
     matchInlineSub: { fontSize: 11.5, color: colors.accentInk2 },
-    matchInlineLink: { fontSize: 12, fontWeight: '600', color: colors.accent },
+    matchInlineLink: { fontSize: 12, fontWeight: '600', color: colors.ink },
     renewalBanner: {
       padding: 13,
       borderRadius: radius.lg,
       backgroundColor: colors.tint,
       borderWidth: 1,
-      borderColor: colors.tint2,
+      borderColor: colors.line,
     },
     renewalActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
     renewalYes: {
@@ -1666,10 +1667,10 @@ function makeStyles(colors: ColorTokens) {
       paddingVertical: 10,
       borderRadius: radius.sm + 2,
       borderWidth: 1,
-      borderColor: colors.accent,
+      borderColor: colors.line,
       alignItems: 'center',
     },
-    renewalYesText: { fontSize: 12.5, fontWeight: '500', color: colors.accent },
+    renewalYesText: { fontSize: 12.5, fontWeight: '500', color: colors.ink },
     renewalNo: {
       flex: 1,
       paddingVertical: 10,
@@ -1705,7 +1706,7 @@ function makeStyles(colors: ColorTokens) {
       borderRadius: radius.md,
       borderWidth: 1,
       borderStyle: 'dashed',
-      borderColor: colors.accentLine,
+      borderColor: colors.line,
       marginBottom: 8,
     },
     pickerNewText: { fontSize: 13, fontWeight: '500', color: colors.accentInk },

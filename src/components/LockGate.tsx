@@ -89,7 +89,8 @@ function stylesFor(colors: ReturnType<typeof useColors>) {
       borderRadius: radius.md,
       borderWidth: 1,
       borderColor: colors.accent,
+      backgroundColor: colors.accent,
     },
-    btnText: { fontSize: 14, fontWeight: '500', color: colors.accent },
+    btnText: { fontSize: 14, fontWeight: '500', color: colors.onTint2 },
   });
 }

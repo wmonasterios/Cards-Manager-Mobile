@@ -242,7 +242,7 @@ export function SettingsScreen({ navigation }: any) {
               <Pressable
                 onPress={handleDeleteAll}
                 disabled={deleting}
-                style={[styles.dataBtn, { borderColor: colors.accentLine }, deleting && { opacity: 0.6 }]}
+                style={[styles.dataBtn, { borderColor: colors.line }, deleting && { opacity: 0.6 }]}
               >
                 {deleting ? (
                   <ActivityIndicator color={colors.accentInk} />
@@ -297,9 +297,9 @@ function makeStyles(colors: ColorTokens) {
       paddingHorizontal: 12,
       borderRadius: radius.md - 2,
       borderWidth: 1,
-      borderColor: colors.accent,
+      borderColor: colors.line,
     },
-    accentPillText: { fontSize: 11.5, fontWeight: '500', color: colors.accent },
+    accentPillText: { fontSize: 11.5, fontWeight: '500', color: colors.ink },
     demoNote: { fontSize: 11.5, color: colors.ink3, marginTop: 10, lineHeight: 16 },
     groupLabel: { fontSize: 11, fontWeight: '500', color: colors.ink3, letterSpacing: 1, marginTop: 24 },
     listCard: {
@@ -357,9 +357,9 @@ function makeStyles(colors: ColorTokens) {
       paddingHorizontal: 10,
       borderRadius: radius.sm,
       borderWidth: 1,
-      borderColor: colors.accent,
+      borderColor: colors.line,
     },
-    copyBtnText: { fontSize: 11, fontWeight: '500', color: colors.accent },
+    copyBtnText: { fontSize: 11, fontWeight: '500', color: colors.ink },
     dataActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
     dataBtn: {
       paddingVertical: 10,

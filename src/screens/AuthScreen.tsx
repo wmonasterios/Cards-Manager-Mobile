@@ -139,7 +139,7 @@ export function AuthScreen({ navigation, route }: Props) {
             />
 
             <Pressable onPress={submitCode} disabled={busy} style={[styles.submitBtn, busy && { opacity: 0.6 }]}>
-              {busy ? <ActivityIndicator color={colors.accent} /> : <Text style={styles.submitBtnText}>Confirm</Text>}
+              {busy ? <ActivityIndicator color={colors.onTint2} /> : <Text style={styles.submitBtnText}>Confirm</Text>}
             </Pressable>
 
             <Pressable onPress={resendCode} disabled={resending} hitSlop={8} style={{ marginTop: 16 }}>
@@ -265,9 +265,10 @@ function makeStyles(colors: ColorTokens) {
       borderRadius: radius.md,
       borderWidth: 1,
       borderColor: colors.accent,
+      backgroundColor: colors.accent,
       alignItems: 'center',
     },
-    submitBtnText: { fontSize: 14, fontWeight: '500', color: colors.accent },
+    submitBtnText: { fontSize: 14, fontWeight: '500', color: colors.onTint2 },
     resendText: { fontSize: 12.5, fontWeight: '500', color: colors.ink2, textAlign: 'center' },
     dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 22 },
     dividerLine: { flex: 1, height: 1, backgroundColor: colors.line },

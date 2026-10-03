@@ -143,8 +143,9 @@ function makeStyles(colors: ColorTokens) {
       borderRadius: radius.md,
       borderWidth: 1,
       borderColor: colors.accent,
+      backgroundColor: colors.accent,
       alignItems: 'center',
     },
-    sendBtnText: { fontSize: 14, fontWeight: '500', color: colors.accent },
+    sendBtnText: { fontSize: 14, fontWeight: '500', color: colors.onTint2 },
   });
 }

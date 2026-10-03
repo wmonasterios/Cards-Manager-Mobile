@@ -352,6 +352,6 @@ function makeStyles(colors: ColorTokens) {
     },
     modalBadgeText: { fontSize: 10.5, fontWeight: '600' },
     modalRowText: { flex: 1, fontSize: 14, fontWeight: '500', color: colors.ink },
-    modalCheck: { color: colors.accent, fontSize: 15, fontWeight: '600' },
+    modalCheck: { color: colors.ink, fontSize: 15, fontWeight: '600' },
   });
 }
