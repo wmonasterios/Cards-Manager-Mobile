@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { radius, spacing, ColorTokens } from '../theme';
+import { radius, spacing, ColorTokens, fonts } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { useAppSettings } from '../context/AppSettingsContext';
@@ -78,7 +78,7 @@ function makeStyles(colors: ColorTokens) {
     screen: { flex: 1, backgroundColor: colors.bg },
     scrollContent: { paddingTop: 24, paddingHorizontal: 24, paddingBottom: 40 },
     kicker: { fontSize: 11, fontWeight: '500', letterSpacing: 1.4, color: colors.ink3 },
-    title: { fontSize: 32, fontWeight: '500', color: colors.ink, marginTop: 14, letterSpacing: -0.4, lineHeight: 38 },
+    title: { fontSize: 32, fontFamily: fonts.displayMedium, color: colors.ink, marginTop: 14, letterSpacing: -0.4, lineHeight: 38 },
     sub: { fontSize: 13, color: colors.ink2, marginTop: 12, lineHeight: 20, maxWidth: 320 },
     stepRow: {
       flexDirection: 'row',

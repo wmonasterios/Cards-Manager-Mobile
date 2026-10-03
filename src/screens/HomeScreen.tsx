@@ -3,7 +3,7 @@ import { Animated, Easing, View, Text, ScrollView, Pressable, StyleSheet } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
-import { radius, spacing, ColorTokens } from '../theme';
+import { radius, spacing, ColorTokens, fonts } from '../theme';
 import { artInk } from '../data';
 import { useColors } from '../theme/ThemeContext';
 import { useT } from '../i18n/LocaleContext';
@@ -376,7 +376,7 @@ function makeStyles(colors: ColorTokens) {
       color: colors.ink3,
       textTransform: 'uppercase',
     },
-    total: { fontSize: 34, fontWeight: '600', color: colors.ink, marginTop: 8, letterSpacing: -0.5 },
+    total: { fontSize: 34, fontFamily: fonts.display, color: colors.ink, marginTop: 8, letterSpacing: -0.5 },
     totalNote: { fontSize: 12, color: colors.ink3, marginTop: 4 },
     headerActions: { flexDirection: 'row', gap: 8 },
     iconBtn: {
@@ -478,7 +478,7 @@ function makeStyles(colors: ColorTokens) {
     cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
     cardBank: { fontSize: 15, fontWeight: '600', color: colors.onArt, letterSpacing: 0.2 },
     cardSub: { fontSize: 11.5, color: 'rgba(243,245,254,0.62)', marginTop: 3 },
-    cardBalance: { fontSize: 17, fontWeight: '600', color: colors.onArt },
+    cardBalance: { fontSize: 17, fontFamily: fonts.display, color: colors.onArt },
     cardNetwork: { fontSize: 10.5, fontWeight: '500', letterSpacing: 1.4, color: 'rgba(243,245,254,0.62)' },
     sectionHeader: {
       marginTop: 8,

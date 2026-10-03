@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { radius, spacing, ColorTokens } from '../theme';
+import { radius, spacing, ColorTokens, fonts } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useAppTheme, ThemeMode } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
@@ -269,7 +269,7 @@ function makeStyles(colors: ColorTokens) {
     screen: { flex: 1, backgroundColor: colors.bg },
     scrollContent: { paddingBottom: 40 },
     top: { paddingTop: spacing.xxl, paddingHorizontal: spacing.xl },
-    title: { fontSize: 26, fontWeight: '500', color: colors.ink, letterSpacing: -0.3 },
+    title: { fontSize: 26, fontFamily: fonts.displayMedium, color: colors.ink, letterSpacing: -0.3 },
     accountRow: {
       marginTop: 18,
       padding: 16,

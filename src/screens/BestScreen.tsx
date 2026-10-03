@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { radius, spacing, ColorTokens } from '../theme';
+import { radius, spacing, ColorTokens, fonts } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { CardArt } from '../components/CardArt';
@@ -110,7 +110,7 @@ function makeStyles(colors: ColorTokens) {
     screen: { flex: 1, backgroundColor: colors.bg },
     scrollContent: { paddingBottom: 40 },
     top: { paddingTop: spacing.xxl, paddingHorizontal: spacing.xl },
-    title: { fontSize: 26, fontWeight: '500', color: colors.ink, marginTop: 20, letterSpacing: -0.3 },
+    title: { fontSize: 26, fontFamily: fonts.displayMedium, color: colors.ink, marginTop: 20, letterSpacing: -0.3 },
     sub: { fontSize: 12.5, color: colors.ink2, marginTop: 8, maxWidth: 320 },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 16 },
     chip: { borderWidth: 1, borderColor: colors.line, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 999 },

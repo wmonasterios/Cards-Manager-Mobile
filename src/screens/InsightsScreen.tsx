@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
-import { radius, spacing, ColorTokens, categoryLabel } from '../theme';
+import { radius, spacing, ColorTokens, categoryLabel, fonts } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { useCards } from '../context/CardsContext';
@@ -438,7 +438,7 @@ function makeStyles(colors: ColorTokens) {
       justifyContent: 'center',
       gap: 4,
     },
-    donutAmount: { fontSize: 21, fontWeight: '600', color: colors.ink, letterSpacing: -0.4 },
+    donutAmount: { fontSize: 21, fontFamily: fonts.display, color: colors.ink, letterSpacing: -0.4 },
     donutLabel: { fontSize: 11.5, fontWeight: '500', color: colors.ink2, textAlign: 'center' },
     donutSub: { fontSize: 10.5, color: colors.ink3, textAlign: 'center', maxWidth: 160 },
 
