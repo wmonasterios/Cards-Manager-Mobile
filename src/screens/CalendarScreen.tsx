@@ -6,6 +6,7 @@ import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { useCards } from '../context/CardsContext';
 import { useAppSettings } from '../context/AppSettingsContext';
+import { CalendarMascot } from '../components/Mascot';
 import { money } from '../format';
 
 const UPCOMING: Record<'en' | 'es', { day: string; mon: string; card: string; note: string; amount: string; min: string; due: boolean }[]> = {
@@ -222,6 +223,7 @@ export function CalendarScreen({ navigation }: any) {
           </Text>
           {dayEvents.length === 0 ? (
             <View style={styles.emptyCard}>
+              <CalendarMascot size={52} />
               <Text style={styles.emptyText}>
                 {lang === 'es' ? 'No hay pagos este día.' : 'No payments this day.'}
               </Text>
@@ -343,6 +345,7 @@ function makeStyles(colors: ColorTokens) {
       borderStyle: 'dashed',
       borderColor: colors.hair4,
       alignItems: 'center',
+      gap: 6,
     },
     emptyText: { fontSize: 12.5, color: colors.ink3 },
     upRow: {

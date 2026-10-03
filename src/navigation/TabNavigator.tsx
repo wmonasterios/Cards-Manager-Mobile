@@ -1,5 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TabParamList } from './types';
 import { useColors } from '../theme/ThemeContext';
@@ -28,15 +29,32 @@ export function TabNavigator() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: colors.accent,
+        tabBarActiveTintColor: colors.ink,
         tabBarInactiveTintColor: colors.ink3,
         tabBarStyle: {
           backgroundColor: colors.bg,
           borderTopColor: colors.hair2,
         },
         tabBarLabelStyle: { fontSize: 10, fontWeight: '500' },
-        tabBarIcon: ({ color, size }) => (
-          <Ionicons name={ICONS[route.name as keyof TabParamList]} size={size ?? 20} color={color} />
+        tabBarIcon: ({ color, focused }) => (
+          // The active tab's icon sits in a small accent pill (lime / black);
+          // labels stay in regular ink, never the accent.
+          <View
+            style={{
+              width: 44,
+              height: 24,
+              borderRadius: 999,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: focused ? colors.accent : 'transparent',
+            }}
+          >
+            <Ionicons
+              name={ICONS[route.name as keyof TabParamList]}
+              size={18}
+              color={focused ? colors.onTint2 : color}
+            />
+          </View>
         ),
       })}
     >

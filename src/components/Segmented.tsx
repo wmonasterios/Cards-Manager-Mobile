@@ -22,7 +22,7 @@ export function Segmented<T extends string>({
         gap: 4,
         padding: 3,
         backgroundColor: colors.surface2,
-        borderRadius: radius.md - 2,
+        borderRadius: radius.pill,
       }}
     >
       {options.map((opt) => {
@@ -35,14 +35,14 @@ export function Segmented<T extends string>({
               flex: 1,
               paddingVertical: 9,
               paddingHorizontal: 6,
-              borderRadius: radius.sm,
+              borderRadius: radius.pill,
               alignItems: 'center',
               backgroundColor: active ? colors.tint2 : 'transparent',
             }}
           >
             <Text
               numberOfLines={1}
-              style={{ fontSize: 11.5, fontWeight: '500', color: active ? colors.onTint2 : colors.ink2 }}
+              style={{ fontSize: 11.5, fontWeight: active ? '600' : '500', color: active ? colors.onTint2 : colors.ink2 }}
             >
               {opt.label}
             </Text>
