@@ -380,7 +380,7 @@ function makeStyles(colors: ColorTokens) {
     section: { paddingHorizontal: spacing.xl, marginTop: spacing.lg + 2 },
     sectionTitle: { fontSize: 16, fontWeight: '500', color: colors.ink },
     sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-    seeAll: { fontSize: 12, fontWeight: '500', color: colors.accent },
+    seeAll: { fontSize: 12, fontWeight: '500', color: colors.ink },
 
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     chip: { borderWidth: 1, borderColor: colors.line, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999 },

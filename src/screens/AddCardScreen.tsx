@@ -161,7 +161,7 @@ export function AddCardScreen({ navigation }: Props) {
           </View>
 
           <Pressable onPress={save} disabled={busy} style={[styles.saveBtn, busy && { opacity: 0.6 }]}>
-            {busy ? <ActivityIndicator color={colors.accent} /> : <Text style={styles.saveBtnText}>Save card</Text>}
+            {busy ? <ActivityIndicator color={colors.onTint2} /> : <Text style={styles.saveBtnText}>Save card</Text>}
           </Pressable>
         </View>
       </ScrollView>
@@ -193,9 +193,10 @@ function makeStyles(colors: ColorTokens) {
       padding: 14,
       borderRadius: radius.md,
       borderWidth: 1,
-      borderColor: colors.line,
+      borderColor: colors.accent,
+      backgroundColor: colors.accent,
       alignItems: 'center',
     },
-    saveBtnText: { fontSize: 14, fontWeight: '500', color: colors.accent },
+    saveBtnText: { fontSize: 14, fontWeight: '500', color: colors.onTint2 },
   });
 }

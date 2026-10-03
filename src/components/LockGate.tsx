@@ -88,8 +88,9 @@ function stylesFor(colors: ReturnType<typeof useColors>) {
       paddingHorizontal: 28,
       borderRadius: radius.md,
       borderWidth: 1,
-      borderColor: colors.line,
+      borderColor: colors.accent,
+      backgroundColor: colors.accent,
     },
-    btnText: { fontSize: 14, fontWeight: '500', color: colors.accent },
+    btnText: { fontSize: 14, fontWeight: '500', color: colors.onTint2 },
   });
 }

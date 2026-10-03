@@ -299,7 +299,7 @@ function makeStyles(colors: ColorTokens) {
       borderWidth: 1,
       borderColor: colors.line,
     },
-    accentPillText: { fontSize: 11.5, fontWeight: '500', color: colors.accent },
+    accentPillText: { fontSize: 11.5, fontWeight: '500', color: colors.ink },
     demoNote: { fontSize: 11.5, color: colors.ink3, marginTop: 10, lineHeight: 16 },
     groupLabel: { fontSize: 11, fontWeight: '500', color: colors.ink3, letterSpacing: 1, marginTop: 24 },
     listCard: {
@@ -359,7 +359,7 @@ function makeStyles(colors: ColorTokens) {
       borderWidth: 1,
       borderColor: colors.line,
     },
-    copyBtnText: { fontSize: 11, fontWeight: '500', color: colors.accent },
+    copyBtnText: { fontSize: 11, fontWeight: '500', color: colors.ink },
     dataActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
     dataBtn: {
       paddingVertical: 10,

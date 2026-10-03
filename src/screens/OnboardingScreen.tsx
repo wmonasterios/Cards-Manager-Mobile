@@ -106,10 +106,11 @@ function makeStyles(colors: ColorTokens) {
       padding: 14,
       borderRadius: radius.md,
       borderWidth: 1,
-      borderColor: colors.line,
+      borderColor: colors.accent,
+      backgroundColor: colors.accent,
       alignItems: 'center',
     },
-    primaryBtnText: { fontSize: 14, fontWeight: '500', color: colors.accent },
+    primaryBtnText: { fontSize: 14, fontWeight: '500', color: colors.onTint2 },
     skipBtn: { marginTop: 8, padding: 12, borderRadius: radius.md, alignItems: 'center' },
     skipBtnText: { fontSize: 12.5, fontWeight: '500', color: colors.ink2 },
   });

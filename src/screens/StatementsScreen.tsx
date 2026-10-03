@@ -1457,7 +1457,7 @@ function makeStyles(colors: ColorTokens) {
       minWidth: 76,
       alignItems: 'center',
     },
-    loadErrorRetryText: { fontSize: 12.5, fontWeight: '500', color: colors.accent },
+    loadErrorRetryText: { fontSize: 12.5, fontWeight: '500', color: colors.ink },
     uploadBtn: {
       borderWidth: 1,
       borderStyle: 'dashed',
@@ -1497,10 +1497,10 @@ function makeStyles(colors: ColorTokens) {
       borderWidth: 1,
       borderColor: colors.line,
     },
-    copyBtnText: { fontSize: 11, fontWeight: '500', color: colors.accent },
+    copyBtnText: { fontSize: 11, fontWeight: '500', color: colors.ink },
     historyTitle: { fontSize: 16, fontWeight: '500', color: colors.ink, marginTop: 22 },
     historyHeadRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 },
-    historyFilterLink: { fontSize: 12, fontWeight: '500', color: colors.accent, marginTop: 22 },
+    historyFilterLink: { fontSize: 12, fontWeight: '500', color: colors.ink, marginTop: 22 },
     historyEmptyNote: { fontSize: 12.5, color: colors.ink3, marginTop: 10, lineHeight: 18 },
     listCard: {
       marginTop: 10,
@@ -1591,10 +1591,11 @@ function makeStyles(colors: ColorTokens) {
       padding: 13,
       borderRadius: radius.md,
       borderWidth: 1,
-      borderColor: colors.line,
+      borderColor: colors.accent,
+      backgroundColor: colors.accent,
       alignItems: 'center',
     },
-    saveBtnText: { fontSize: 13.5, fontWeight: '500', color: colors.accent },
+    saveBtnText: { fontSize: 13.5, fontWeight: '500', color: colors.onTint2 },
     discardBtn: {
       paddingVertical: 13,
       paddingHorizontal: 15,
@@ -1627,7 +1628,7 @@ function makeStyles(colors: ColorTokens) {
     },
     noteBannerText: { fontSize: 12, color: colors.ink2, lineHeight: 17 },
     viewPdfLink: { marginTop: 14, alignSelf: 'flex-start' },
-    viewPdfLinkText: { fontSize: 12.5, fontWeight: '500', color: colors.accent },
+    viewPdfLinkText: { fontSize: 12.5, fontWeight: '500', color: colors.ink },
     zeroTxBanner: {
       marginTop: 10,
       padding: 12,
@@ -1638,7 +1639,7 @@ function makeStyles(colors: ColorTokens) {
     },
     zeroTxBannerText: { fontSize: 12, color: colors.accentInk, lineHeight: 17 },
     manualLink: { marginTop: 18, alignItems: 'center' },
-    manualLinkText: { fontSize: 12, color: colors.accent, fontWeight: '500' },
+    manualLinkText: { fontSize: 12, color: colors.ink, fontWeight: '500' },
     matchInlineBanner: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1652,7 +1653,7 @@ function makeStyles(colors: ColorTokens) {
     },
     matchInlineTitle: { fontSize: 12.5, fontWeight: '500', color: colors.accentInk, flex: 1 },
     matchInlineSub: { fontSize: 11.5, color: colors.accentInk2 },
-    matchInlineLink: { fontSize: 12, fontWeight: '600', color: colors.accent },
+    matchInlineLink: { fontSize: 12, fontWeight: '600', color: colors.ink },
     renewalBanner: {
       padding: 13,
       borderRadius: radius.lg,
@@ -1669,7 +1670,7 @@ function makeStyles(colors: ColorTokens) {
       borderColor: colors.line,
       alignItems: 'center',
     },
-    renewalYesText: { fontSize: 12.5, fontWeight: '500', color: colors.accent },
+    renewalYesText: { fontSize: 12.5, fontWeight: '500', color: colors.ink },
     renewalNo: {
       flex: 1,
       paddingVertical: 10,

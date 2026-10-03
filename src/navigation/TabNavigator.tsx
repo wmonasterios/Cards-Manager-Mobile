@@ -28,7 +28,7 @@ export function TabNavigator() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: colors.accentInk2,
+        tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.ink3,
         tabBarStyle: {
           backgroundColor: colors.bg,

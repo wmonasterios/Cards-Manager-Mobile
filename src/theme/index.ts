@@ -30,8 +30,10 @@ export const darkColors = {
   tint: '#1F2650',
   tint2: '#C8FF4D',
   accentLine: '#C8FF4D',
-  accentInk: '#C8FF4D',
-  accentInk2: '#C8FF4D',
+  // Text never uses the lime accent — lime is reserved for controls
+  // (solid buttons, toggles, selected chips, active tab, progress).
+  accentInk: '#F4F5FA',
+  accentInk2: '#F4F5FA',
   onTint2: '#0A0E1F',
   accent: '#C8FF4D',
   bar: '#C8FF4D',

@@ -197,10 +197,11 @@ function makeStyles(colors: ColorTokens) {
       padding: 14,
       borderRadius: radius.md,
       borderWidth: 1,
-      borderColor: colors.line,
+      borderColor: colors.accent,
+      backgroundColor: colors.accent,
       alignItems: 'center',
     },
-    saveBtnText: { fontSize: 14, fontWeight: '500', color: colors.accent },
+    saveBtnText: { fontSize: 14, fontWeight: '500', color: colors.onTint2 },
     historyTitle: { fontSize: 16, fontWeight: '500', color: colors.ink, marginTop: 24 },
     listCard: {
       marginTop: 10,

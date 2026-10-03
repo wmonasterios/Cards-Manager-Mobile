@@ -182,7 +182,7 @@ export function CardDetailScreen({ route, navigation }: Props) {
               onPress={handleTogglePaid}
               style={[styles.pillBtn, styles.pillBtnAccent]}
             >
-              <Text style={[styles.pillBtnText, { color: colors.accent }]}>
+              <Text style={[styles.pillBtnText, { color: colors.onTint2 }]}>
                 {card.paid ? t.markUnpaid : t.markPaid}
               </Text>
             </Pressable>
@@ -445,7 +445,7 @@ function makeStyles(colors: ColorTokens) {
       borderWidth: 1,
       borderColor: colors.hair4,
     },
-    pillBtnAccent: { borderColor: colors.line },
+    pillBtnAccent: { borderColor: colors.accent, backgroundColor: colors.accent },
     pillBtnText: { fontSize: 11.5, fontWeight: '500', color: colors.ink },
     heroWrap: { paddingHorizontal: spacing.lg, marginTop: spacing.lg },
     hero: {
@@ -494,10 +494,11 @@ function makeStyles(colors: ColorTokens) {
       padding: 14,
       borderRadius: radius.md,
       borderWidth: 1,
-      borderColor: colors.line,
+      borderColor: colors.accent,
+      backgroundColor: colors.accent,
       alignItems: 'center',
     },
-    payBtnText: { fontSize: 14, fontWeight: '500', color: colors.accent },
+    payBtnText: { fontSize: 14, fontWeight: '500', color: colors.onTint2 },
     planCard: {
       padding: 13,
       borderRadius: radius.lg,
@@ -531,7 +532,7 @@ function makeStyles(colors: ColorTokens) {
       alignItems: 'center',
     },
     moreBtnText: { fontSize: 12.5, fontWeight: '500', color: colors.ink },
-    seeAll: { fontSize: 12, fontWeight: '500', color: colors.accent },
+    seeAll: { fontSize: 12, fontWeight: '500', color: colors.ink },
     deleteBtn: {
       padding: 14,
       borderRadius: radius.md,

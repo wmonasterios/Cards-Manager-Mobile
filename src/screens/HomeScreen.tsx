@@ -179,7 +179,7 @@ export function HomeScreen({ navigation }: any) {
                   style={[styles.iconBtn, styles.iconBtnAccent]}
                   hitSlop={6}
                 >
-                  <Text style={[styles.iconBtnText, { color: colors.accent }]}>+</Text>
+                  <Text style={[styles.iconBtnText, { color: colors.onTint2 }]}>+</Text>
                 </Pressable>
               </>
             )}
@@ -388,7 +388,7 @@ function makeStyles(colors: ColorTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    iconBtnAccent: { borderColor: colors.line },
+    iconBtnAccent: { borderColor: colors.accent, backgroundColor: colors.accent },
     iconBtnText: { color: colors.ink, fontSize: 18 },
     reorderDoneBtn: { width: undefined, paddingHorizontal: 16, borderColor: colors.line },
     reorderDoneText: { color: colors.accentInk2, fontSize: 13, fontWeight: '600' },
@@ -460,7 +460,7 @@ function makeStyles(colors: ColorTokens) {
       borderWidth: 1,
       borderColor: colors.line,
     },
-    retryBtnText: { fontSize: 12.5, fontWeight: '500', color: colors.accent },
+    retryBtnText: { fontSize: 12.5, fontWeight: '500', color: colors.ink },
     stack: { marginTop: 18, paddingHorizontal: spacing.lg, position: 'relative' },
     stackSlot: { position: 'absolute', left: spacing.lg, right: spacing.lg, height: CARD_HEIGHT },
     cardArt: {

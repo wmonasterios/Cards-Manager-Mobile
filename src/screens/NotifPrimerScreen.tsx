@@ -42,7 +42,7 @@ export function NotifPrimerScreen({ navigation }: Props) {
         <Text style={styles.body}>{t.notifPrimerBody}</Text>
 
         <Pressable onPress={enable} disabled={busy} style={[styles.primaryBtn, busy && { opacity: 0.6 }]}>
-          {busy ? <ActivityIndicator color={colors.accent} /> : <Text style={styles.primaryBtnText}>{t.notifPrimerEnable}</Text>}
+          {busy ? <ActivityIndicator color={colors.onTint2} /> : <Text style={styles.primaryBtnText}>{t.notifPrimerEnable}</Text>}
         </Pressable>
         <Pressable onPress={skip} style={styles.skipBtn}>
           <Text style={styles.skipBtnText}>{t.notifPrimerSkip}</Text>
@@ -73,10 +73,11 @@ function makeStyles(colors: ColorTokens) {
       padding: 14,
       borderRadius: radius.md,
       borderWidth: 1,
-      borderColor: colors.line,
+      borderColor: colors.accent,
+      backgroundColor: colors.accent,
       alignItems: 'center',
     },
-    primaryBtnText: { fontSize: 14, fontWeight: '500', color: colors.accent },
+    primaryBtnText: { fontSize: 14, fontWeight: '500', color: colors.onTint2 },
     skipBtn: { marginTop: 12, padding: 12, borderRadius: radius.md, alignItems: 'center' },
     skipBtnText: { fontSize: 13, fontWeight: '500', color: colors.ink2 },
   });
