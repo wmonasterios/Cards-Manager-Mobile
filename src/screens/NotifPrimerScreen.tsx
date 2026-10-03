@@ -73,7 +73,7 @@ function makeStyles(colors: ColorTokens) {
       padding: 14,
       borderRadius: radius.md,
       borderWidth: 1,
-      borderColor: colors.accent,
+      borderColor: colors.line,
       alignItems: 'center',
     },
     primaryBtnText: { fontSize: 14, fontWeight: '500', color: colors.accent },
