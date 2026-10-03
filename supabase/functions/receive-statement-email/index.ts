@@ -425,9 +425,13 @@ Deno.serve(async (req: Request) => {
           fwd.code
             ? (isEs ? `Código de Gmail: ${fwd.code}` : `Gmail code: ${fwd.code}`)
             : (isEs ? "Confirma el reenvío de Gmail" : "Confirm Gmail forwarding"),
-          isEs
-            ? "Te lo enviamos a tu Gmail y también está en Estados."
-            : "We sent it to your Gmail, and it's also in Statements.",
+          fwd.link
+            ? (isEs
+              ? "Te enviamos el enlace a tu Gmail. Ábrelo y toca Confirmar para activar el reenvío."
+              : "We sent the link to your Gmail. Open it and tap Confirm to turn on forwarding.")
+            : (isEs
+              ? "Te enviamos el código a tu Gmail. Escríbelo en Gmail para activar el reenvío."
+              : "We sent the code to your Gmail. Enter it in Gmail to turn on forwarding."),
           { type: "gmail_forwarding_code" },
         );
         if (fwd.requester && senderLooksAuthentic(String(form.get("message-headers") ?? ""))) {
