@@ -245,7 +245,7 @@ function RealStatementsFlow({ navigation, route }: any) {
       .catch(() => {});
   }, [userId]);
   const copyGmailCode = async () => {
-    if (!gmailCode) return;
+    if (!gmailCode?.code) return;
     await Clipboard.setStringAsync(gmailCode.code);
     setGmailCopied(true);
     setTimeout(() => setGmailCopied(false), 2600);
@@ -1114,18 +1114,29 @@ function RealStatementsFlow({ navigation, route }: any) {
               {gmailCode && (
                 <View style={styles.gmailBox}>
                   <Text style={styles.gmailLabel}>
-                    {lang === 'es' ? 'Código de verificación de Gmail' : 'Gmail verification code'}
+                    {lang === 'es' ? 'Confirma el reenvío de Gmail' : 'Confirm Gmail forwarding'}
                   </Text>
-                  <View style={styles.gmailRow}>
-                    <Text style={styles.gmailCode} selectable>{gmailCode.code}</Text>
-                    <Pressable onPress={copyGmailCode} style={styles.copyBtn} hitSlop={6}>
-                      <Text style={styles.copyBtnText}>{gmailCopied ? t.copied : t.copy}</Text>
+                  {gmailCode.link && (
+                    <Pressable
+                      onPress={() => gmailCode.link && Linking.openURL(gmailCode.link)}
+                      style={styles.gmailConfirmBtn}
+                      accessibilityRole="link"
+                    >
+                      <Text style={styles.gmailConfirmText}>{lang === 'es' ? 'Confirmar en Gmail' : 'Confirm in Gmail'}</Text>
                     </Pressable>
-                  </View>
+                  )}
+                  {gmailCode.code && (
+                    <View style={styles.gmailRow}>
+                      <Text style={styles.gmailCode} selectable>{gmailCode.code}</Text>
+                      <Pressable onPress={copyGmailCode} style={styles.copyBtn} hitSlop={6}>
+                        <Text style={styles.copyBtnText}>{gmailCopied ? t.copied : t.copy}</Text>
+                      </Pressable>
+                    </View>
+                  )}
                   <Text style={styles.gmailHint}>
                     {lang === 'es'
-                      ? `Escríbelo en Gmail → Configuración → Reenvío y correo POP/IMAP para activar el reenvío${gmailCode.from ? ` desde ${gmailCode.from}` : ''}. También te lo enviamos a ese correo.`
-                      : `Enter it in Gmail → Settings → Forwarding and POP/IMAP to turn on forwarding${gmailCode.from ? ` from ${gmailCode.from}` : ''}. We also emailed it to that address.`}
+                      ? `${gmailCode.link ? 'Abre el enlace y confirma' : 'Escríbelo en Gmail → Configuración → Reenvío y correo POP/IMAP'} para activar el reenvío${gmailCode.from ? ` desde ${gmailCode.from}` : ''}. También te lo enviamos a ese correo.`
+                      : `${gmailCode.link ? 'Open the link and confirm' : 'Enter it in Gmail → Settings → Forwarding and POP/IMAP'} to turn on forwarding${gmailCode.from ? ` from ${gmailCode.from}` : ''}. We also emailed it to that address.`}
                   </Text>
                 </View>
               )}
@@ -1559,6 +1570,15 @@ function makeStyles(colors: ColorTokens) {
     gmailLabel: { fontSize: 12, fontWeight: '500', color: colors.ink2 },
     gmailRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 4 },
     gmailCode: { fontFamily: fonts.display, fontSize: 24, letterSpacing: 1, color: colors.ink },
+    gmailConfirmBtn: {
+      marginTop: 10,
+      alignSelf: 'flex-start',
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: radius.pill,
+      backgroundColor: colors.accent,
+    },
+    gmailConfirmText: { fontSize: 14, fontWeight: '600', color: colors.onTint2 },
     gmailHint: { fontSize: 12, color: colors.ink2, marginTop: 6, lineHeight: 17 },
     historyTitle: { fontSize: 16, fontWeight: '500', color: colors.ink, marginTop: 22 },
     historyHeadRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 },

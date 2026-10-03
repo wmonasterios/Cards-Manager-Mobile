@@ -46,33 +46,41 @@ function extractToken(recipient: string): string | null {
 // ---------------------------------------------------------------------------
 // Gmail forwarding confirmation
 //
-// Gmail won't auto-forward to a new address until the user types a code it
-// emails to that address — i.e. to us. The message comes from
-// forwarding-noreply@google.com with a subject like
-//   "(#99427480) Gmail Forwarding Confirmation - Receive Mail from you@gmail.com"
-// We save the code on the profile (the app shows it in Statements), push it,
+// Gmail won't auto-forward to a new address until the owner confirms it, and
+// it sends the confirmation to that address — i.e. to us — from
+// forwarding-noreply@google.com. Older messages carry a numeric code in the
+// subject ("(#99427480) Gmail Forwarding Confirmation - Receive Mail from
+// you@gmail.com"); current ones carry a confirmation link instead. We save
+// whichever we get on the profile (the app shows it in Statements), push it,
 // and email it back to the Gmail account that asked, where the user already is.
 // ---------------------------------------------------------------------------
 const GMAIL_FWD_SENDER = "forwarding-noreply@google.com";
 const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+const GOOGLE_LINK_RE = /https:\/\/[a-z0-9.-]*google\.com\/[^\s<>"'\]]+/gi;
+
+function findConfirmationLink(text: string): string | null {
+  const links = (text.replace(/&amp;/g, "&").match(GOOGLE_LINK_RE) ?? []).map((l) => l.replace(/[.,;)]+$/, ""));
+  return links.find((l) => /\/vf-|vf%2d|confirm/i.test(l)) ?? links.find((l) => /mail-settings\.google\.com/i.test(l)) ?? null;
+}
 
 export function parseGmailForwardingConfirmation(
   senderFields: string,
   subject: string,
   body: string,
-): { code: string; requester: string | null } | null {
+): { code: string | null; link: string | null; requester: string | null } | null {
   if (!senderFields.toLowerCase().includes(GMAIL_FWD_SENDER)) return null;
-  let code = subject.match(/\(#(\d{5,12})\)/)?.[1] ?? null;
-  if (!code) {
-    code = body.match(/(?:confirmation code|c[oó]digo de confirmaci[oó]n)\s*:?\s*(\d{5,12})/i)?.[1] ?? null;
-  }
-  if (!code) return null;
+  const code =
+    subject.match(/\(#(\d{5,12})\)/)?.[1] ??
+    body.match(/(?:confirmation code|c[oó]digo de confirmaci[oó]n)\s*:?\s*(\d{5,12})/i)?.[1] ??
+    null;
+  const link = findConfirmationLink(body);
+  if (!code && !link) return null;
   // The requesting account is the last address in the subject
   // ("... Receive Mail from you@gmail.com"); the body is the fallback.
   const inSubject = subject.match(EMAIL_RE) ?? [];
   const inBody = (body.match(/(?:receive mail from|recibir correo de)\s+([^\s<>]+@[^\s<>]+)/i)?.[1]) ?? null;
   const requester = (inSubject[inSubject.length - 1] ?? inBody ?? null)?.toLowerCase().replace(/[.,;)]+$/, "") ?? null;
-  return { code, requester };
+  return { code, link, requester };
 }
 
 // Mailgun adds SPF/DKIM results to the forwarded headers. If they are present
@@ -94,37 +102,46 @@ function isNoReplyAddress(address: string): boolean {
   return /(no-?reply|noreply|no-responder|mailer-daemon|postmaster)/i.test(address);
 }
 
-async function sendGmailCodeEmail(toAddress: string, recipientAddress: string, code: string, isEs: boolean) {
+async function sendGmailConfirmEmail(
+  toAddress: string,
+  recipientAddress: string,
+  code: string | null,
+  link: string | null,
+  isEs: boolean,
+) {
   if (!MAILGUN_API_KEY) return;
   try {
+    const es = [
+      `Gmail te pidió confirmar el reenvío a tu dirección de Poquet (${recipientAddress}).`,
+      link ? `Confírmalo aquí:\n${link}` : "",
+      code ? `Código de verificación: ${code}\n(Pégalo en Gmail → Configuración → Reenvío y correo POP/IMAP y toca Verificar.)` : "",
+      `Después crea el filtro para tu banco: https://poquetapp.com/guia-reenvio/#gmail`,
+      `Si no fuiste tú, ignora este correo: sin confirmar, Gmail no reenvía nada.`,
+    ];
+    const en = [
+      `Gmail asked you to confirm forwarding to your Poquet address (${recipientAddress}).`,
+      link ? `Confirm it here:\n${link}` : "",
+      code ? `Verification code: ${code}\n(Paste it in Gmail → Settings → Forwarding and POP/IMAP and tap Verify.)` : "",
+      `Then create the filter for your bank: https://poquetapp.com/guia-reenvio/#gmail`,
+      `If this wasn't you, ignore this email: without confirming, Gmail won't forward anything.`,
+    ];
     const form = new FormData();
     form.append("from", `Poquet <no-responder@${MAILGUN_DOMAIN}>`);
     form.append("to", toAddress);
     form.append(
       "subject",
-      isEs ? `Tu código para activar el reenvío a Poquet: ${code}` : `Your code to turn on forwarding to Poquet: ${code}`,
-    );
-    form.append(
-      "text",
       isEs
-        ? `Gmail te pidió confirmar el reenvío a tu dirección de Poquet (${recipientAddress}).\n\n` +
-          `Código de verificación: ${code}\n\n` +
-          `Pégalo en Gmail → Configuración → Reenvío y correo POP/IMAP y toca Verificar. ` +
-          `Después crea el filtro para tu banco: https://poquetapp.com/guia-reenvio/#gmail\n\n` +
-          `Si no fuiste tú, ignora este correo: sin el código, Gmail no reenvía nada.`
-        : `Gmail asked you to confirm forwarding to your Poquet address (${recipientAddress}).\n\n` +
-          `Verification code: ${code}\n\n` +
-          `Paste it in Gmail → Settings → Forwarding and POP/IMAP and tap Verify. ` +
-          `Then create the filter for your bank: https://poquetapp.com/guia-reenvio/#gmail\n\n` +
-          `If this wasn't you, ignore this email: without the code, Gmail won't forward anything.`,
+        ? code ? `Confirma el reenvío de Gmail a Poquet (código ${code})` : "Confirma el reenvío de Gmail a Poquet"
+        : code ? `Confirm Gmail forwarding to Poquet (code ${code})` : "Confirm Gmail forwarding to Poquet",
     );
+    form.append("text", (isEs ? es : en).filter(Boolean).join("\n\n"));
     await fetch(`https://api.mailgun.net/v3/${MAILGUN_DOMAIN}/messages`, {
       method: "POST",
       headers: { Authorization: `Basic ${btoa(`api:${MAILGUN_API_KEY}`)}` },
       body: form,
     });
   } catch {
-    // Best-effort — the code is also saved for the app and pushed.
+    // Best-effort — the confirmation is also saved for the app and pushed.
   }
 }
 
@@ -352,7 +369,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: profile } = await admin
     .from("profiles")
-    .select("id, push_token, lang, gmail_fwd_code, gmail_fwd_at")
+    .select("id, push_token, lang, gmail_fwd_code, gmail_fwd_link, gmail_fwd_at")
     .eq("statement_email_token", userToken)
     .maybeSingle();
 
@@ -374,33 +391,51 @@ Deno.serve(async (req: Request) => {
 
   if (pdfAttachments.length === 0) {
     const senderFields = `${String(form.get("from") ?? "")} ${String(form.get("sender") ?? "")}`;
-    const fwd = parseGmailForwardingConfirmation(
-      senderFields,
-      String(form.get("subject") ?? ""),
-      String(form.get("body-plain") ?? ""),
-    );
+    const subject = String(form.get("subject") ?? "");
+    const bodyText = `${String(form.get("body-plain") ?? "")}\n${String(form.get("body-html") ?? "")}`;
+    const fwd = parseGmailForwardingConfirmation(senderFields, subject, bodyText);
+    // Diagnostic only, no personal data: what kind of no-PDF mail arrived.
+    console.log(JSON.stringify({
+      event: "no_pdf_mail",
+      fromGoogle: senderFields.toLowerCase().includes(GMAIL_FWD_SENDER),
+      gmailConfirmation: !!fwd,
+      hasCode: !!fwd?.code,
+      hasLink: !!fwd?.link,
+    }));
     if (fwd) {
-      // Gmail re-sends the same code if the user clicks "resend"; only email
-      // it again after a minute so a burst can't turn us into a mail cannon.
+      // Gmail re-sends the same confirmation if the user clicks "resend"; only
+      // notify again after a minute so a burst can't turn us into a mail cannon.
       const prevAt = profile.gmail_fwd_at ? Date.parse(profile.gmail_fwd_at as string) : 0;
-      const recentlySent = profile.gmail_fwd_code === fwd.code && Date.now() - prevAt < 60_000;
+      const same = (fwd.code ?? null) === (profile.gmail_fwd_code ?? null) && (fwd.link ?? null) === (profile.gmail_fwd_link ?? null);
+      const recentlySent = same && Date.now() - prevAt < 60_000;
 
       await admin
         .from("profiles")
-        .update({ gmail_fwd_code: fwd.code, gmail_fwd_from: fwd.requester, gmail_fwd_at: new Date().toISOString() })
+        .update({
+          gmail_fwd_code: fwd.code,
+          gmail_fwd_link: fwd.link,
+          gmail_fwd_from: fwd.requester,
+          gmail_fwd_at: new Date().toISOString(),
+        })
         .eq("id", profile.id);
 
       if (!recentlySent) {
         await sendPush(
           pushToken,
-          isEs ? `Código de Gmail: ${fwd.code}` : `Gmail code: ${fwd.code}`,
-          isEs
-            ? "Escríbelo en Gmail para activar el reenvío automático. También está en Estados."
-            : "Enter it in Gmail to turn on automatic forwarding. It's also in Statements.",
+          fwd.code
+            ? (isEs ? `Código de Gmail: ${fwd.code}` : `Gmail code: ${fwd.code}`)
+            : (isEs ? "Confirma el reenvío de Gmail" : "Confirm Gmail forwarding"),
+          fwd.link
+            ? (isEs
+              ? "Te enviamos el enlace a tu Gmail. Ábrelo y toca Confirmar para activar el reenvío."
+              : "We sent the link to your Gmail. Open it and tap Confirm to turn on forwarding.")
+            : (isEs
+              ? "Te enviamos el código a tu Gmail. Escríbelo en Gmail para activar el reenvío."
+              : "We sent the code to your Gmail. Enter it in Gmail to turn on forwarding."),
           { type: "gmail_forwarding_code" },
         );
         if (fwd.requester && senderLooksAuthentic(String(form.get("message-headers") ?? ""))) {
-          await sendGmailCodeEmail(fwd.requester, recipient, fwd.code, isEs);
+          await sendGmailConfirmEmail(fwd.requester, recipient, fwd.code, fwd.link, isEs);
         }
       }
       return new Response("ok", { status: 200 });
