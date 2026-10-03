@@ -11,13 +11,24 @@ import { AuthProvider } from './src/context/AuthContext';
 import { LockGate } from './src/components/LockGate';
 import { NotificationsSync } from './src/components/NotificationsSync';
 import { navigationRef } from './src/navigation/navigationRef';
+import { useFonts } from 'expo-font';
+import {
+  BricolageGrotesque_500Medium,
+  BricolageGrotesque_600SemiBold,
+} from '@expo-google-fonts/bricolage-grotesque';
 
 function AppContent() {
   const { colors, isDark } = useAppTheme();
   const { loaded: cardsLoaded } = useCards();
   const { loaded: settingsLoaded } = useAppSettings();
+  // Display font for titles/amounts. If it fails to load, carry on with the
+  // system font rather than blocking the app.
+  const [fontsLoaded, fontError] = useFonts({
+    BricolageGrotesque_500Medium,
+    BricolageGrotesque_600SemiBold,
+  });
 
-  if (!cardsLoaded || !settingsLoaded) {
+  if (!cardsLoaded || !settingsLoaded || (!fontsLoaded && !fontError)) {
     return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
   }
 

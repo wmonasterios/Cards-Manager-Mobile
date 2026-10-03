@@ -4,7 +4,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { useColors } from '../theme/ThemeContext';
 import { useAppSettings } from '../context/AppSettingsContext';
 import { useLocale } from '../i18n/LocaleContext';
-import { radius } from '../theme';
+import { radius, fonts } from '../theme';
 
 export function LockGate({ children }: { children: React.ReactNode }) {
   const { faceLock } = useAppSettings();
@@ -80,7 +80,7 @@ export function LockGate({ children }: { children: React.ReactNode }) {
 function stylesFor(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', padding: 24 },
-    title: { fontSize: 22, fontWeight: '600', color: colors.ink },
+    title: { fontSize: 22, fontFamily: fonts.display, color: colors.ink },
     sub: { fontSize: 13, color: colors.ink2, marginTop: 8, textAlign: 'center' },
     btn: {
       marginTop: 24,

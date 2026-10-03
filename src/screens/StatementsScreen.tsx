@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import { FunctionsFetchError } from '@supabase/supabase-js';
-import { radius, spacing, ColorTokens, CARD_PALETTE } from '../theme';
+import { radius, spacing, ColorTokens, CARD_PALETTE, fonts } from '../theme';
 import { isOfflineError, offlineMessage } from '../errors';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
@@ -1426,7 +1426,7 @@ function makeStyles(colors: ColorTokens) {
     screen: { flex: 1, backgroundColor: colors.bg },
     scrollContent: { paddingBottom: 40 },
     top: { paddingTop: spacing.xxl, paddingHorizontal: spacing.xl },
-    title: { fontSize: 26, fontWeight: '500', color: colors.ink, marginTop: 20, letterSpacing: -0.3 },
+    title: { fontSize: 26, fontFamily: fonts.displayMedium, color: colors.ink, marginTop: 20, letterSpacing: -0.3 },
     sub: { fontSize: 12.5, color: colors.ink2, marginTop: 8, lineHeight: 18, maxWidth: 320 },
     section: { paddingHorizontal: spacing.xl, marginTop: spacing.xl },
     parseProgressRow: {

@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { radius, spacing, ColorTokens } from '../theme';
+import { radius, spacing, ColorTokens, fonts } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { useAppSettings } from '../context/AppSettingsContext';
@@ -65,7 +65,7 @@ function makeStyles(colors: ColorTokens) {
       justifyContent: 'center',
       marginBottom: 20,
     },
-    title: { fontSize: 22, fontWeight: '600', color: colors.ink, textAlign: 'center' },
+    title: { fontSize: 22, fontFamily: fonts.display, color: colors.ink, textAlign: 'center' },
     body: { fontSize: 13.5, color: colors.ink2, marginTop: 10, textAlign: 'center', lineHeight: 20, maxWidth: 320 },
     primaryBtn: {
       marginTop: 28,

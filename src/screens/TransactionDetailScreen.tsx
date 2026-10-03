@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { radius, spacing, ColorTokens, getCategoryColors, categoryLabel } from '../theme';
+import { radius, spacing, ColorTokens, getCategoryColors, categoryLabel, fonts } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { BackButton } from '../components/BackButton';
@@ -238,7 +238,7 @@ function makeStyles(colors: ColorTokens) {
     badgeText: { fontSize: 16, fontWeight: '600' },
     merchant: { fontSize: 19, fontWeight: '500', color: colors.ink },
     sub: { fontSize: 12, color: colors.ink3, marginTop: 4 },
-    amount: { fontSize: 40, fontWeight: '600', marginTop: 20, letterSpacing: -0.6 },
+    amount: { fontSize: 40, fontFamily: fonts.display, marginTop: 20, letterSpacing: -0.6 },
     statusNote: { fontSize: 12.5, color: colors.ink3, marginTop: 6 },
     section: { paddingHorizontal: spacing.xl, marginTop: spacing.xl },
     listCard: {

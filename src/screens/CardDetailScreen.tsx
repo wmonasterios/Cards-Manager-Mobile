@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { radius, spacing, ColorTokens, CARD_PALETTE, CARD_PALETTE_ORDER } from '../theme';
+import { radius, spacing, ColorTokens, CARD_PALETTE, CARD_PALETTE_ORDER, fonts } from '../theme';
 import { artInk } from '../data';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
@@ -484,7 +484,7 @@ function makeStyles(colors: ColorTokens) {
       borderColor: colors.line,
     },
     tileLabel: { fontSize: 11.5, color: colors.ink2 },
-    tileValue: { fontSize: 22, fontWeight: '600', color: colors.ink, marginTop: 8 },
+    tileValue: { fontSize: 22, fontFamily: fonts.display, color: colors.ink, marginTop: 8 },
     tileNote: { fontSize: 11, color: colors.ink3, marginTop: 4 },
     section: { paddingHorizontal: spacing.xl, marginTop: spacing.xl },
     sectionHeaderRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
