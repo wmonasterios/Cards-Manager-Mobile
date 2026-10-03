@@ -11,6 +11,23 @@ client, an internal TestFlight build, or an internal APK — should be the
 thing running on `preview`. This is where all normal work lands; nothing
 here can reach a production build.
 
+The `development` and `preview` build profiles set `APP_VARIANT=preview`
+(see `eas.json`), which `app.config.js` turns into its own bundle id
+(`com.poquet.preview`) and name ("Poquet Preview"). That means a preview
+build installs as a **separate app** on your device, side by side with the
+real "Poquet" — installing one never overwrites the other, and closing/
+reopening "Poquet Preview" is all it takes to pick up every push to `main`.
+If you ever install a `production`-profile build (e.g. from TestFlight) on
+a device that already has a plain, non-variant preview build installed
+(same bundle id as production, from before this split existed), it *will*
+overwrite it — rebuild `preview` once after that to get the separate app
+back.
+
+One-time follow-up for the preview variant: add `com.poquet.preview` to
+Supabase's Apple provider "Client IDs" list (alongside `com.poquet`) if you
+want Sign in with Apple to work inside "Poquet Preview" too — Apple's
+identity token is scoped to whichever bundle id generated it.
+
 ## Shipping to production
 
 Once a set of changes on `main` has been checked on `preview` and you're

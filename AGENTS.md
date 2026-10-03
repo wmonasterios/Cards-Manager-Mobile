@@ -10,6 +10,16 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
   `main`) and `production` (only on a `vX.Y.Z` git tag push, or manual
   workflow_dispatch). A normal JS/UI/logic change just needs a push to
   `main` — never run `eas build` for that.
+- `app.config.js` wraps `app.json` and gives the `development`/`preview`
+  build profiles (`APP_VARIANT=preview` in `eas.json`) their own bundle id
+  (`com.poquet.preview`) and name, so a preview build installs as a
+  separate app ("Poquet Preview") instead of overwriting the real one on
+  the same device. This exists because both profiles originally shared
+  `com.poquet`, and installing a TestFlight build silently replaced
+  whatever preview build was already on the owner's phone, breaking the
+  "just close/reopen to see the latest push" loop. Edit `app.json` for any
+  config change, not `app.config.js` — the latter only branches identity
+  by variant.
 - Only run `eas build --profile production` + `eas submit` again when
   something **native** changes: a new native module/plugin, a new
   permission, the app icon, or a version bump that needs a new binary.
