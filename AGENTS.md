@@ -32,3 +32,42 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
   merchant classifier) has auto-reload on (tops up to $15 below $5) and a
   $50/month spend limit with an email alert at $20. If testers multiply,
   revisit these numbers before they become a real constraint.
+
+# Design system ("Poquet" redesign, Oct 2026)
+
+Landed via 4 PRs from a separate Claude session (claude.ai, not this CLI) —
+reviewed and merged into this history, all green on `preview`. Know this
+before touching any screen's styling:
+
+- `src/theme/index.ts` is the single source of truth: `darkColors` ("Neón")
+  and `lightColors` ("Confeti") are two *independent* palettes, not light/dark
+  variants of the same hues — don't assume a token's color relationship holds
+  across modes. Both share one vivid categorical palette (`VIVID`) for charts,
+  categories and card art, so a given category/card looks the same regardless
+  of mode.
+- Design principle: **accent is reserved for controls** (solid buttons,
+  toggles, selected chips, the active tab pill) — never for plain text, never
+  for a border used just to mean "something's up with this row." Urgency is
+  signalled via `seg1`/`seg3` (ring/chart colors) and `ink` vs `ink3` (weight),
+  not via colored borders. A primary button is a solid fill (`backgroundColor:
+  colors.accent`) with `color: colors.onTint2` text, not an outline.
+- `fonts.display` / `fonts.displayMedium` (Bricolage Grotesque 600/500) are
+  for titles and large amounts only, loaded at runtime via `expo-font` +
+  `@expo-google-fonts/bricolage-grotesque` in `App.tsx`, with a system-font
+  fallback if loading fails. Body text stays on the platform font — never put
+  `fontWeight` on a `fonts.display*` text node, each weight is its own family.
+- A card's text color is never hardcoded white — compute it per card with
+  `artInk(cardId, colorKey)` from `src/data.ts` (dark text on vivid fills,
+  light text on violet/slate), matching `artGradient`'s same palette lookup.
+- `src/components/Mascot.tsx` has small hand-drawn SVG characters
+  (`DocMascot`, `CalendarMascot`) for upload/empty states only — deliberately
+  never shown next to a balance or debt figure.
+- **New native dependencies**: `expo-font` (already linked — `expo` itself
+  depends on it, so no new build was needed for that part) and
+  `expo-splash-screen` (genuinely new — it's a config plugin that writes
+  native launch-screen resources, invisible to OTA). The new app icon
+  (`assets/icon.png` etc.) is likewise a native-build-time asset. **Practical
+  effect**: everything color/typography/layout is already live on `preview`
+  via OTA, but the new icon and splash screen won't appear on any
+  already-installed build (including the TestFlight one friends have) until
+  the next `eas build --profile production` + `eas submit`.
