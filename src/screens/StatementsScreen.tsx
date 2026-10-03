@@ -25,6 +25,7 @@ import { useLocale } from '../i18n/LocaleContext';
 import { BackButton } from '../components/BackButton';
 import { DateField } from '../components/DateField';
 import { ProgressBar } from '../components/ProgressBar';
+import { DocMascot } from '../components/Mascot';
 import { useCards } from '../context/CardsContext';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -1066,12 +1067,15 @@ function RealStatementsFlow({ navigation, route }: any) {
 
         <View style={styles.section}>
           <Pressable onPress={pickAndUpload} style={styles.uploadBtn}>
-            <Text style={styles.uploadBtnTitle}>{lang === 'es' ? 'Subir estado de cuenta (PDF)' : 'Upload statement (PDF)'}</Text>
-            <Text style={styles.uploadBtnBody}>
-              {lang === 'es'
-                ? 'Elígelo desde Archivos o un PDF escaneado.'
-                : 'Pick it from Files or a scanned PDF.'}
-            </Text>
+            <View style={styles.uploadBtnTextCol}>
+              <Text style={styles.uploadBtnTitle}>{lang === 'es' ? 'Subir estado de cuenta (PDF)' : 'Upload statement (PDF)'}</Text>
+              <Text style={styles.uploadBtnBody}>
+                {lang === 'es'
+                  ? 'Elígelo desde Archivos o un PDF escaneado.'
+                  : 'Pick it from Files or a scanned PDF.'}
+              </Text>
+            </View>
+            <DocMascot size={76} />
           </Pressable>
 
           {!!emailAddress && (
@@ -1287,8 +1291,11 @@ export function StatementsScreen({ navigation, route }: any) {
         {stage === 'idle' && (
           <View style={styles.section}>
             <Pressable onPress={startParse} style={styles.uploadBtn}>
-              <Text style={styles.uploadBtnTitle}>{t.uploadPdf}</Text>
-              <Text style={styles.uploadBtnBody}>{t.uploadBody}</Text>
+              <View style={styles.uploadBtnTextCol}>
+                <Text style={styles.uploadBtnTitle}>{t.uploadPdf}</Text>
+                <Text style={styles.uploadBtnBody}>{t.uploadBody}</Text>
+              </View>
+              <DocMascot size={76} />
             </Pressable>
 
             <View style={styles.emailCard}>
@@ -1464,8 +1471,14 @@ function makeStyles(colors: ColorTokens) {
       borderColor: colors.line,
       borderRadius: radius.xl,
       backgroundColor: colors.surface2,
-      padding: 22,
+      paddingVertical: 16,
+      paddingLeft: 22,
+      paddingRight: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
     },
+    uploadBtnTextCol: { flex: 1, minWidth: 0 },
     uploadBtnTitle: { fontSize: 15, fontWeight: '500', color: colors.accentInk },
     uploadBtnBody: { fontSize: 12, color: colors.ink2, marginTop: 6, lineHeight: 17 },
     emailCard: {
