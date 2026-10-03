@@ -39,6 +39,8 @@ import {
   getStatement,
   getStatementPdfUrl,
   getStatementEmail,
+  getGmailForwardingCode,
+  GmailForwardingCode,
 } from '../supabase/statementsApi';
 import { listCardAliases } from '../supabase/cardsApi';
 import { DbStatement, DbCardAlias, ParsedStatement } from '../supabase/types';
@@ -231,6 +233,24 @@ function RealStatementsFlow({ navigation, route }: any) {
     setTimeout(() => setEmailCopied(false), 2600);
   };
 
+  // Gmail's forwarding-verification code, saved by receive-statement-email
+  // when Gmail emails it to the user's private address. Shown here so the
+  // user can finish Gmail's setup even with notifications turned off.
+  const [gmailCode, setGmailCode] = useState<GmailForwardingCode | null>(null);
+  const [gmailCopied, setGmailCopied] = useState(false);
+  const loadGmailCode = useCallback(() => {
+    if (!userId) return;
+    getGmailForwardingCode(userId)
+      .then(setGmailCode)
+      .catch(() => {});
+  }, [userId]);
+  const copyGmailCode = async () => {
+    if (!gmailCode) return;
+    await Clipboard.setStringAsync(gmailCode.code);
+    setGmailCopied(true);
+    setTimeout(() => setGmailCopied(false), 2600);
+  };
+
   const filterCardId: string | undefined = route?.params?.cardId;
   const [showAllCards, setShowAllCards] = useState(false);
   const filterCard = filterCardId ? getCard(filterCardId) : undefined;
@@ -339,7 +359,8 @@ function RealStatementsFlow({ navigation, route }: any) {
   useFocusEffect(
     useCallback(() => {
       loadHistory();
-    }, [userId]),
+      loadGmailCode();
+    }, [userId, loadGmailCode]),
   );
 
   const onRefresh = async () => {
@@ -1090,6 +1111,24 @@ function RealStatementsFlow({ navigation, route }: any) {
                   <Text style={styles.copyBtnText}>{emailCopied ? t.copied : t.copy}</Text>
                 </Pressable>
               </View>
+              {gmailCode && (
+                <View style={styles.gmailBox}>
+                  <Text style={styles.gmailLabel}>
+                    {lang === 'es' ? 'Código de verificación de Gmail' : 'Gmail verification code'}
+                  </Text>
+                  <View style={styles.gmailRow}>
+                    <Text style={styles.gmailCode} selectable>{gmailCode.code}</Text>
+                    <Pressable onPress={copyGmailCode} style={styles.copyBtn} hitSlop={6}>
+                      <Text style={styles.copyBtnText}>{gmailCopied ? t.copied : t.copy}</Text>
+                    </Pressable>
+                  </View>
+                  <Text style={styles.gmailHint}>
+                    {lang === 'es'
+                      ? `Escríbelo en Gmail → Configuración → Reenvío y correo POP/IMAP para activar el reenvío${gmailCode.from ? ` desde ${gmailCode.from}` : ''}. También te lo enviamos a ese correo.`
+                      : `Enter it in Gmail → Settings → Forwarding and POP/IMAP to turn on forwarding${gmailCode.from ? ` from ${gmailCode.from}` : ''}. We also emailed it to that address.`}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
 
@@ -1511,6 +1550,16 @@ function makeStyles(colors: ColorTokens) {
       borderColor: colors.line,
     },
     copyBtnText: { fontSize: 11, fontWeight: '500', color: colors.ink },
+    gmailBox: {
+      marginTop: 12,
+      padding: 12,
+      borderRadius: radius.md,
+      backgroundColor: colors.tint,
+    },
+    gmailLabel: { fontSize: 12, fontWeight: '500', color: colors.ink2 },
+    gmailRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 4 },
+    gmailCode: { fontFamily: fonts.display, fontSize: 24, letterSpacing: 1, color: colors.ink },
+    gmailHint: { fontSize: 12, color: colors.ink2, marginTop: 6, lineHeight: 17 },
     historyTitle: { fontSize: 16, fontWeight: '500', color: colors.ink, marginTop: 22 },
     historyHeadRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 },
     historyFilterLink: { fontSize: 12, fontWeight: '500', color: colors.ink, marginTop: 22 },

@@ -145,3 +145,20 @@ export async function getStatementEmail(userId: string): Promise<string> {
   if (error) throw error;
   return `u-${data.statement_email_token}@stmts.poquetapp.com`;
 }
+
+// Gmail won't auto-forward to a new address until the user types the code it
+// emails there; receive-statement-email saves that code on the profile. Only
+// a recent one is useful (Gmail codes are for the setup in progress).
+export type GmailForwardingCode = { code: string; from: string | null; at: string };
+
+export async function getGmailForwardingCode(userId: string): Promise<GmailForwardingCode | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('gmail_fwd_code, gmail_fwd_from, gmail_fwd_at')
+    .eq('id', userId)
+    .single();
+  if (error || !data?.gmail_fwd_code || !data.gmail_fwd_at) return null;
+  const ageMs = Date.now() - Date.parse(data.gmail_fwd_at);
+  if (!(ageMs >= 0 && ageMs < 7 * 24 * 60 * 60 * 1000)) return null;
+  return { code: data.gmail_fwd_code, from: data.gmail_fwd_from, at: data.gmail_fwd_at };
+}
