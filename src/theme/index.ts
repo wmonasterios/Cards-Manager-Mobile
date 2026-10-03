@@ -47,12 +47,12 @@ export const darkColors = {
   hair4: 'rgba(244,245,250,0.16)',
   hair5: 'rgba(244,245,250,0.18)',
   // Chart series, by rank. seg1 doubles as "urgent/late" and seg3 as "soon"
-  // in the Home status rings (see status.ts), hence coral and honey there.
-  seg1: VIVID.coral,
-  seg2: VIVID.violet,
+  // in the Home status rings and health bar (see status.ts): violet and honey.
+  seg1: VIVID.violet,
+  seg2: VIVID.pink,
   seg3: VIVID.honey,
   seg4: VIVID.sky,
-  seg5: VIVID.pink,
+  seg5: VIVID.coral,
   seg6: VIVID.green,
   seg7: VIVID.grey,
   // Category icon tiles: vivid fills with dark ink, in both modes.
@@ -87,11 +87,11 @@ export const lightColors: ColorTokens = {
   hair3: 'rgba(18,18,18,0.1)',
   hair4: 'rgba(18,18,18,0.14)',
   hair5: 'rgba(18,18,18,0.18)',
-  seg1: VIVID.coral,
-  seg2: VIVID.violet,
+  seg1: VIVID.violet,
+  seg2: VIVID.pink,
   seg3: VIVID.honey,
   seg4: VIVID.sky,
-  seg5: VIVID.pink,
+  seg5: VIVID.coral,
   seg6: VIVID.green,
   seg7: VIVID.grey,
   catBg: [VIVID.sun, VIVID.sky, VIVID.pink, VIVID.lavender, VIVID.green, '#FF8A65'],
