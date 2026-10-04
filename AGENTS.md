@@ -81,3 +81,33 @@ before touching any screen's styling:
   via OTA, but the new icon and splash screen won't appear on any
   already-installed build (including the TestFlight one friends have) until
   the next `eas build --profile production` + `eas submit`.
+
+# Edge functions: versioning is now mixed (Oct 2026)
+
+`supabase/functions/receive-statement-email/index.ts` is now checked into
+this repo and matches the deployed v10 exactly (verified byte-for-byte).
+`apply-statement` and `parse-statement` are **not** in the repo yet — they
+still only exist in Supabase itself, edited directly via the Supabase MCP
+tools (`get_edge_function`/`deploy_edge_function`), same as earlier in this
+project's history. Before editing any edge function: check whether its
+source is under `supabase/functions/` first. If it is, edit it there,
+commit, and redeploy via `deploy_edge_function` with that file's new
+content (committing alone does **not** deploy — there's no CI step for
+edge functions, unlike the app's own OTA publish). If it isn't in the repo,
+fetch the live source via MCP first as before.
+
+`receive-statement-email` also gained Gmail forwarding-confirmation
+handling: Gmail won't start forwarding to a user's `u-<token>@stmts.
+poquetapp.com` address until confirmed, and sends that confirmation (a
+numeric code on older flows, a link on current ones) to that same address
+— which, before this, the function silently treated as "no PDF" and
+dropped. It now recognizes mail from `forwarding-noreply@google.com`,
+saves the code/link to `profiles.gmail_fwd_*` (7-day display window,
+client-side in `getGmailForwardingCode`), pushes the user, and emails the
+code/link back to the Gmail account that requested it (only once a
+Mailgun SPF/DKIM check suggests the triggering email is genuinely from
+Google — see `senderLooksAuthentic`, which fails open if those headers are
+absent, a deliberate tradeoff favoring not breaking the real flow over
+hardening a low-severity edge case, since forwarding tokens aren't
+guessable). Shown in Statements as a card with a "Confirm in Gmail" button
+(link flow) or a copyable code (older flow).
