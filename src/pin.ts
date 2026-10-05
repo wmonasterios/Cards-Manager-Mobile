@@ -6,10 +6,12 @@ import * as Crypto from 'expo-crypto';
 // ever touches disk, and nothing here is sent to the server: this is purely a
 // "is this the same person who was just using the phone" check, not an
 // account credential.
-const HASH_KEY = 'cardsManager:pinHash';
-const SALT_KEY = 'cardsManager:pinSalt';
-const ATTEMPTS_KEY = 'cardsManager:pinAttempts';
-const LOCKED_UNTIL_KEY = 'cardsManager:pinLockedUntil';
+// SecureStore keys may only contain alphanumeric characters, ".", "-" and
+// "_" — no ":" (unlike this project's AsyncStorage key convention).
+const HASH_KEY = 'cardsManager.pinHash';
+const SALT_KEY = 'cardsManager.pinSalt';
+const ATTEMPTS_KEY = 'cardsManager.pinAttempts';
+const LOCKED_UNTIL_KEY = 'cardsManager.pinLockedUntil';
 
 export const PIN_LENGTH = 6;
 const MAX_ATTEMPTS_BEFORE_LOCKOUT = 5;
