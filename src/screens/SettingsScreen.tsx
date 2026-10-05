@@ -161,6 +161,10 @@ export function SettingsScreen({ navigation }: any) {
                 lang === 'es' ? 'Tu cuenta y tus datos se eliminaron.' : 'Your account and data have been deleted.',
               );
               await signOut();
+              // Signing out alone just drops the screen into demo mode in
+              // place — after deleting the account, send the user back to
+              // the login screen instead of leaving them looking at demo data.
+              navigation.navigate('Auth');
             } catch (err: any) {
               Alert.alert(
                 lang === 'es' ? 'No se pudo eliminar la cuenta' : 'Could not delete your account',
