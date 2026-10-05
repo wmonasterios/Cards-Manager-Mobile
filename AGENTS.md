@@ -42,6 +42,44 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
   merchant classifier) has auto-reload on (tops up to $15 below $5) and a
   $50/month spend limit with an email alert at $20. If testers multiply,
   revisit these numbers before they become a real constraint.
+- **A new native module imported from an always-mounted component can crash
+  OTA, not just "not work."** `expo-secure-store` (added Oct 2026 for the PIN
+  lock) resolves its native binding at JS-*import* time
+  (`requireNativeModule(...)` runs as soon as the file is evaluated, not when
+  a function is first called) — and `src/pin.ts` is imported by `LockGate`,
+  which every screen mounts under. Shipping that import via OTA to a device
+  whose binary predates the native module would hard-crash the app on next
+  launch, before any try/catch in the JS even runs. Unlike `expo-splash-screen`
+  earlier in this project (whose JS degrades fine if unlinked), this class of
+  dependency needs its `eas build` to land *before or together with* the OTA
+  that starts importing it — never push the JS to `main` first and build
+  "soon after." When adding a native dependency, check whether anything on
+  the always-mounted path (`App.tsx`, `LockGate`, `NotificationsSync`, etc.)
+  imports it, not just whether a screen you can navigate away from does.
+
+# Security: PIN + Face ID (Oct 2026)
+
+Password signup now requires 8+ characters (client-side only — Supabase's own
+"Confirm email" stays off, deliberately, for a low-friction signup funnel).
+Right after a brand-new account finishes signup, `SecuritySetupScreen` offers
+Face ID (if the device has it enrolled) with a PIN as its always-available
+fallback, or goes straight to PIN setup on a device with no biometrics. This
+is reachable only from `AuthScreen`'s signup path (`finishSignup`), not from
+sign-in or from Google/Apple OAuth — there's no reliable "this was a brand
+new account" signal for OAuth, so those still go straight to `finish()`.
+
+- `src/pin.ts`: a 6-digit PIN, salted + SHA-256 hashed via `expo-crypto`,
+  stored in `expo-secure-store` (Keychain/Keystore) — never sent to the
+  server, never recoverable, this is a device-unlock check, not an account
+  credential. 5 wrong attempts triggers a 30s lockout.
+- `LockGate` now locks whenever **either** `faceLock` is on **or** a PIN is
+  set (previously: `faceLock` alone) — a PIN-only device had no lock screen
+  at all before this. Biometric failure/unavailability falls back to PIN
+  entry instead of the old silent auto-unlock, but only when a PIN actually
+  exists; with neither method available it still never permanently locks
+  someone out of their own data.
+- Settings → "Set/Change/Remove PIN" lets an existing user add one later
+  without going through signup again.
 
 # Design system ("Poquet" redesign, Oct 2026)
 

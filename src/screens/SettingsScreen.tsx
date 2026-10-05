@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -15,6 +16,7 @@ import { useCards } from '../context/CardsContext';
 import * as Clipboard from 'expo-clipboard';
 import { getStatementEmail } from '../supabase/statementsApi';
 import { deleteAccount } from '../supabase/cardsApi';
+import { hasPin, clearPin } from '../pin';
 import { buildTransactionsCsv } from '../csv';
 import { cancelPaymentReminders, cancelWeeklySummary, requestNotificationPermission } from '../notifications';
 
@@ -33,6 +35,29 @@ export function SettingsScreen({ navigation }: any) {
   const [exporting, setExporting] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const [deletingAccount, setDeletingAccount] = React.useState(false);
+  const [pinSet, setPinSet] = React.useState(false);
+
+  // Re-check each time this screen gains focus, since setting/removing the
+  // PIN happens on a different screen (PinSetup) and SecureStore isn't
+  // reactive state we'd otherwise be notified about.
+  useFocusEffect(
+    React.useCallback(() => {
+      hasPin().then(setPinSet).catch(() => {});
+    }, []),
+  );
+
+  const handleSetOrChangePin = () => navigation.navigate('PinSetup', { isChange: pinSet });
+
+  const handleRemovePin = () => {
+    Alert.alert(t.pinSettingsRemoveConfirmTitle, t.pinSettingsRemoveConfirmBody, [
+      { text: lang === 'es' ? 'Cancelar' : 'Cancel', style: 'cancel' },
+      {
+        text: t.pinSettingsRemove,
+        style: 'destructive',
+        onPress: () => clearPin().then(() => setPinSet(false)).catch(() => {}),
+      },
+    ]);
+  };
 
   React.useEffect(() => {
     if (isDemo || !session?.user.id) return;
@@ -241,6 +266,18 @@ export function SettingsScreen({ navigation }: any) {
                 </Pressable>
               </View>
             ))}
+            {session && (
+              <>
+                <Pressable onPress={handleSetOrChangePin} style={styles.toggleRow}>
+                  <Text style={styles.toggleLabel}>{pinSet ? t.pinSettingsChange : t.pinSettingsSet}</Text>
+                </Pressable>
+                {pinSet && (
+                  <Pressable onPress={handleRemovePin} style={styles.toggleRow}>
+                    <Text style={[styles.toggleLabel, { color: colors.seg1 }]}>{t.pinSettingsRemove}</Text>
+                  </Pressable>
+                )}
+              </>
+            )}
           </View>
 
           <Text style={styles.groupLabel}>{t.appearance.toUpperCase()}</Text>

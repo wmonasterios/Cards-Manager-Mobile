@@ -31,6 +31,13 @@ export function AuthScreen({ navigation, route }: Props) {
     }
   };
 
+  // A brand-new account has no device lock set up yet — replacing (not
+  // pushing) this screen with the security prompt means it does the same
+  // "go home" navigation as `finish` once the user is done there.
+  const finishSignup = () => {
+    navigation.replace('SecuritySetup', { fromOnboarding: route.params?.fromOnboarding });
+  };
+
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -66,9 +73,15 @@ export function AuthScreen({ navigation, route }: Props) {
     finish();
   };
 
+  const MIN_PASSWORD_LENGTH = 8;
+
   const submit = async () => {
     if (!email.trim() || !password) {
       Alert.alert('Enter your email and password.');
+      return;
+    }
+    if (mode === 'signup' && password.length < MIN_PASSWORD_LENGTH) {
+      Alert.alert('Choose a longer password', `Use at least ${MIN_PASSWORD_LENGTH} characters.`);
       return;
     }
     setBusy(true);
@@ -82,7 +95,8 @@ export function AuthScreen({ navigation, route }: Props) {
       setAwaitingCode(true);
       return;
     }
-    finish();
+    if (mode === 'signup') finishSignup();
+    else finish();
   };
 
   const submitCode = async () => {
@@ -97,7 +111,7 @@ export function AuthScreen({ navigation, route }: Props) {
       Alert.alert('Could not confirm your account', error);
       return;
     }
-    finish();
+    finishSignup();
   };
 
   const resendCode = async () => {
@@ -199,6 +213,7 @@ export function AuthScreen({ navigation, route }: Props) {
             autoCapitalize="none"
             style={styles.input}
           />
+          {mode === 'signup' && <Text style={styles.passwordHint}>At least {MIN_PASSWORD_LENGTH} characters.</Text>}
 
           <Pressable onPress={submit} disabled={busy} style={[styles.submitBtn, busy && { opacity: 0.6 }]}>
             {busy ? (
@@ -259,6 +274,7 @@ function makeStyles(colors: ColorTokens) {
       color: colors.ink,
       fontSize: 14,
     },
+    passwordHint: { fontSize: 11, color: colors.ink3, marginTop: 6 },
     submitBtn: {
       marginTop: 24,
       padding: 14,

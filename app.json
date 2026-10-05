@@ -50,6 +50,7 @@
       "expo-notifications",
       "expo-apple-authentication",
       "expo-sharing",
+      "expo-secure-store",
       [
         "expo-splash-screen",
         {

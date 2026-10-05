@@ -15,6 +15,8 @@ import { FixScreen } from '../screens/FixScreen';
 import { AuthScreen } from '../screens/AuthScreen';
 import { AddCardScreen } from '../screens/AddCardScreen';
 import { NotifPrimerScreen } from '../screens/NotifPrimerScreen';
+import { SecuritySetupScreen } from '../screens/SecuritySetupScreen';
+import { PinSetupScreen } from '../screens/PinSetupScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -45,6 +47,8 @@ export function RootNavigator() {
       <Stack.Screen name="Auth" component={AuthScreen} options={{ presentation: 'modal' }} />
       <Stack.Screen name="AddCard" component={AddCardScreen} options={{ presentation: 'modal' }} />
       <Stack.Screen name="NotifPrimer" component={NotifPrimerScreen} options={{ presentation: 'modal', gestureEnabled: false }} />
+      <Stack.Screen name="SecuritySetup" component={SecuritySetupScreen} options={{ presentation: 'modal', gestureEnabled: false }} />
+      <Stack.Screen name="PinSetup" component={PinSetupScreen} options={{ presentation: 'modal', gestureEnabled: false }} />
     </Stack.Navigator>
   );
 }

@@ -21,4 +21,6 @@ export type RootStackParamList = {
   Auth: { fromOnboarding?: boolean } | undefined;
   AddCard: undefined;
   NotifPrimer: undefined;
+  SecuritySetup: { fromOnboarding?: boolean } | undefined;
+  PinSetup: { isChange?: boolean; fromOnboarding?: boolean; thenFinishAuth?: boolean } | undefined;
 };
