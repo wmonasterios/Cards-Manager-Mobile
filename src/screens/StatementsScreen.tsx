@@ -55,13 +55,13 @@ const INBOX = 'demo.user.7f3a@in.cardsmanager.app';
 const PARSE_STEPS: Record<'en' | 'es', { label: string; mark: string; done: boolean }[]> = {
   en: [
     { label: 'Statement read · 4 pages', mark: '✓', done: true },
-    { label: 'Bank recognised · Banco Aliado', mark: '✓', done: true },
+    { label: 'Bank recognised · Banco General', mark: '✓', done: true },
     { label: 'Extracting balances and dates', mark: '·', done: false },
     { label: 'Matching transactions to categories', mark: '·', done: false },
   ],
   es: [
     { label: 'Estado de cuenta leído · 4 páginas', mark: '✓', done: true },
-    { label: 'Banco reconocido · Banco Aliado', mark: '✓', done: true },
+    { label: 'Banco reconocido · Banco General', mark: '✓', done: true },
     { label: 'Extrayendo saldos y fechas', mark: '·', done: false },
     { label: 'Clasificando transacciones', mark: '·', done: false },
   ],
@@ -1340,7 +1340,7 @@ export function StatementsScreen({ navigation, route }: any) {
   const confirmParse = () => {
     setStage('idle');
     Alert.alert(
-      lang === 'es' ? 'Banco Aliado actualizado con el estado de septiembre' : 'Banco Aliado updated from the September statement',
+      lang === 'es' ? 'Banco General actualizado con el estado de septiembre' : 'Banco General updated from the September statement',
     );
     navigation.navigate('CardDetail', { cardId: 'aliado' });
   };
@@ -1444,7 +1444,7 @@ export function StatementsScreen({ navigation, route }: any) {
             <View style={styles.matchBanner}>
               <View style={styles.matchThumb} />
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.matchTitle}>Banco Aliado · Visa Infinite</Text>
+                <Text style={styles.matchTitle}>Banco General · Visa Infinite</Text>
                 <Text style={styles.matchSub}>Matched by last 4 digits · 1675</Text>
               </View>
             </View>
@@ -1490,15 +1490,15 @@ const STATEMENT_HISTORY: Record<
   { title: string; sub: string; status: string; accent: boolean; needsReview?: boolean }[]
 > = {
   en: [
-    { title: 'Banco Aliado · August', sub: 'New layout · we could not read it', status: 'Needs review', accent: true, needsReview: true },
-    { title: 'Banco Aliado · September', sub: 'Forwarded by email · 2 min ago', status: 'New', accent: true },
+    { title: 'Banco General · August', sub: 'New layout · we could not read it', status: 'Needs review', accent: true, needsReview: true },
+    { title: 'Banco General · September', sub: 'Forwarded by email · 2 min ago', status: 'New', accent: true },
     { title: 'BAC · September', sub: 'Uploaded PDF · 5 Sep', status: 'Applied', accent: false },
     { title: 'Davibank · September', sub: 'Forwarded by email · 8 Sep', status: 'Applied', accent: false },
     { title: 'BAC Platinum · August', sub: 'Uploaded PDF · 6 Aug', status: 'Applied', accent: false },
   ],
   es: [
-    { title: 'Banco Aliado · agosto', sub: 'Formato nuevo · no pudimos leerlo', status: 'Revisar', accent: true, needsReview: true },
-    { title: 'Banco Aliado · septiembre', sub: 'Reenviado por correo · hace 2 min', status: 'Nuevo', accent: true },
+    { title: 'Banco General · agosto', sub: 'Formato nuevo · no pudimos leerlo', status: 'Revisar', accent: true, needsReview: true },
+    { title: 'Banco General · septiembre', sub: 'Reenviado por correo · hace 2 min', status: 'Nuevo', accent: true },
     { title: 'BAC · septiembre', sub: 'PDF subido · 5 sep', status: 'Aplicado', accent: false },
     { title: 'Davibank · septiembre', sub: 'Reenviado por correo · 8 sep', status: 'Aplicado', accent: false },
     { title: 'BAC Platinum · agosto', sub: 'PDF subido · 6 ago', status: 'Aplicado', accent: false },

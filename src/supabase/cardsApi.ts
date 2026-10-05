@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './client';
 import { DbCard, DbCardAlias, DbPayment, DbTransaction, NewDbCard } from './types';
 import { ALL_CATEGORIES, Card, Category, InstalmentPlan, Transaction } from '../data';
@@ -143,6 +144,17 @@ export async function updateCard(cardId: string, patch: Partial<DbCard>): Promis
 export async function archiveCard(cardId: string): Promise<void> {
   const { error } = await supabase.from('cards').update({ archived: true }).eq('id', cardId);
   if (error) throw error;
+}
+
+// Permanently deletes the signed-in user's account: every row, every uploaded
+// PDF and the login itself. Runs server-side in the `delete-account` edge
+// function (service role), identified only by the caller's own session token.
+export async function deleteAccount(): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('delete-account', { method: 'POST' });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error ?? 'delete_failed');
+  // Nothing of the deleted account should linger on the device either.
+  await AsyncStorage.removeItem('cardsManager:cache:statements').catch(() => {});
 }
 
 export async function deleteAllUserData(userId: string): Promise<void> {
