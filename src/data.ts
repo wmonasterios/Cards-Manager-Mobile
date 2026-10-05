@@ -112,7 +112,7 @@ function tx(
 export const CARDS: Card[] = [
   {
     id: 'aliado',
-    bank: 'Banco Aliado',
+    bank: 'Banco General',
     product: 'Visa Infinite',
     last4: '•••• 1675',
     network: 'Visa',
@@ -136,7 +136,7 @@ export const CARDS: Card[] = [
       tx('Cervecería La Rana', 'Dining · Panamá', 'Sep 8', -62.4, 'dining'),
       tx('Samsung Store', 'Instalment 3/12 · Tech', 'Sep 4', -89.9, 'home', { plan: '3 of 12' }),
       tx('Delta Fuel', 'Declined — over limit', 'Sep 2', -55.0, 'fuel', { declined: true }),
-      tx('Payment received', 'Transfer · Banco Aliado', 'Aug 31', 900.0, 'payment'),
+      tx('Payment received', 'Transfer · Banco General', 'Aug 31', 900.0, 'payment'),
       tx('Riba Smith', 'Groceries · Panamá', 'Aug 12', -166.9, 'groceries'),
       tx('PriceSmart', 'Groceries · Panamá', 'Jul 22', -241.15, 'groceries'),
       tx('Copa Airlines', 'Instalment 2/6 · Travel', 'Jun 10', -142.0, 'travel', { plan: '2 of 6' }),

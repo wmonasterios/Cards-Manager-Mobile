@@ -11,13 +11,13 @@ import { money } from '../format';
 
 const UPCOMING: Record<'en' | 'es', { day: string; mon: string; card: string; note: string; amount: string; min: string; due: boolean }[]> = {
   en: [
-    { day: '18', mon: 'Sep', card: 'Banco Aliado Visa Infinite', note: 'In 4 days · full payment', amount: 'US$ 3,420.10', min: 'US$ 171.01', due: true },
+    { day: '18', mon: 'Sep', card: 'Banco General Visa Infinite', note: 'In 4 days · full payment', amount: 'US$ 3,420.10', min: 'US$ 171.01', due: true },
     { day: '22', mon: 'Sep', card: 'BAC Platinum', note: 'Nothing to pay', amount: 'US$ 0.00', min: 'US$ 0.00', due: false },
     { day: '25', mon: 'Sep', card: 'BAC Visa Signature', note: 'In 11 days', amount: 'US$ 1,284.52', min: 'US$ 64.23', due: false },
     { day: '02', mon: 'Oct', card: 'Davibank Mastercard Black', note: 'Next cycle', amount: 'US$ 2,140.50', min: 'US$ 214.05', due: false },
   ],
   es: [
-    { day: '18', mon: 'Sep', card: 'Banco Aliado Visa Infinite', note: 'En 4 días · pago de contado', amount: 'US$ 3,420.10', min: 'US$ 171.01', due: true },
+    { day: '18', mon: 'Sep', card: 'Banco General Visa Infinite', note: 'En 4 días · pago de contado', amount: 'US$ 3,420.10', min: 'US$ 171.01', due: true },
     { day: '22', mon: 'Sep', card: 'BAC Platinum', note: 'Nada por pagar', amount: 'US$ 0.00', min: 'US$ 0.00', due: false },
     { day: '25', mon: 'Sep', card: 'BAC Visa Signature', note: 'En 11 días', amount: 'US$ 1,284.52', min: 'US$ 64.23', due: false },
     { day: '02', mon: 'Oct', card: 'Davibank Mastercard Black', note: 'Próximo ciclo', amount: 'US$ 2,140.50', min: 'US$ 214.05', due: false },
@@ -135,7 +135,7 @@ export function CalendarScreen({ navigation }: any) {
 
   const firstUnpaid = unpaid[0];
   const previewTitle = isDemo
-    ? 'Banco Aliado · due in 3 days'
+    ? 'Banco General · due in 3 days'
     : firstUnpaid
       ? `${firstUnpaid.displayName} · ${firstUnpaid.dueShort}`
       : lang === 'es'

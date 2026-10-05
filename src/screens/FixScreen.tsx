@@ -44,8 +44,8 @@ export function FixScreen({ navigation }: Props) {
   const saveFix = () => {
     Alert.alert(
       lang === 'es'
-        ? 'Regla guardada para Banco Aliado · el próximo mes se lee solo'
-        : 'Rule saved for Banco Aliado · next month it reads itself',
+        ? 'Regla guardada para Banco General · el próximo mes se lee solo'
+        : 'Rule saved for Banco General · next month it reads itself',
     );
     navigation.navigate('Tabs', { screen: 'Statements' });
   };
