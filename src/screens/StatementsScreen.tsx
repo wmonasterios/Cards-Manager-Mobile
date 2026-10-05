@@ -40,6 +40,7 @@ import {
   getStatementPdfUrl,
   getStatementEmail,
   getGmailForwardingCode,
+  dismissGmailForwardingCode,
   GmailForwardingCode,
 } from '../supabase/statementsApi';
 import { listCardAliases } from '../supabase/cardsApi';
@@ -249,6 +250,27 @@ function RealStatementsFlow({ navigation, route }: any) {
     await Clipboard.setStringAsync(gmailCode.code);
     setGmailCopied(true);
     setTimeout(() => setGmailCopied(false), 2600);
+  };
+  const dismissGmailCode = () => {
+    if (!userId || !gmailCode) return;
+    Alert.alert(
+      lang === 'es' ? '¿Ocultar este aviso?' : 'Hide this notice?',
+      lang === 'es'
+        ? 'Si no has confirmado el reenvío en Gmail, tus estados de cuenta no se enviarán automáticamente a Poquet.'
+        : "If you haven't confirmed the forwarding in Gmail, your statements won't be sent to Poquet automatically.",
+      [
+        { text: lang === 'es' ? 'Cancelar' : 'Cancel', style: 'cancel' },
+        {
+          text: lang === 'es' ? 'Ocultar' : 'Hide',
+          style: 'destructive',
+          onPress: () => {
+            const at = gmailCode.at;
+            setGmailCode(null);
+            dismissGmailForwardingCode(userId, at).catch(() => {});
+          },
+        },
+      ],
+    );
   };
 
   const filterCardId: string | undefined = route?.params?.cardId;
@@ -1113,9 +1135,14 @@ function RealStatementsFlow({ navigation, route }: any) {
               </View>
               {gmailCode && (
                 <View style={styles.gmailBox}>
-                  <Text style={styles.gmailLabel}>
-                    {lang === 'es' ? 'Confirma el reenvío de Gmail' : 'Confirm Gmail forwarding'}
-                  </Text>
+                  <View style={styles.gmailHeaderRow}>
+                    <Text style={styles.gmailLabel}>
+                      {lang === 'es' ? 'Confirma el reenvío de Gmail' : 'Confirm Gmail forwarding'}
+                    </Text>
+                    <Pressable onPress={dismissGmailCode} hitSlop={8} accessibilityRole="button" accessibilityLabel={lang === 'es' ? 'Ocultar' : 'Dismiss'}>
+                      <Ionicons name="close" size={16} color={colors.ink3} />
+                    </Pressable>
+                  </View>
                   {gmailCode.link && (
                     <Pressable
                       onPress={() => gmailCode.link && Linking.openURL(gmailCode.link)}
@@ -1567,6 +1594,7 @@ function makeStyles(colors: ColorTokens) {
       borderRadius: radius.md,
       backgroundColor: colors.tint,
     },
+    gmailHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     gmailLabel: { fontSize: 12, fontWeight: '500', color: colors.ink2 },
     gmailRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 4 },
     gmailCode: { fontFamily: fonts.display, fontSize: 24, letterSpacing: 1, color: colors.ink },

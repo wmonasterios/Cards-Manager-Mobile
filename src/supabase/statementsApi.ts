@@ -154,11 +154,22 @@ export type GmailForwardingCode = { code: string | null; link: string | null; fr
 export async function getGmailForwardingCode(userId: string): Promise<GmailForwardingCode | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('gmail_fwd_code, gmail_fwd_link, gmail_fwd_from, gmail_fwd_at')
+    .select('gmail_fwd_code, gmail_fwd_link, gmail_fwd_from, gmail_fwd_at, gmail_fwd_dismissed_at')
     .eq('id', userId)
     .single();
   if (error || !data || (!data.gmail_fwd_code && !data.gmail_fwd_link) || !data.gmail_fwd_at) return null;
   const ageMs = Date.now() - Date.parse(data.gmail_fwd_at);
   if (!(ageMs >= 0 && ageMs < 7 * 24 * 60 * 60 * 1000)) return null;
+  if (data.gmail_fwd_dismissed_at && Date.parse(data.gmail_fwd_dismissed_at) >= Date.parse(data.gmail_fwd_at)) {
+    return null;
+  }
   return { code: data.gmail_fwd_code, link: data.gmail_fwd_link, from: data.gmail_fwd_from, at: data.gmail_fwd_at };
+}
+
+// Lets the user dismiss the "confirm Gmail forwarding" nag without actually
+// confirming it in Gmail. Stamped against `at` (not "now") so a brand-new
+// code/link that arrives later — e.g. the user re-sends it from Gmail —
+// still shows, instead of staying dismissed forever.
+export async function dismissGmailForwardingCode(userId: string, at: string): Promise<void> {
+  await supabase.from('profiles').update({ gmail_fwd_dismissed_at: at }).eq('id', userId);
 }

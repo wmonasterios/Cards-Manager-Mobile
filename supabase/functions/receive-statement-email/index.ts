@@ -480,6 +480,15 @@ Deno.serve(async (req: Request) => {
         : `We received ${created} statements and are processing them now.`;
     await sendPush(pushToken, title, body, { type: "statement_received" });
     if (sender) await sendReceivedNotice(sender, isEs, created);
+
+    // A real statement just came through this forwarding alias — proof Gmail's
+    // forwarding is active, so the "confirm forwarding" nag can go away.
+    if (profile.gmail_fwd_code || profile.gmail_fwd_link) {
+      await admin
+        .from("profiles")
+        .update({ gmail_fwd_code: null, gmail_fwd_link: null, gmail_fwd_at: null })
+        .eq("id", profile.id);
+    }
   }
 
   return new Response("ok", { status: 200 });
