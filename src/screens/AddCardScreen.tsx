@@ -81,7 +81,7 @@ export function AddCardScreen({ navigation }: Props) {
           <TextInput
             value={bank}
             onChangeText={setBank}
-            placeholder="Banco Aliado"
+            placeholder="Banco General"
             placeholderTextColor={colors.ink3}
             style={styles.input}
           />
