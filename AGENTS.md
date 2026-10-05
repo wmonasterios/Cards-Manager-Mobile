@@ -86,7 +86,13 @@ before touching any screen's styling:
 
 `supabase/functions/receive-statement-email/index.ts` is now checked into
 this repo and matches the deployed v10 exactly (verified byte-for-byte).
-`apply-statement` and `parse-statement` are **not** in the repo yet — they
+`supabase/functions/delete-account/index.ts` (in-app account deletion,
+Settings → "Delete my account", required by App Store guideline 5.1.1(v))
+is also in the repo, deployed with `verify_jwt: true` — unlike
+`receive-statement-email`, which is `verify_jwt: false` since Mailgun calls it.
+Every user-owned table also has an `ON DELETE CASCADE` FK to `auth.users`;
+keep that true for any new per-user table so deleting the auth user can never
+leave orphans. `apply-statement` and `parse-statement` are **not** in the repo yet — they
 still only exist in Supabase itself, edited directly via the Supabase MCP
 tools (`get_edge_function`/`deploy_edge_function`), same as earlier in this
 project's history. Before editing any edge function: check whether its

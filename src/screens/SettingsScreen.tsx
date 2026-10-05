@@ -14,8 +14,9 @@ import { useAuth } from '../context/AuthContext';
 import { useCards } from '../context/CardsContext';
 import * as Clipboard from 'expo-clipboard';
 import { getStatementEmail } from '../supabase/statementsApi';
+import { deleteAccount } from '../supabase/cardsApi';
 import { buildTransactionsCsv } from '../csv';
-import { requestNotificationPermission } from '../notifications';
+import { cancelPaymentReminders, cancelWeeklySummary, requestNotificationPermission } from '../notifications';
 
 const DEMO_INBOX = 'demo.user.7f3a@in.cardsmanager.app';
 
@@ -31,6 +32,7 @@ export function SettingsScreen({ navigation }: any) {
   const [inbox, setInbox] = React.useState(DEMO_INBOX);
   const [exporting, setExporting] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
+  const [deletingAccount, setDeletingAccount] = React.useState(false);
 
   React.useEffect(() => {
     if (isDemo || !session?.user.id) return;
@@ -124,6 +126,50 @@ export function SettingsScreen({ navigation }: any) {
               Alert.alert(lang === 'es' ? 'No se pudo borrar' : 'Could not delete', err?.message ?? String(err));
             } finally {
               setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    if (isDemo || !session) {
+      Alert.alert(
+        lang === 'es' ? 'Estás en modo demo' : "You're in demo mode",
+        lang === 'es' ? 'Aquí no hay una cuenta que eliminar.' : "There's no account to delete here.",
+      );
+      return;
+    }
+    Alert.alert(
+      lang === 'es' ? '¿Eliminar tu cuenta?' : 'Delete your account?',
+      lang === 'es'
+        ? 'Se elimina tu cuenta de Poquet junto con todas tus tarjetas, transacciones, pagos, estados de cuenta y tu dirección de reenvío. No se puede deshacer.'
+        : 'This deletes your Poquet account along with all your cards, transactions, payments, statements and your forwarding address. This cannot be undone.',
+      [
+        { text: lang === 'es' ? 'Cancelar' : 'Cancel', style: 'cancel' },
+        {
+          text: lang === 'es' ? 'Eliminar cuenta' : 'Delete account',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingAccount(true);
+            try {
+              await deleteAccount();
+              await Promise.all([cancelPaymentReminders(), cancelWeeklySummary()]).catch(() => {});
+              Alert.alert(
+                lang === 'es' ? 'Cuenta eliminada' : 'Account deleted',
+                lang === 'es' ? 'Tu cuenta y tus datos se eliminaron.' : 'Your account and data have been deleted.',
+              );
+              await signOut();
+            } catch (err: any) {
+              Alert.alert(
+                lang === 'es' ? 'No se pudo eliminar la cuenta' : 'Could not delete your account',
+                lang === 'es'
+                  ? 'Inténtalo de nuevo en un momento. Si sigue fallando, escríbenos a support@poquetapp.com.'
+                  : 'Please try again in a moment. If it keeps failing, email support@poquetapp.com.',
+              );
+            } finally {
+              setDeletingAccount(false);
             }
           },
         },
@@ -250,6 +296,19 @@ export function SettingsScreen({ navigation }: any) {
                   <Text style={[styles.dataBtnText, { color: colors.accentInk }]}>{t.deleteAll}</Text>
                 )}
               </Pressable>
+              {session && (
+                <Pressable
+                  onPress={handleDeleteAccount}
+                  disabled={deletingAccount}
+                  style={[styles.dataBtn, { borderColor: colors.line }, deletingAccount && { opacity: 0.6 }]}
+                >
+                  {deletingAccount ? (
+                    <ActivityIndicator color={colors.accentInk} />
+                  ) : (
+                    <Text style={[styles.dataBtnText, { color: colors.accentInk }]}>{t.deleteAccount}</Text>
+                  )}
+                </Pressable>
+              )}
             </View>
           </View>
 
