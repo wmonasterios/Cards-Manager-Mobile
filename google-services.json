@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "882057989663",
+    "project_id": "poquet-357ab",
+    "storage_bucket": "poquet-357ab.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:882057989663:android:e42a4274ffb90e3f134f2a",
+        "android_client_info": {
+          "package_name": "com.poquet"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCw4u5p4aBtbtBMwm5PJ1NGTOMExVqPNeo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:882057989663:android:e984fa88e4a972ab134f2a",
+        "android_client_info": {
+          "package_name": "com.poquet.preview"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCw4u5p4aBtbtBMwm5PJ1NGTOMExVqPNeo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

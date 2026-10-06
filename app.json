@@ -19,6 +19,7 @@
     },
     "android": {
       "package": "com.poquet",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0B0E1C",
         "foregroundImage": "./assets/android-icon-foreground.png",
