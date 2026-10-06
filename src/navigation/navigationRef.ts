@@ -37,3 +37,27 @@ export function navigateToNotifPrimer() {
     navigationRef.navigate('NotifPrimer');
   });
 }
+
+// Lands in the main tabs as the ONLY route on the stack, so a swipe-back can
+// never reveal the welcome/auth screens that led here.
+export function enterApp(tab?: 'Home' | 'Statements', tour = false) {
+  navigateWhenReady(() => {
+    navigationRef.reset({
+      index: 0,
+      routes: [
+        {
+          name: 'Tabs',
+          params: tab ? { screen: tab, params: tab === 'Home' ? { tour } : undefined } : undefined,
+        },
+      ],
+    });
+  });
+}
+
+// Back to the welcome screen (log in / create account / see the demo), e.g.
+// after signing out or deleting the account.
+export function goToWelcome() {
+  navigateWhenReady(() => {
+    navigationRef.reset({ index: 0, routes: [{ name: 'Onboarding' }] });
+  });
+}

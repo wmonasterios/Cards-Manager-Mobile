@@ -1445,7 +1445,7 @@ export function StatementsScreen({ navigation, route }: any) {
               <View style={styles.matchThumb} />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={styles.matchTitle}>Banco General · Visa Infinite</Text>
-                <Text style={styles.matchSub}>Matched by last 4 digits · 1675</Text>
+                <Text style={styles.matchSub}>{lang === 'es' ? 'Coincide por los últimos 4 dígitos · 0000' : 'Matched by last 4 digits · 0000'}</Text>
               </View>
             </View>
 

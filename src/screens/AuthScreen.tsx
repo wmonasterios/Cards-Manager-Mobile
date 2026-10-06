@@ -10,6 +10,7 @@ import { useAppTheme } from '../theme/ThemeContext';
 import { BackButton } from '../components/BackButton';
 import { Segmented } from '../components/Segmented';
 import { useAuth } from '../context/AuthContext';
+import { enterApp } from '../navigation/navigationRef';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Auth'>;
 type Mode = 'signin' | 'signup';
@@ -25,7 +26,8 @@ export function AuthScreen({ navigation, route }: Props) {
   // back to the onboarding screen behind this modal.
   const finish = () => {
     if (route.params?.fromOnboarding) {
-      navigation.replace('Tabs', { screen: 'Statements' });
+      // Reset (not replace) so the welcome screen isn't left underneath.
+      enterApp(route.params?.mode === 'signin' ? 'Home' : 'Statements');
     } else {
       navigation.goBack();
     }
@@ -38,7 +40,7 @@ export function AuthScreen({ navigation, route }: Props) {
     navigation.replace('SecuritySetup', { fromOnboarding: route.params?.fromOnboarding });
   };
 
-  const [mode, setMode] = useState<Mode>('signin');
+  const [mode, setMode] = useState<Mode>(route.params?.mode ?? 'signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');

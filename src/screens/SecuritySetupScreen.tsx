@@ -9,6 +9,7 @@ import { radius, spacing, ColorTokens, fonts } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { useAppSettings } from '../context/AppSettingsContext';
+import { enterApp } from '../navigation/navigationRef';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SecuritySetup'>;
 
@@ -28,7 +29,7 @@ export function SecuritySetupScreen({ navigation, route }: Props) {
 
   const finish = () => {
     if (route.params?.fromOnboarding) {
-      navigation.replace('Tabs', { screen: 'Statements' });
+      enterApp('Statements');
     } else {
       navigation.goBack();
     }
