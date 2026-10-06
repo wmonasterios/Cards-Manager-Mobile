@@ -6,7 +6,9 @@ import Svg, { Circle } from 'react-native-svg';
 import { radius, spacing, ColorTokens, fonts } from '../theme';
 import { artInk } from '../data';
 import { useColors } from '../theme/ThemeContext';
-import { useT } from '../i18n/LocaleContext';
+import { useT, useLocale } from '../i18n/LocaleContext';
+import { DemoCta, DemoTour } from '../components/DemoHomeExtras';
+import { DEMO_PERSONA } from '../demo';
 import { CardArt } from '../components/CardArt';
 import { DraggableCardStack } from '../components/DraggableCardStack';
 import { useCards } from '../context/CardsContext';
@@ -57,10 +59,11 @@ function Shimmer({ style }: { style: any }) {
   );
 }
 
-export function HomeScreen({ navigation }: any) {
+export function HomeScreen({ navigation, route }: any) {
   const { cards, isDemo, loaded, loadError, refresh, reorderCards } = useCards();
   const colors = useColors();
   const t = useT();
+  const { lang } = useLocale();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [reordering, setReordering] = useState(false);
   // Which shortcut produced the current order, so the matching button can
@@ -146,16 +149,24 @@ export function HomeScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, isDemo && { paddingBottom: 120 }]}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!reordering}
       >
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.kicker}>{t.totalOwed.toUpperCase()}</Text>
+            <Text style={styles.kicker}>
+              {(isDemo
+                ? lang === 'es'
+                  ? `${t.totalOwed} de ${DEMO_PERSONA}`
+                  : `${DEMO_PERSONA}'s ${t.totalOwed.toLowerCase()}`
+                : t.totalOwed
+              ).toUpperCase()}
+            </Text>
             <Text style={styles.total}>{money('US$', totalOwed)}</Text>
             <Text style={styles.totalNote}>
-              {cards.length} {t.cardsWord} · {unpaid.length} {t.withBalance}
+              {cards.length} {isDemo ? (lang === 'es' ? 'tarjetas de ejemplo' : 'sample cards') : t.cardsWord} ·{' '}
+              {unpaid.length} {t.withBalance}
             </Text>
           </View>
           <View style={styles.headerActions}>
@@ -188,13 +199,6 @@ export function HomeScreen({ navigation }: any) {
             )}
           </View>
         </View>
-
-        {isDemo && (
-          <Pressable onPress={() => navigation.navigate('Auth')} style={styles.demoBanner}>
-            <Text style={styles.demoBannerText}>{t.demoModeBanner}</Text>
-            <Text style={styles.demoBannerCta}>{t.demoModeBannerCta}</Text>
-          </Pressable>
-        )}
 
         {reordering && (
           <View style={styles.reorderHintBanner}>
@@ -369,6 +373,8 @@ export function HomeScreen({ navigation }: any) {
           </View>
         )}
       </ScrollView>
+      {isDemo && <DemoCta onPress={() => navigation.navigate('DemoExit')} />}
+      {isDemo && route?.params?.tour && <DemoTour onDone={() => navigation.setParams({ tour: false })} />}
     </SafeAreaView>
   );
 }
@@ -408,18 +414,6 @@ function makeStyles(colors: ColorTokens) {
     iconBtnText: { color: colors.ink, fontSize: 18 },
     reorderDoneBtn: { width: undefined, paddingHorizontal: 16, borderColor: colors.line },
     reorderDoneText: { color: colors.accentInk2, fontSize: 13, fontWeight: '600' },
-    demoBanner: {
-      marginTop: 14,
-      marginHorizontal: spacing.xl,
-      paddingVertical: 10,
-      paddingHorizontal: 12,
-      borderRadius: radius.md,
-      backgroundColor: colors.tint,
-      borderWidth: 1,
-      borderColor: colors.line,
-    },
-    demoBannerText: { fontSize: 12.5, fontWeight: '600', color: colors.accentInk },
-    demoBannerCta: { fontSize: 11.5, color: colors.accentInk2, marginTop: 3 },
     reorderHintBanner: {
       marginTop: 14,
       marginHorizontal: spacing.xl,

@@ -8,6 +8,7 @@ import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { PinPad } from '../components/PinPad';
 import { PIN_LENGTH, setPin } from '../pin';
+import { enterApp } from '../navigation/navigationRef';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PinSetup'>;
 
@@ -23,7 +24,7 @@ export function PinSetupScreen({ navigation, route }: Props) {
   const finishAfterSetting = () => {
     if (route.params?.thenFinishAuth) {
       if (route.params?.fromOnboarding) {
-        navigation.replace('Tabs', { screen: 'Statements' });
+        enterApp('Statements');
       } else {
         navigation.goBack();
       }

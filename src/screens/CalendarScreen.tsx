@@ -134,18 +134,24 @@ export function CalendarScreen({ navigation }: any) {
   );
 
   const firstUnpaid = unpaid[0];
+  const es = lang === 'es';
+  const remindersState = es ? `recordatorios ${reminder ? 'activos' : 'apagados'}` : `reminders ${reminder ? 'on' : 'off'}`;
   const previewTitle = isDemo
-    ? 'Banco General · due in 3 days'
+    ? es
+      ? 'Banco General · vence en 3 días'
+      : 'Banco General · due in 3 days'
     : firstUnpaid
       ? `${firstUnpaid.displayName} · ${firstUnpaid.dueShort}`
-      : lang === 'es'
+      : es
         ? 'No tienes pagos pendientes'
         : "You're all caught up";
   const previewBody = isDemo
-    ? `US$ 3,420.10 full · US$ 171.01 minimum · reminders ${reminder ? 'On' : 'Off'}`
+    ? es
+      ? `Total US$ 3,420.10 · mínimo US$ 171.01 · ${remindersState}`
+      : `US$ 3,420.10 full · US$ 171.01 minimum · ${remindersState}`
     : firstUnpaid
-      ? `${firstUnpaid.balanceText} · ${lang === 'es' ? 'mínimo' : 'min'} ${firstUnpaid.minText} · reminders ${reminder ? 'On' : 'Off'}`
-      : `reminders ${reminder ? 'On' : 'Off'}`;
+      ? `${firstUnpaid.balanceText} · ${es ? 'mínimo' : 'min'} ${firstUnpaid.minText} · ${remindersState}`
+      : remindersState;
 
   const cells: (number | null)[] = [
     ...Array(firstWeekday).fill(null),

@@ -1,7 +1,7 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
 
 export type TabParamList = {
-  Home: undefined;
+  Home: { tour?: boolean } | undefined;
   Calendar: undefined;
   Insights: undefined;
   Statements: { cardId?: string; statementId?: string } | undefined;
@@ -18,7 +18,9 @@ export type RootStackParamList = {
   Best: undefined;
   Report: undefined;
   Fix: undefined;
-  Auth: { fromOnboarding?: boolean } | undefined;
+  Auth: { fromOnboarding?: boolean; mode?: 'signin' | 'signup' } | undefined;
+  DemoIntro: undefined;
+  DemoExit: undefined;
   AddCard: undefined;
   NotifPrimer: undefined;
   SecuritySetup: { fromOnboarding?: boolean } | undefined;

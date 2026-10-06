@@ -2,7 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from './types';
 import { useColors } from '../theme/ThemeContext';
-import { useAppSettings } from '../context/AppSettingsContext';
+import { useAuth } from '../context/AuthContext';
 import { TabNavigator } from './TabNavigator';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { CardDetailScreen } from '../screens/CardDetailScreen';
@@ -17,16 +17,20 @@ import { AddCardScreen } from '../screens/AddCardScreen';
 import { NotifPrimerScreen } from '../screens/NotifPrimerScreen';
 import { SecuritySetupScreen } from '../screens/SecuritySetupScreen';
 import { PinSetupScreen } from '../screens/PinSetupScreen';
+import { DemoIntroScreen } from '../screens/DemoIntroScreen';
+import { DemoExitScreen } from '../screens/DemoExitScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
   const colors = useColors();
-  const { onboarded } = useAppSettings();
+  // Signed in → straight to the app. Nobody signed in → the welcome screen
+  // (log in, create an account or open the clearly-labelled demo).
+  const { session } = useAuth();
 
   return (
     <Stack.Navigator
-      initialRouteName={onboarded ? 'Tabs' : 'Onboarding'}
+      initialRouteName={session ? 'Tabs' : 'Onboarding'}
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.bg },
@@ -48,6 +52,16 @@ export function RootNavigator() {
       <Stack.Screen name="AddCard" component={AddCardScreen} options={{ presentation: 'modal' }} />
       <Stack.Screen name="NotifPrimer" component={NotifPrimerScreen} options={{ presentation: 'modal', gestureEnabled: false }} />
       <Stack.Screen name="SecuritySetup" component={SecuritySetupScreen} options={{ presentation: 'modal', gestureEnabled: false }} />
+      <Stack.Screen
+        name="DemoIntro"
+        component={DemoIntroScreen}
+        options={{ presentation: 'transparentModal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: 'transparent' } }}
+      />
+      <Stack.Screen
+        name="DemoExit"
+        component={DemoExitScreen}
+        options={{ presentation: 'transparentModal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: 'transparent' } }}
+      />
       <Stack.Screen name="PinSetup" component={PinSetupScreen} options={{ presentation: 'modal', gestureEnabled: false }} />
     </Stack.Navigator>
   );
