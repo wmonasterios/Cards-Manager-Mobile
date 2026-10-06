@@ -69,6 +69,10 @@ function AppContent() {
         {isDemo && routeName && !NO_RIBBON.has(routeName) && (
           <DemoRibbon onExit={() => navigationRef.navigate('DemoExit')} />
         )}
+        {/* A nested provider measures safe-area insets relative to itself, so
+            when the DEMO ribbon sits above, screens below it get a top inset
+            of 0 instead of leaving a second status-bar-sized gap. */}
+        <SafeAreaProvider style={{ flex: 1 }}>
         <NavigationContainer
           theme={navTheme}
           ref={navigationRef}
@@ -77,6 +81,7 @@ function AppContent() {
         >
           <RootNavigator />
         </NavigationContainer>
+        </SafeAreaProvider>
       </View>
     </LockGate>
   );
