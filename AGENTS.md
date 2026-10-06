@@ -56,6 +56,20 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
   "soon after." When adding a native dependency, check whether anything on
   the always-mounted path (`App.tsx`, `LockGate`, `NotificationsSync`, etc.)
   imports it, not just whether a screen you can navigate away from does.
+- `google-services.json` (Firebase, project `poquet-357ab` under
+  `admin@bitelatam.com`) is checked into the repo — expected, Firebase client
+  keys are meant to ship in code/binaries, GitHub's secret-scanning alert on
+  it is a false-positive-by-design. **But** the underlying API key
+  (`AIzaSyCw4u5...PNeo`, in Google Cloud Console → APIs & Services →
+  Credentials, under the `poquet-357ab` *Firebase* project — not the same as
+  any Google Cloud project with a similar name under this account) currently
+  has **no Android app restriction** ("Application restrictions: Ninguno").
+  Restricting it needs a package name + SHA-1 pair, and no Android build has
+  happened yet in this project (iOS-only so far), so there's no signing
+  keystore to get a SHA-1 from. **TODO once the first `eas build --platform
+  android` runs**: get the SHA-1 via `eas credentials`, go back to that API
+  key, set "Application restrictions" → "Apps para Android", add
+  `com.poquet` (and `com.poquet.preview`) with their SHA-1s.
 
 # Security: PIN + Face ID (Oct 2026)
 
