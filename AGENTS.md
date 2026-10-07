@@ -56,6 +56,20 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
   "soon after." When adding a native dependency, check whether anything on
   the always-mounted path (`App.tsx`, `LockGate`, `NotificationsSync`, etc.)
   imports it, not just whether a screen you can navigate away from does.
+- **`runtimeVersion.policy` in `app.json` is `"appVersion"`** — every build
+  sharing the same `version` string shares the same OTA runtime bucket, so
+  *all* of them get the *same* updates, even ones that need a native module
+  an older build doesn't have. This is what actually broke builds 2 and 5 in
+  Oct 2026: the PIN's `expo-secure-store` OTA shipped to the `production`
+  channel while builds 2, 5 and 7 were all still `1.1.0`, so 2 and 5 (built
+  before that dependency existed) had to be expired in TestFlight — bumping
+  `version` after the fact doesn't retroactively protect builds already out
+  there. **Before publishing any OTA to `production`, check that every
+  currently-active build has the native modules the JS being shipped needs.**
+  Going forward, bump `version` in `app.json` (e.g. 1.1.0 → 1.2.0) on any
+  build that adds a native module, so older builds fall into a different
+  runtime bucket and simply stop receiving updates that would crash them,
+  instead of silently sharing a bucket with builds that can't run them.
 - `google-services.json` (Firebase, project `poquet-357ab` under
   `admin@bitelatam.com`) is checked into the repo — expected, Firebase client
   keys are meant to ship in code/binaries, GitHub's secret-scanning alert on
@@ -70,6 +84,11 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
   android` runs**: get the SHA-1 via `eas credentials`, go back to that API
   key, set "Application restrictions" → "Apps para Android", add
   `com.poquet` (and `com.poquet.preview`) with their SHA-1s.
+- **Android is paused (Oct 2026).** Firebase config and the FCM key are
+  already in place (`google-services.json`, EAS env). Still needed before
+  shipping: finish the Play Console organization/app forms, write the Play
+  Store listing, run the first `eas build --platform android`, do an
+  internal test, then come back and do the SHA-1 restriction above.
 
 # Security: PIN + Face ID (Oct 2026)
 
