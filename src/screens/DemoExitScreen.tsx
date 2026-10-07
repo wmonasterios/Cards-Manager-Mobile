@@ -6,7 +6,6 @@ import { radius, ColorTokens, fonts } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { SheetFrame } from '../components/SheetFrame';
-import { goToWelcome } from '../navigation/navigationRef';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DemoExit'>;
 
@@ -20,7 +19,6 @@ const COPY = {
     keep: 'Seguir explorando la demo',
     haveAccount: '¿Ya tienes cuenta?',
     signIn: 'Inicia sesión',
-    back: 'Volver al inicio',
   },
   en: {
     title: 'Ready to see your own cards?',
@@ -30,7 +28,6 @@ const COPY = {
     keep: 'Keep exploring the demo',
     haveAccount: 'Already have an account?',
     signIn: 'Sign in',
-    back: 'Back to the welcome screen',
   },
 };
 
@@ -76,9 +73,6 @@ export function DemoExitScreen({ navigation }: Props) {
           <Text style={styles.signInLink}>{c.signIn}</Text>
         </Pressable>
       </View>
-      <Pressable onPress={goToWelcome} style={styles.backBtn} hitSlop={6} accessibilityRole="button">
-        <Text style={styles.backText}>{c.back}</Text>
-      </Pressable>
     </SheetFrame>
   );
 }
@@ -98,7 +92,5 @@ function makeStyles(colors: ColorTokens) {
     signInRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
     signInText: { fontSize: 14, color: colors.ink3 },
     signInLink: { fontSize: 14, fontWeight: '600', color: colors.ink, textDecorationLine: 'underline' },
-    backBtn: { marginTop: 14, alignSelf: 'center', paddingVertical: 6 },
-    backText: { fontSize: 13, color: colors.ink3 },
   });
 }
