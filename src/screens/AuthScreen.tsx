@@ -7,6 +7,7 @@ import { RootStackParamList } from '../navigation/types';
 import { radius, spacing, ColorTokens, fonts } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useAppTheme } from '../theme/ThemeContext';
+import { useLocale } from '../i18n/LocaleContext';
 import { BackButton } from '../components/BackButton';
 import { Segmented } from '../components/Segmented';
 import { useAuth } from '../context/AuthContext';
@@ -19,6 +20,7 @@ export function AuthScreen({ navigation, route }: Props) {
   const colors = useColors();
   const { isDark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { lang } = useLocale();
   const { signIn, signUp, confirmSignup, resendConfirmation, signInWithGoogle, signInWithApple } = useAuth();
 
   // Reached from onboarding's "add my first statement" CTA: once signed in,
@@ -60,7 +62,7 @@ export function AuthScreen({ navigation, route }: Props) {
     const { error } = await signInWithGoogle();
     setGoogleBusy(false);
     if (error) {
-      Alert.alert('Could not sign in with Google', error);
+      Alert.alert(lang === 'es' ? 'No se pudo iniciar sesión con Google' : 'Could not sign in with Google', error);
       return;
     }
     finish();
@@ -69,7 +71,7 @@ export function AuthScreen({ navigation, route }: Props) {
   const handleApple = async () => {
     const { error } = await signInWithApple();
     if (error) {
-      Alert.alert('Could not sign in with Apple', error);
+      Alert.alert(lang === 'es' ? 'No se pudo iniciar sesión con Apple' : 'Could not sign in with Apple', error);
       return;
     }
     finish();
@@ -79,18 +81,21 @@ export function AuthScreen({ navigation, route }: Props) {
 
   const submit = async () => {
     if (!email.trim() || !password) {
-      Alert.alert('Enter your email and password.');
+      Alert.alert(lang === 'es' ? 'Ingresa tu correo y contraseña.' : 'Enter your email and password.');
       return;
     }
     if (mode === 'signup' && password.length < MIN_PASSWORD_LENGTH) {
-      Alert.alert('Choose a longer password', `Use at least ${MIN_PASSWORD_LENGTH} characters.`);
+      Alert.alert(
+        lang === 'es' ? 'Elige una contraseña más larga' : 'Choose a longer password',
+        lang === 'es' ? `Usa al menos ${MIN_PASSWORD_LENGTH} caracteres.` : `Use at least ${MIN_PASSWORD_LENGTH} characters.`,
+      );
       return;
     }
     setBusy(true);
     const result = mode === 'signin' ? await signIn(email.trim(), password) : await signUp(email.trim(), password);
     setBusy(false);
     if (result.error) {
-      Alert.alert('Could not sign in', result.error);
+      Alert.alert(lang === 'es' ? 'No se pudo iniciar sesión' : 'Could not sign in', result.error);
       return;
     }
     if (mode === 'signup' && 'needsConfirmation' in result && result.needsConfirmation) {
@@ -103,14 +108,14 @@ export function AuthScreen({ navigation, route }: Props) {
 
   const submitCode = async () => {
     if (!code.trim()) {
-      Alert.alert('Enter the code from your email.');
+      Alert.alert(lang === 'es' ? 'Ingresa el código de tu correo.' : 'Enter the code from your email.');
       return;
     }
     setBusy(true);
     const { error } = await confirmSignup(email.trim(), code.trim());
     setBusy(false);
     if (error) {
-      Alert.alert('Could not confirm your account', error);
+      Alert.alert(lang === 'es' ? 'No se pudo confirmar tu cuenta' : 'Could not confirm your account', error);
       return;
     }
     finishSignup();
@@ -121,10 +126,13 @@ export function AuthScreen({ navigation, route }: Props) {
     const { error } = await resendConfirmation(email.trim());
     setResending(false);
     if (error) {
-      Alert.alert('Could not resend the code', error);
+      Alert.alert(lang === 'es' ? 'No se pudo reenviar el código' : 'Could not resend the code', error);
       return;
     }
-    Alert.alert('Code sent', 'Check your email for a new code.');
+    Alert.alert(
+      lang === 'es' ? 'Código enviado' : 'Code sent',
+      lang === 'es' ? 'Revisa tu correo por el nuevo código.' : 'Check your email for a new code.',
+    );
   };
 
   if (awaitingCode) {
@@ -137,12 +145,14 @@ export function AuthScreen({ navigation, route }: Props) {
         >
           <View style={styles.top}>
             <BackButton onPress={() => setAwaitingCode(false)} />
-            <Text style={styles.title}>Confirm your email</Text>
+            <Text style={styles.title}>{lang === 'es' ? 'Confirma tu correo' : 'Confirm your email'}</Text>
             <Text style={styles.sub}>
-              We emailed a 6-digit code to {email.trim()}. Enter it below to finish creating your account.
+              {lang === 'es'
+                ? `Te enviamos un código de 6 dígitos a ${email.trim()}. Ingrésalo abajo para terminar de crear tu cuenta.`
+                : `We emailed a 6-digit code to ${email.trim()}. Enter it below to finish creating your account.`}
             </Text>
 
-            <Text style={styles.label}>CODE</Text>
+            <Text style={styles.label}>{lang === 'es' ? 'CÓDIGO' : 'CODE'}</Text>
             <TextInput
               value={code}
               onChangeText={setCode}
@@ -155,11 +165,13 @@ export function AuthScreen({ navigation, route }: Props) {
             />
 
             <Pressable onPress={submitCode} disabled={busy} style={[styles.submitBtn, busy && { opacity: 0.6 }]}>
-              {busy ? <ActivityIndicator color={colors.onTint2} /> : <Text style={styles.submitBtnText}>Confirm</Text>}
+              {busy ? <ActivityIndicator color={colors.onTint2} /> : <Text style={styles.submitBtnText}>{lang === 'es' ? 'Confirmar' : 'Confirm'}</Text>}
             </Pressable>
 
             <Pressable onPress={resendCode} disabled={resending} hitSlop={8} style={{ marginTop: 16 }}>
-              <Text style={styles.resendText}>{resending ? 'Sending…' : 'Resend code'}</Text>
+              <Text style={styles.resendText}>
+                {resending ? (lang === 'es' ? 'Enviando…' : 'Sending…') : (lang === 'es' ? 'Reenviar código' : 'Resend code')}
+              </Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -176,24 +188,27 @@ export function AuthScreen({ navigation, route }: Props) {
       >
         <View style={styles.top}>
           <BackButton onPress={() => navigation.goBack()} />
-          <Text style={styles.title}>{mode === 'signin' ? 'Sign in' : 'Create account'}</Text>
+          <Text style={styles.title}>
+            {mode === 'signin' ? (lang === 'es' ? 'Iniciar sesión' : 'Sign in') : (lang === 'es' ? 'Crear cuenta' : 'Create account')}
+          </Text>
           <Text style={styles.sub}>
-            Sign in to keep your real cards synced across devices. Without an account you can still
-            explore the app with demo data.
+            {lang === 'es'
+              ? 'Inicia sesión para mantener tus tarjetas reales sincronizadas entre dispositivos. Sin cuenta igual puedes explorar la app con datos de ejemplo.'
+              : 'Sign in to keep your real cards synced across devices. Without an account you can still explore the app with demo data.'}
           </Text>
 
           <View style={{ marginTop: 18 }}>
             <Segmented
               options={[
-                { key: 'signin', label: 'Sign in' },
-                { key: 'signup', label: 'Create account' },
+                { key: 'signin', label: lang === 'es' ? 'Iniciar sesión' : 'Sign in' },
+                { key: 'signup', label: lang === 'es' ? 'Crear cuenta' : 'Create account' },
               ]}
               value={mode}
               onChange={setMode}
             />
           </View>
 
-          <Text style={styles.label}>EMAIL</Text>
+          <Text style={styles.label}>{lang === 'es' ? 'CORREO' : 'EMAIL'}</Text>
           <TextInput
             value={email}
             onChangeText={setEmail}
@@ -205,7 +220,7 @@ export function AuthScreen({ navigation, route }: Props) {
             style={styles.input}
           />
 
-          <Text style={styles.label}>PASSWORD</Text>
+          <Text style={styles.label}>{lang === 'es' ? 'CONTRASEÑA' : 'PASSWORD'}</Text>
           <TextInput
             value={password}
             onChangeText={setPassword}
@@ -215,19 +230,25 @@ export function AuthScreen({ navigation, route }: Props) {
             autoCapitalize="none"
             style={styles.input}
           />
-          {mode === 'signup' && <Text style={styles.passwordHint}>At least {MIN_PASSWORD_LENGTH} characters.</Text>}
+          {mode === 'signup' && (
+            <Text style={styles.passwordHint}>
+              {lang === 'es' ? `Al menos ${MIN_PASSWORD_LENGTH} caracteres.` : `At least ${MIN_PASSWORD_LENGTH} characters.`}
+            </Text>
+          )}
 
           <Pressable onPress={submit} disabled={busy} style={[styles.submitBtn, busy && { opacity: 0.6 }]}>
             {busy ? (
               <ActivityIndicator color={colors.accent} />
             ) : (
-              <Text style={styles.submitBtnText}>{mode === 'signin' ? 'Sign in' : 'Create account'}</Text>
+              <Text style={styles.submitBtnText}>
+                {mode === 'signin' ? (lang === 'es' ? 'Iniciar sesión' : 'Sign in') : (lang === 'es' ? 'Crear cuenta' : 'Create account')}
+              </Text>
             )}
           </Pressable>
 
           <View style={styles.dividerRow}>
             <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
+            <Text style={styles.dividerText}>{lang === 'es' ? 'o' : 'or'}</Text>
             <View style={styles.dividerLine} />
           </View>
 
@@ -235,7 +256,7 @@ export function AuthScreen({ navigation, route }: Props) {
             {googleBusy ? (
               <ActivityIndicator color={colors.ink} />
             ) : (
-              <Text style={styles.googleBtnText}>Continue with Google</Text>
+              <Text style={styles.googleBtnText}>{lang === 'es' ? 'Continuar con Google' : 'Continue with Google'}</Text>
             )}
           </Pressable>
 

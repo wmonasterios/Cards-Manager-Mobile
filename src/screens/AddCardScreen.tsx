@@ -5,6 +5,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { radius, spacing, ColorTokens, fonts } from '../theme';
 import { useColors } from '../theme/ThemeContext';
+import { useLocale } from '../i18n/LocaleContext';
 import { BackButton } from '../components/BackButton';
 import { DateField } from '../components/DateField';
 import { useCards } from '../context/CardsContext';
@@ -18,6 +19,7 @@ function toIso(d: Date) {
 export function AddCardScreen({ navigation }: Props) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { lang } = useLocale();
   const { addRealCard } = useCards();
 
   const [bank, setBank] = useState('');
@@ -35,11 +37,11 @@ export function AddCardScreen({ navigation }: Props) {
 
   const save = async () => {
     if (!bank.trim()) {
-      Alert.alert('Enter the bank name first.');
+      Alert.alert(lang === 'es' ? 'Primero ingresa el nombre del banco.' : 'Enter the bank name first.');
       return;
     }
     if (!creditLimit.trim() || parseFloat(creditLimit) <= 0) {
-      Alert.alert('Enter a credit limit greater than zero.');
+      Alert.alert(lang === 'es' ? 'Ingresa un límite de crédito mayor a cero.' : 'Enter a credit limit greater than zero.');
       return;
     }
     setBusy(true);
@@ -57,7 +59,7 @@ export function AddCardScreen({ navigation }: Props) {
       });
       navigation.goBack();
     } catch (err: any) {
-      Alert.alert('Could not save the card', err?.message ?? String(err));
+      Alert.alert(lang === 'es' ? 'No se pudo guardar la tarjeta' : 'Could not save the card', err?.message ?? String(err));
     } finally {
       setBusy(false);
     }
@@ -72,12 +74,14 @@ export function AddCardScreen({ navigation }: Props) {
       >
         <View style={styles.top}>
           <BackButton onPress={() => navigation.goBack()} />
-          <Text style={styles.title}>Add a card</Text>
+          <Text style={styles.title}>{lang === 'es' ? 'Agregar una tarjeta' : 'Add a card'}</Text>
           <Text style={styles.sub}>
-            Enter the details from your latest statement. You can update these anytime.
+            {lang === 'es'
+              ? 'Ingresa los datos de tu último estado de cuenta. Puedes actualizarlos cuando quieras.'
+              : 'Enter the details from your latest statement. You can update these anytime.'}
           </Text>
 
-          <Text style={styles.label}>BANK</Text>
+          <Text style={styles.label}>{lang === 'es' ? 'BANCO' : 'BANK'}</Text>
           <TextInput
             value={bank}
             onChangeText={setBank}
@@ -88,7 +92,7 @@ export function AddCardScreen({ navigation }: Props) {
 
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.label}>PRODUCT</Text>
+              <Text style={styles.label}>{lang === 'es' ? 'PRODUCTO' : 'PRODUCT'}</Text>
               <TextInput
                 value={product}
                 onChangeText={setProduct}
@@ -98,7 +102,7 @@ export function AddCardScreen({ navigation }: Props) {
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.label}>NETWORK</Text>
+              <Text style={styles.label}>{lang === 'es' ? 'RED' : 'NETWORK'}</Text>
               <TextInput
                 value={network}
                 onChangeText={setNetwork}
@@ -109,7 +113,7 @@ export function AddCardScreen({ navigation }: Props) {
             </View>
           </View>
 
-          <Text style={styles.label}>LAST 4 DIGITS</Text>
+          <Text style={styles.label}>{lang === 'es' ? 'ÚLTIMOS 4 DÍGITOS' : 'LAST 4 DIGITS'}</Text>
           <TextInput
             value={last4}
             onChangeText={(v) => setLast4(v.replace(/\D/g, '').slice(0, 4))}
@@ -122,7 +126,7 @@ export function AddCardScreen({ navigation }: Props) {
 
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.label}>BALANCE</Text>
+              <Text style={styles.label}>{lang === 'es' ? 'SALDO' : 'BALANCE'}</Text>
               <TextInput
                 value={balance}
                 onChangeText={(v) => setBalance(numeric(v))}
@@ -133,7 +137,7 @@ export function AddCardScreen({ navigation }: Props) {
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.label}>CREDIT LIMIT</Text>
+              <Text style={styles.label}>{lang === 'es' ? 'LÍMITE DE CRÉDITO' : 'CREDIT LIMIT'}</Text>
               <TextInput
                 value={creditLimit}
                 onChangeText={(v) => setCreditLimit(numeric(v))}
@@ -145,7 +149,7 @@ export function AddCardScreen({ navigation }: Props) {
             </View>
           </View>
 
-          <Text style={styles.label}>MINIMUM PAYMENT</Text>
+          <Text style={styles.label}>{lang === 'es' ? 'PAGO MÍNIMO' : 'MINIMUM PAYMENT'}</Text>
           <TextInput
             value={minimumPayment}
             onChangeText={(v) => setMinimumPayment(numeric(v))}
@@ -156,12 +160,12 @@ export function AddCardScreen({ navigation }: Props) {
           />
 
           <View style={[styles.row, { marginTop: 20 }]}>
-            <DateField label="CUT-OFF DATE" value={cutoffDate} onChange={setCutoffDate} />
-            <DateField label="PAYMENT DUE DATE" value={dueDate} onChange={setDueDate} />
+            <DateField label={lang === 'es' ? 'FECHA DE CORTE' : 'CUT-OFF DATE'} value={cutoffDate} onChange={setCutoffDate} />
+            <DateField label={lang === 'es' ? 'FECHA DE PAGO' : 'PAYMENT DUE DATE'} value={dueDate} onChange={setDueDate} />
           </View>
 
           <Pressable onPress={save} disabled={busy} style={[styles.saveBtn, busy && { opacity: 0.6 }]}>
-            {busy ? <ActivityIndicator color={colors.onTint2} /> : <Text style={styles.saveBtnText}>Save card</Text>}
+            {busy ? <ActivityIndicator color={colors.onTint2} /> : <Text style={styles.saveBtnText}>{lang === 'es' ? 'Guardar tarjeta' : 'Save card'}</Text>}
           </Pressable>
         </View>
       </ScrollView>
