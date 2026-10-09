@@ -19,7 +19,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { FunctionsFetchError } from '@supabase/supabase-js';
-import { radius, spacing, ColorTokens, CARD_PALETTE, fonts, VIVID } from '../theme';
+import { radius, spacing, ColorTokens, CARD_PALETTE, fonts } from '../theme';
 import { isOfflineError, offlineMessage } from '../errors';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
@@ -1665,8 +1665,9 @@ function makeStyles(colors: ColorTokens) {
     },
     optionNumText: { fontSize: 13, fontWeight: '700', color: colors.onTint2 },
     optionTitleRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
-    autoBadge: { paddingVertical: 2, paddingHorizontal: 8, borderRadius: 999, backgroundColor: VIVID.green },
-    autoBadgeText: { fontSize: 11, fontWeight: '700', color: '#121212' },
+    // Soft mint from the approved mockup — fixed in both modes, dark ink on it.
+    autoBadge: { paddingVertical: 2, paddingHorizontal: 8, borderRadius: 999, backgroundColor: '#7FE0B0' },
+    autoBadgeText: { fontSize: 11, fontWeight: '700', color: '#0B0E1A' },
     optionTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
     optionMeta: { fontSize: 12, color: colors.ink3, marginTop: 2 },
     optionBtn: {
