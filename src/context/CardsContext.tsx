@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { CARDS, Card, Category, DEMO_REVIEW_COUNTS } from '../data';
+import { buildDemoCards, Card, Category, DEMO_PAID_DEFAULTS, DEMO_REVIEW_COUNTS } from '../data';
 import { decorateCard, DecoratedCard, Payment } from '../decorate';
 import { useT } from '../i18n/LocaleContext';
 import { useColors } from '../theme/ThemeContext';
@@ -80,12 +80,14 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
   const userId = session?.user.id;
 
   // Demo mode: the mock catalogue, with paid/payment overlays kept on-device.
-  const [demoPaid, setDemoPaid, demoPaidLoaded] = usePersistedState<Record<string, boolean>>('cards.paid', {});
+  // .v2 keys (Oct 2026): the demo catalogue changed shape (Davibank removed,
+  // dates re-anchored to today), so earlier demo taps must not leak into it.
+  const [demoPaid, setDemoPaid, demoPaidLoaded] = usePersistedState<Record<string, boolean>>('cards.paid.v2', {});
   const [demoPayments, setDemoPayments, demoPaymentsLoaded] = usePersistedState<Record<string, Payment[]>>(
-    'cards.payments',
+    'cards.payments.v2',
     {},
   );
-  const [demoOrder, setDemoOrder, demoOrderLoaded] = usePersistedState<string[]>('cards.order', []);
+  const [demoOrder, setDemoOrder, demoOrderLoaded] = usePersistedState<string[]>('cards.order.v2', []);
 
   // Real mode: cards, payments and transactions the signed-in user owns in Supabase.
   const [dbCards, setDbCards] = useState<DbCard[]>([]);
@@ -175,17 +177,23 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
   // so the chosen order is kept on-device as a list of ids — anything not in
   // it (new to the catalogue, or not yet reordered) just keeps its original
   // relative order at the end.
+  // The demo catalogue is re-anchored to today (see buildDemoCards), so it's
+  // rebuilt whenever the calendar day changes.
+  const now = new Date();
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const demoCards = useMemo(() => buildDemoCards(todayIso), [todayIso]);
+
   const baseCards: Card[] = useMemo(() => {
     if (!isDemo) return dbCards.map((c) => dbCardToCard(c, dbTransactions));
-    if (demoOrder.length === 0) return CARDS;
-    const byId = new Map(CARDS.map((c) => [c.id, c]));
+    if (demoOrder.length === 0) return demoCards;
+    const byId = new Map(demoCards.map((c) => [c.id, c]));
     const ordered = demoOrder.map((id) => byId.get(id)).filter((c): c is Card => !!c);
-    const remaining = CARDS.filter((c) => !demoOrder.includes(c.id));
+    const remaining = demoCards.filter((c) => !demoOrder.includes(c.id));
     return [...ordered, ...remaining];
-  }, [isDemo, dbCards, dbTransactions, demoOrder]);
+  }, [isDemo, dbCards, dbTransactions, demoOrder, demoCards]);
 
   const paidMap = useMemo(
-    () => (isDemo ? demoPaid : Object.fromEntries(dbCards.map((c) => [c.id, c.paid_this_cycle]))),
+    () => (isDemo ? { ...DEMO_PAID_DEFAULTS, ...demoPaid } : Object.fromEntries(dbCards.map((c) => [c.id, c.paid_this_cycle]))),
     [isDemo, demoPaid, dbCards],
   );
   const paymentsMap = isDemo ? demoPayments : dbPayments;
@@ -216,7 +224,10 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
   const togglePaid = useCallback(
     (id: string) => {
       if (isDemo) {
-        setDemoPaid((prev) => ({ ...prev, [id]: !(prev[id] ?? CARDS.find((c) => c.id === id)?.balance === 0) }));
+        setDemoPaid((prev) => ({
+          ...prev,
+          [id]: !(prev[id] ?? DEMO_PAID_DEFAULTS[id] ?? demoCards.find((c) => c.id === id)?.balance === 0),
+        }));
         return;
       }
       const current = dbCards.find((c) => c.id === id);
@@ -225,7 +236,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       setDbCards((prev) => prev.map((c) => (c.id === id ? { ...c, paid_this_cycle: next } : c)));
       updateCard(id, { paid_this_cycle: next }).catch(() => loadReal());
     },
-    [isDemo, dbCards, setDemoPaid, loadReal],
+    [isDemo, dbCards, setDemoPaid, loadReal, demoCards],
   );
 
   const addPayment = useCallback(

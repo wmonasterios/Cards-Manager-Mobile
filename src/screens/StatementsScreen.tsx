@@ -23,10 +23,10 @@ import { radius, spacing, ColorTokens, CARD_PALETTE, fonts } from '../theme';
 import { isOfflineError, offlineMessage } from '../errors';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
+import { Dict } from '../i18n/dict';
 import { BackButton } from '../components/BackButton';
 import { DateField } from '../components/DateField';
 import { ProgressBar } from '../components/ProgressBar';
-import { DocMascot } from '../components/Mascot';
 import { useCards } from '../context/CardsContext';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -51,7 +51,7 @@ import { DecoratedCard } from '../decorate';
 type UploadStage = 'idle' | 'parsing' | 'review';
 type RealStage = 'idle' | 'uploading' | 'parsing' | 'review' | 'error';
 
-const INBOX = 'demo.user.7f3a@in.cardsmanager.app';
+const INBOX = 'u-demo7f3a@stmts.poquetapp.com';
 
 const PARSE_STEPS: Record<'en' | 'es', { label: string; mark: string; done: boolean }[]> = {
   en: [
@@ -1122,153 +1122,51 @@ function RealStatementsFlow({ navigation, route }: any) {
         )}
 
         <View style={styles.section}>
-          {/* Option 1 — upload a PDF. Same card weight as option 2 on purpose:
-              both are equally valid ways in, so neither gets the solid accent
-              button. Numbers + "OR" only appear when the email option exists. */}
-          <View style={styles.optionCard}>
-            <View style={styles.optionHead}>
-              {!!emailAddress && (
-                <View style={styles.optionNum}>
-                  <Text style={styles.optionNumText}>1</Text>
-                </View>
-              )}
-              <View style={styles.optionHeadText}>
-                <Text style={styles.optionTitle}>{lang === 'es' ? 'Sube el PDF' : 'Upload the PDF'}</Text>
-                <Text style={styles.optionMeta}>
-                  {lang === 'es' ? 'Una vez · desde Archivos o un escaneo' : 'One-time · from Files or a scan'}
-                </Text>
-              </View>
-              <Ionicons name="document-attach-outline" size={22} color={colors.accent} />
-            </View>
-            <Pressable
-              onPress={pickAndUpload}
-              style={styles.optionBtn}
-              accessibilityRole="button"
-            >
-              <Text style={styles.optionBtnText}>{lang === 'es' ? 'Elegir PDF' : 'Choose PDF'}</Text>
-            </Pressable>
-            <View style={styles.optionSteps}>
-              <View style={styles.optionStep}>
-                <Text style={styles.optionStepKey}>a</Text>
-                <Text style={styles.optionStepText}>
-                  {lang === 'es'
-                    ? 'Descarga el estado de cuenta desde la app o web de tu banco'
-                    : "Download the statement from your bank's app or site"}
-                </Text>
-              </View>
-              <View style={styles.optionStep}>
-                <Text style={styles.optionStepKey}>b</Text>
-                <Text style={styles.optionStepText}>
-                  {lang === 'es'
-                    ? 'Elígelo aquí — leemos saldo, fechas y transacciones'
-                    : 'Pick it here — we read balance, dates and transactions'}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {!!emailAddress && (
-            <View style={styles.orRow}>
-              <View style={styles.orLine} />
-              <Text style={styles.orText}>{lang === 'es' ? 'O' : 'OR'}</Text>
-              <View style={styles.orLine} />
-            </View>
-          )}
-
-          {!!emailAddress && (
-            <View style={styles.optionCard}>
-              <View style={styles.optionHead}>
-                <View style={styles.optionNum}>
-                  <Text style={styles.optionNumText}>2</Text>
-                </View>
-                <View style={styles.optionHeadText}>
-                  <View style={styles.optionTitleRow}>
-                    <Text style={styles.optionTitle}>{lang === 'es' ? 'Reenvía el correo' : 'Forward the email'}</Text>
-                    <View style={styles.autoBadge}>
-                      <Text style={styles.autoBadgeText}>{lang === 'es' ? 'Automático' : 'Automatic'}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.optionMeta}>
-                    {lang === 'es' ? 'Configúralo una vez · se actualiza cada mes' : 'Set it once · updates every month'}
+          <AddStatementOptions
+            styles={styles}
+            colors={colors}
+            lang={lang}
+            t={t}
+            emailAddress={emailAddress}
+            copied={emailCopied}
+            onPickPdf={pickAndUpload}
+            onCopy={copyInbox}
+          >
+            {gmailCode && (
+              <View style={styles.gmailBox}>
+                <View style={styles.gmailHeaderRow}>
+                  <Text style={styles.gmailLabel}>
+                    {lang === 'es' ? 'Confirma el reenvío de Gmail' : 'Confirm Gmail forwarding'}
                   </Text>
+                  <Pressable onPress={dismissGmailCode} hitSlop={8} accessibilityRole="button" accessibilityLabel={lang === 'es' ? 'Ocultar' : 'Dismiss'}>
+                    <Ionicons name="close" size={16} color={colors.ink3} />
+                  </Pressable>
                 </View>
-                <Ionicons name="mail-outline" size={22} color={colors.accent} />
-              </View>
-              <Text style={styles.optionFieldLabel}>{lang === 'es' ? 'Tu dirección privada' : 'Your private address'}</Text>
-              <View style={[styles.inboxRow, { marginTop: 0 }]}>
-                <Text style={styles.inboxText} numberOfLines={1}>
-                  {emailAddress}
-                </Text>
-                <Pressable onPress={copyInbox} style={styles.copyBtn}>
-                  <Text style={styles.copyBtnText}>{emailCopied ? t.copied : t.copy}</Text>
-                </Pressable>
-              </View>
-              <View style={styles.optionSteps}>
-                <View style={styles.optionStep}>
-                  <Text style={styles.optionStepKey}>a</Text>
-                  <Text style={styles.optionStepText}>
-                    {lang === 'es' ? 'Abre el correo del estado de cuenta de tu banco' : "Open your bank's statement email"}
-                  </Text>
-                </View>
-                <View style={styles.optionStep}>
-                  <Text style={styles.optionStepKey}>b</Text>
-                  <Text style={styles.optionStepText}>
-                    {lang === 'es' ? 'Reenvíalo a la dirección de arriba' : 'Forward it to the address above'}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.tipBox}>
-                <Text style={styles.tipText}>
-                  <Text style={styles.tipStrong}>{lang === 'es' ? 'Tip: ' : 'Tip: '}</Text>
-                  {lang === 'es'
-                    ? 'crea una regla de reenvío automático una vez y olvídate. '
-                    : 'set an auto-forward rule once and forget about it. '}
-                  <Text
-                    style={styles.tipLink}
-                    onPress={() => WebBrowser.openBrowserAsync(FORWARD_GUIDE_URL).catch(() => {})}
+                {gmailCode.link && (
+                  <Pressable
+                    onPress={() => gmailCode.link && Linking.openURL(gmailCode.link)}
+                    style={styles.gmailConfirmBtn}
                     accessibilityRole="link"
-                    suppressHighlighting
                   >
-                    {lang === 'es' ? 'Ver cómo →' : 'See how →'}
-                  </Text>
-                </Text>
-              </View>
-              {gmailCode && (
-                <View style={styles.gmailBox}>
-                  <View style={styles.gmailHeaderRow}>
-                    <Text style={styles.gmailLabel}>
-                      {lang === 'es' ? 'Confirma el reenvío de Gmail' : 'Confirm Gmail forwarding'}
-                    </Text>
-                    <Pressable onPress={dismissGmailCode} hitSlop={8} accessibilityRole="button" accessibilityLabel={lang === 'es' ? 'Ocultar' : 'Dismiss'}>
-                      <Ionicons name="close" size={16} color={colors.ink3} />
+                    <Text style={styles.gmailConfirmText}>{lang === 'es' ? 'Confirmar en Gmail' : 'Confirm in Gmail'}</Text>
+                  </Pressable>
+                )}
+                {gmailCode.code && (
+                  <View style={styles.gmailRow}>
+                    <Text style={styles.gmailCode} selectable>{gmailCode.code}</Text>
+                    <Pressable onPress={copyGmailCode} style={styles.copyBtn} hitSlop={6}>
+                      <Text style={styles.copyBtnText}>{gmailCopied ? t.copied : t.copy}</Text>
                     </Pressable>
                   </View>
-                  {gmailCode.link && (
-                    <Pressable
-                      onPress={() => gmailCode.link && Linking.openURL(gmailCode.link)}
-                      style={styles.gmailConfirmBtn}
-                      accessibilityRole="link"
-                    >
-                      <Text style={styles.gmailConfirmText}>{lang === 'es' ? 'Confirmar en Gmail' : 'Confirm in Gmail'}</Text>
-                    </Pressable>
-                  )}
-                  {gmailCode.code && (
-                    <View style={styles.gmailRow}>
-                      <Text style={styles.gmailCode} selectable>{gmailCode.code}</Text>
-                      <Pressable onPress={copyGmailCode} style={styles.copyBtn} hitSlop={6}>
-                        <Text style={styles.copyBtnText}>{gmailCopied ? t.copied : t.copy}</Text>
-                      </Pressable>
-                    </View>
-                  )}
-                  <Text style={styles.gmailHint}>
-                    {lang === 'es'
-                      ? `${gmailCode.link ? 'Abre el enlace y confirma' : 'Escríbelo en Gmail → Configuración → Reenvío y correo POP/IMAP'} para activar el reenvío${gmailCode.from ? ` desde ${gmailCode.from}` : ''}. También te lo enviamos a ese correo.`
-                      : `${gmailCode.link ? 'Open the link and confirm' : 'Enter it in Gmail → Settings → Forwarding and POP/IMAP'} to turn on forwarding${gmailCode.from ? ` from ${gmailCode.from}` : ''}. We also emailed it to that address.`}
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
+                )}
+                <Text style={styles.gmailHint}>
+                  {lang === 'es'
+                    ? `${gmailCode.link ? 'Abre el enlace y confirma' : 'Escríbelo en Gmail → Configuración → Reenvío y correo POP/IMAP'} para activar el reenvío${gmailCode.from ? ` desde ${gmailCode.from}` : ''}. También te lo enviamos a ese correo.`
+                    : `${gmailCode.link ? 'Open the link and confirm' : 'Enter it in Gmail → Settings → Forwarding and POP/IMAP'} to turn on forwarding${gmailCode.from ? ` from ${gmailCode.from}` : ''}. We also emailed it to that address.`}
+                </Text>
+              </View>
+            )}
+          </AddStatementOptions>
 
           <Pressable onPress={() => navigation.navigate('AddCard')} style={styles.manualLink} hitSlop={6}>
             <Text style={styles.manualLinkText}>
@@ -1417,7 +1315,7 @@ export function StatementsScreen({ navigation, route }: any) {
   const { lang, t } = useLocale();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { isDemo } = useCards();
+  const { isDemo, cards } = useCards();
   const [stage, setStage] = useState<UploadStage>('idle');
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -1443,7 +1341,7 @@ export function StatementsScreen({ navigation, route }: any) {
   const confirmParse = () => {
     setStage('idle');
     Alert.alert(
-      lang === 'es' ? 'Banco General actualizado con el estado de septiembre' : 'Banco General updated from the September statement',
+      lang === 'es' ? 'Banco General actualizado con su último estado de cuenta' : 'Banco General updated from its latest statement',
     );
     navigation.navigate('CardDetail', { cardId: 'aliado' });
   };
@@ -1457,7 +1355,14 @@ export function StatementsScreen({ navigation, route }: any) {
       ? (lang === 'es' ? 'Estos valores salen del PDF. Confirma y la tarjeta se actualiza.' : 'These values come straight from the PDF. Confirm and the card updates.')
       : stage === 'parsing'
         ? (lang === 'es' ? 'Suele tardar menos de diez segundos. Puedes salir de esta pantalla.' : 'Usually under ten seconds. You can leave this screen.')
-        : (lang === 'es' ? 'Dos caminos: envías el PDF, o el correo del banco lo hace por ti.' : 'Two ways in: send the PDF yourself, or let the bank email do it for you.');
+        : (lang === 'es'
+            ? 'Elige una de estas dos formas. Si es una tarjeta nueva, la creamos; si ya existe, la actualizamos.'
+            : "Pick one of these two ways. We'll create the card if it's new, or update it if it already exists.");
+
+  // Demo history and the parse-review screen follow the demo cards' own dates
+  // (re-anchored to today in buildDemoCards), so they agree with Home and Calendar.
+  const history = demoStatementHistory(cards, lang);
+  const parsedFields = demoParsedFields(cards.find((c) => c.id === 'aliado'), lang);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -1470,34 +1375,23 @@ export function StatementsScreen({ navigation, route }: any) {
 
         {stage === 'idle' && (
           <View style={styles.section}>
-            <Pressable onPress={startParse} style={styles.uploadBtn}>
-              <View style={styles.uploadBtnTextCol}>
-                <Text style={styles.uploadBtnTitle}>{t.uploadPdf}</Text>
-                <Text style={styles.uploadBtnBody}>{t.uploadBody}</Text>
-              </View>
-              <DocMascot size={76} />
-            </Pressable>
-
-            <View style={styles.emailCard}>
-              <Text style={styles.emailTitle}>{t.forward}</Text>
-              <Text style={styles.emailBody}>{t.emailBody}</Text>
-              <View style={styles.inboxRow}>
-                <Text style={styles.inboxText} numberOfLines={1}>
-                  {INBOX}
-                </Text>
-                <Pressable onPress={copyInbox} style={styles.copyBtn}>
-                  <Text style={styles.copyBtnText}>{copied ? t.copied : t.copy}</Text>
-                </Pressable>
-              </View>
-            </View>
+            <AddStatementOptions
+              styles={styles}
+              colors={colors}
+              lang={lang}
+              t={t}
+              emailAddress={INBOX}
+              copied={copied}
+              onPickPdf={startParse}
+              onCopy={copyInbox}
+            />
 
             <Text style={styles.historyTitle}>{t.stmtHistory}</Text>
             <View style={styles.listCard}>
-              {STATEMENT_HISTORY[lang].map((s) => (
+              {history.map((s) => (
                 <Pressable
                   key={s.title}
-                  disabled={!s.needsReview}
-                  onPress={() => s.needsReview && navigation.navigate('Fix')}
+                  onPress={() => navigation.navigate('CardDetail', { cardId: s.cardId })}
                   style={styles.historyRow}
                 >
                   <View style={styles.historyBadge}>
@@ -1553,7 +1447,7 @@ export function StatementsScreen({ navigation, route }: any) {
             </View>
 
             <View style={styles.listCard}>
-              {PARSED_FIELDS[lang].map((f) => (
+              {parsedFields.map((f) => (
                 <View key={f.label} style={styles.fieldRow}>
                   <Text style={styles.fieldLabel}>{f.label}</Text>
                   <View style={styles.fieldValueRow}>
@@ -1588,25 +1482,198 @@ export function StatementsScreen({ navigation, route }: any) {
   );
 }
 
-const STATEMENT_HISTORY: Record<
-  'en' | 'es',
-  { title: string; sub: string; status: string; accent: boolean; needsReview?: boolean }[]
-> = {
-  en: [
-    { title: 'Banco General · August', sub: 'New layout · we could not read it', status: 'Needs review', accent: true, needsReview: true },
-    { title: 'Banco General · September', sub: 'Forwarded by email · 2 min ago', status: 'New', accent: true },
-    { title: 'BAC · September', sub: 'Uploaded PDF · 5 Sep', status: 'Applied', accent: false },
-    { title: 'Davibank · September', sub: 'Forwarded by email · 8 Sep', status: 'Applied', accent: false },
-    { title: 'BAC Platinum · August', sub: 'Uploaded PDF · 6 Aug', status: 'Applied', accent: false },
-  ],
-  es: [
-    { title: 'Banco General · agosto', sub: 'Formato nuevo · no pudimos leerlo', status: 'Revisar', accent: true, needsReview: true },
-    { title: 'Banco General · septiembre', sub: 'Reenviado por correo · hace 2 min', status: 'Nuevo', accent: true },
-    { title: 'BAC · septiembre', sub: 'PDF subido · 5 sep', status: 'Aplicado', accent: false },
-    { title: 'Davibank · septiembre', sub: 'Reenviado por correo · 8 sep', status: 'Aplicado', accent: false },
-    { title: 'BAC Platinum · agosto', sub: 'PDF subido · 6 ago', status: 'Aplicado', accent: false },
-  ],
-};
+type DemoHistoryRow = { title: string; sub: string; status: string; accent: boolean; cardId: string };
+
+function demoDate(iso: string, lang: 'en' | 'es', opts: Intl.DateTimeFormatOptions): string {
+  return new Date(iso + 'T00:00:00').toLocaleDateString(lang === 'es' ? 'es-PA' : 'en-US', opts);
+}
+function demoAddDays(iso: string, n: number): string {
+  const d = new Date(iso + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return toIso(d);
+}
+
+// One applied statement per demo card, received a day or two after its cutoff,
+// newest first: two uploaded PDFs and one forwarded email, so both ways in show.
+function demoStatementHistory(cards: DecoratedCard[], lang: 'en' | 'es'): DemoHistoryRow[] {
+  const es = lang === 'es';
+  const how: Record<string, { email: boolean; lag: number }> = {
+    aliado: { email: true, lag: 1 },
+    bac2: { email: false, lag: 1 },
+    bac: { email: false, lag: 2 },
+  };
+  return cards
+    .filter((c) => c.cutoffIso && how[c.id])
+    .map((c) => {
+      const h = how[c.id];
+      const received = demoAddDays(c.cutoffIso!, h.lag);
+      const name = c.id === 'bac2' ? `${c.bank} ${c.product}` : c.bank;
+      return {
+        received,
+        row: {
+          title: `${name} · ${demoDate(c.cutoffIso!, lang, { month: 'long' })}`,
+          sub: `${h.email ? (es ? 'Reenviado por correo' : 'Forwarded by email') : es ? 'PDF subido' : 'Uploaded PDF'} · ${demoDate(received, lang, { day: 'numeric', month: 'short' })}`,
+          status: es ? 'Aplicado' : 'Applied',
+          accent: false,
+          cardId: c.id,
+        },
+      };
+    })
+    .sort((a, b) => b.received.localeCompare(a.received))
+    .map((x) => x.row);
+}
+
+function demoParsedFields(card: DecoratedCard | undefined, lang: 'en' | 'es') {
+  const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+  const due = card?.dueIso ? demoDate(card.dueIso, lang, opts) : '—';
+  const cutoff = card?.cutoffIso ? demoDate(card.cutoffIso, lang, opts) : '—';
+  return PARSED_FIELDS[lang].map((f, i) => (i === 2 ? { ...f, value: due } : i === 3 ? { ...f, value: cutoff } : f));
+}
+
+// The two ways to add a statement (upload a PDF, or forward the bank's email),
+// shared by the real flow and demo mode so both always look the same. Same
+// card weight for both on purpose; the accent on numbers/letters/icons/links is
+// a deliberate, owner-approved exception (see AGENTS.md › Design system).
+function AddStatementOptions({
+  styles,
+  colors,
+  lang,
+  t,
+  emailAddress,
+  copied,
+  onPickPdf,
+  onCopy,
+  children,
+}: {
+  styles: ReturnType<typeof makeStyles>;
+  colors: ColorTokens;
+  lang: 'en' | 'es';
+  t: Dict;
+  emailAddress: string;
+  copied: boolean;
+  onPickPdf: () => void;
+  onCopy: () => void;
+  children?: React.ReactNode;
+}) {
+  return (
+    <>
+      {/* Option 1 — upload a PDF. Same card weight as option 2 on purpose:
+          both are equally valid ways in, so neither gets the solid accent
+          button. Numbers + "OR" only appear when the email option exists. */}
+      <View style={styles.optionCard}>
+        <View style={styles.optionHead}>
+          {!!emailAddress && (
+            <View style={styles.optionNum}>
+              <Text style={styles.optionNumText}>1</Text>
+            </View>
+          )}
+          <View style={styles.optionHeadText}>
+            <Text style={styles.optionTitle}>{lang === 'es' ? 'Sube el PDF' : 'Upload the PDF'}</Text>
+            <Text style={styles.optionMeta}>
+              {lang === 'es' ? 'Una vez · desde Archivos o un escaneo' : 'One-time · from Files or a scan'}
+            </Text>
+          </View>
+          <Ionicons name="document-attach-outline" size={22} color={colors.accent} />
+        </View>
+        <Pressable
+          onPress={onPickPdf}
+          style={styles.optionBtn}
+          accessibilityRole="button"
+        >
+          <Text style={styles.optionBtnText}>{lang === 'es' ? 'Elegir PDF' : 'Choose PDF'}</Text>
+        </Pressable>
+        <View style={styles.optionSteps}>
+          <View style={styles.optionStep}>
+            <Text style={styles.optionStepKey}>a</Text>
+            <Text style={styles.optionStepText}>
+              {lang === 'es'
+                ? 'Descarga el estado de cuenta desde la app o web de tu banco'
+                : "Download the statement from your bank's app or site"}
+            </Text>
+          </View>
+          <View style={styles.optionStep}>
+            <Text style={styles.optionStepKey}>b</Text>
+            <Text style={styles.optionStepText}>
+              {lang === 'es'
+                ? 'Elígelo aquí — leemos saldo, fechas y transacciones'
+                : 'Pick it here — we read balance, dates and transactions'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {!!emailAddress && (
+        <View style={styles.orRow}>
+          <View style={styles.orLine} />
+          <Text style={styles.orText}>{lang === 'es' ? 'O' : 'OR'}</Text>
+          <View style={styles.orLine} />
+        </View>
+      )}
+
+      {!!emailAddress && (
+        <View style={styles.optionCard}>
+          <View style={styles.optionHead}>
+            <View style={styles.optionNum}>
+              <Text style={styles.optionNumText}>2</Text>
+            </View>
+            <View style={styles.optionHeadText}>
+              <View style={styles.optionTitleRow}>
+                <Text style={styles.optionTitle}>{lang === 'es' ? 'Reenvía el correo' : 'Forward the email'}</Text>
+                <View style={styles.autoBadge}>
+                  <Text style={styles.autoBadgeText}>{lang === 'es' ? 'Automático' : 'Automatic'}</Text>
+                </View>
+              </View>
+              <Text style={styles.optionMeta}>
+                {lang === 'es' ? 'Configúralo una vez · se actualiza cada mes' : 'Set it once · updates every month'}
+              </Text>
+            </View>
+            <Ionicons name="mail-outline" size={22} color={colors.accent} />
+          </View>
+          <Text style={styles.optionFieldLabel}>{lang === 'es' ? 'Tu dirección privada' : 'Your private address'}</Text>
+          <View style={[styles.inboxRow, { marginTop: 0 }]}>
+            <Text style={styles.inboxText} numberOfLines={1}>
+              {emailAddress}
+            </Text>
+            <Pressable onPress={onCopy} style={styles.copyBtn}>
+              <Text style={styles.copyBtnText}>{copied ? t.copied : t.copy}</Text>
+            </Pressable>
+          </View>
+          <View style={styles.optionSteps}>
+            <View style={styles.optionStep}>
+              <Text style={styles.optionStepKey}>a</Text>
+              <Text style={styles.optionStepText}>
+                {lang === 'es' ? 'Abre el correo del estado de cuenta de tu banco' : "Open your bank's statement email"}
+              </Text>
+            </View>
+            <View style={styles.optionStep}>
+              <Text style={styles.optionStepKey}>b</Text>
+              <Text style={styles.optionStepText}>
+                {lang === 'es' ? 'Reenvíalo a la dirección de arriba' : 'Forward it to the address above'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.tipBox}>
+            <Text style={styles.tipText}>
+              <Text style={styles.tipStrong}>{lang === 'es' ? 'Tip: ' : 'Tip: '}</Text>
+              {lang === 'es'
+                ? 'crea una regla de reenvío automático una vez y olvídate. '
+                : 'set an auto-forward rule once and forget about it. '}
+              <Text
+                style={styles.tipLink}
+                onPress={() => WebBrowser.openBrowserAsync(FORWARD_GUIDE_URL).catch(() => {})}
+                accessibilityRole="link"
+                suppressHighlighting
+              >
+                {lang === 'es' ? 'Ver cómo →' : 'See how →'}
+              </Text>
+            </Text>
+          </View>
+          {children}
+        </View>
+      )}
+    </>
+  );
+}
 
 function makeStyles(colors: ColorTokens) {
   return StyleSheet.create({
@@ -1703,32 +1770,6 @@ function makeStyles(colors: ColorTokens) {
     tipText: { fontSize: 12.5, lineHeight: 18, color: colors.ink2 },
     tipStrong: { fontWeight: '600', color: colors.ink },
     tipLink: { fontWeight: '600', color: colors.accent, textDecorationLine: 'underline' },
-    uploadBtn: {
-      borderWidth: 1,
-      borderStyle: 'dashed',
-      borderColor: colors.line,
-      borderRadius: radius.xl,
-      backgroundColor: colors.surface2,
-      paddingVertical: 16,
-      paddingLeft: 22,
-      paddingRight: 12,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-    },
-    uploadBtnTextCol: { flex: 1, minWidth: 0 },
-    uploadBtnTitle: { fontSize: 15, fontWeight: '500', color: colors.accentInk },
-    uploadBtnBody: { fontSize: 12, color: colors.ink2, marginTop: 6, lineHeight: 17 },
-    emailCard: {
-      marginTop: 12,
-      padding: 16,
-      borderRadius: radius.xl,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.line,
-    },
-    emailTitle: { fontSize: 14, fontWeight: '500', color: colors.ink },
-    emailBody: { fontSize: 12, color: colors.ink2, marginTop: 6, lineHeight: 17 },
     inboxRow: {
       marginTop: 12,
       flexDirection: 'row',

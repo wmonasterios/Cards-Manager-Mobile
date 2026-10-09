@@ -109,7 +109,10 @@ function tx(
   };
 }
 
-export const CARDS: Card[] = [
+// Template for the demo catalogue. Its dates are only a shape — buildDemoCards
+// below re-anchors every card to today so the demo always shows the same three
+// situations, whatever day it is opened.
+const DEMO_TEMPLATE: Card[] = [
   {
     id: 'aliado',
     bank: 'Banco General',
@@ -171,32 +174,6 @@ export const CARDS: Card[] = [
     ],
   },
   {
-    id: 'davi',
-    bank: 'Davibank',
-    product: 'Mastercard Black',
-    last4: '•••• 0000',
-    network: 'Mastercard',
-    cur: 'US$',
-    balance: 2140.5,
-    limit: 9000,
-    min: 214.05,
-    due: 'Oct 2',
-    cutoff: 'Sep 8',
-    dueIso: '2026-10-02',
-    cutoffIso: '2026-09-08',
-    plansNote: '1 active',
-    cycleNote: '8 Aug – 7 Sep',
-    plans: [
-      { merchant: 'Novey', plan: '4 of 12', rate: '1.2% monthly', monthly: 168.4, remaining: 1347.2, pct: 33 },
-    ],
-    tx: [
-      tx('Super Xtra', 'Groceries · Panamá', 'Sep 9', -312.4, 'groceries'),
-      tx('Novey', 'Instalment 4/12 · Tech', 'Sep 5', -168.4, 'home', { plan: '4 of 12' }),
-      tx('Delta', 'Fuel · Panamá', 'Sep 2', -98.0, 'fuel'),
-      tx('El Machetazo', 'Groceries · Panamá', 'Jun 30', -74.2, 'groceries'),
-    ],
-  },
-  {
     id: 'bac2',
     bank: 'BAC',
     product: 'Platinum',
@@ -220,7 +197,96 @@ export const CARDS: Card[] = [
 // Demo has no statements table to count "needs review" rows from, so the
 // Needs-attention list gets this fixed stand-in instead — enough to show
 // the feature working without wiring up fake statement rows.
-export const DEMO_REVIEW_COUNTS: Record<string, number> = { aliado: 1 };
+export const DEMO_REVIEW_COUNTS: Record<string, number> = {};
+
+// Cards whose current cycle starts out already paid in the demo (their last
+// statement's balance was settled; the next statement just hasn't come in).
+export const DEMO_PAID_DEFAULTS: Record<string, boolean> = { bac: true };
+
+const MON_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function isoOf(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function parseIso(iso: string): Date {
+  return new Date(iso + 'T00:00:00');
+}
+function addDaysIso(iso: string, n: number): string {
+  const d = parseIso(iso);
+  d.setDate(d.getDate() + n);
+  return isoOf(d);
+}
+// Same month arithmetic status.ts uses for "next expected cutoff", so a date
+// built here lands exactly where deriveStatus will look for it.
+function addMonthsIso(iso: string, n: number): string {
+  const d = parseIso(iso);
+  d.setMonth(d.getMonth() + n);
+  return isoOf(d);
+}
+function diffDays(fromIso: string, toIso: string): number {
+  return Math.round((parseIso(toIso).getTime() - parseIso(fromIso).getTime()) / 86400000);
+}
+function shortLabel(iso: string): string {
+  const d = parseIso(iso);
+  return `${MON_ABBR[d.getMonth()]} ${d.getDate()}`;
+}
+function dayMon(iso: string): string {
+  const d = parseIso(iso);
+  return `${d.getDate()} ${MON_ABBR[d.getMonth()]}`;
+}
+
+// A cutoff whose "next expected cutoff" (one calendar month later) is exactly
+// `targetIso`. A few dates can't be hit exactly (nothing + 1 month lands on
+// Mar 29–31 in a non-leap year); then take the closest one before it, so the
+// statement still reads as late — by a couple of days instead of one.
+function cutoffWhoseNextIs(targetIso: string): string {
+  let c = addMonthsIso(targetIso, -1);
+  for (let i = 0; i < 40 && addMonthsIso(c, 1) > targetIso; i++) c = addDaysIso(c, -1);
+  for (let i = 0; i < 5 && addMonthsIso(addDaysIso(c, 1), 1) <= targetIso; i++) c = addDaysIso(c, 1);
+  return c;
+}
+
+// Shift one template card so that its cutoff becomes `newCutoffIso`, moving
+// its due date and every transaction by the same number of days — the card's
+// internal timeline (purchases vs. cutoff vs. due date) stays intact.
+function reanchor(card: Card, newCutoffIso: string): Card {
+  const delta = diffDays(card.cutoffIso!, newCutoffIso);
+  const dueIso = addDaysIso(card.dueIso!, delta);
+  const cycleStart = addMonthsIso(newCutoffIso, -1);
+  return {
+    ...card,
+    cutoffIso: newCutoffIso,
+    cutoff: shortLabel(newCutoffIso),
+    dueIso,
+    due: shortLabel(dueIso),
+    cycleNote: `${dayMon(cycleStart)} – ${dayMon(addDaysIso(newCutoffIso, -1))}`,
+    tx: card.tx.map((t) => {
+      const iso = addDaysIso(t.iso, delta);
+      const date = shortLabel(iso);
+      return { ...t, iso, date, id: t.merchant.toLowerCase().replace(/[^a-z]/g, '') + date.replace(/\W/g, '') };
+    }),
+  };
+}
+
+// The demo's three "Needs attention" situations, always relative to today:
+// - Banco General: payment due in exactly 3 days (urgent).
+// - BAC Visa Signature: last cycle paid, next statement 1 day late.
+// - BAC Platinum: paid off, next statement still weeks away (up to date).
+export function buildDemoCards(todayIso: string): Card[] {
+  return DEMO_TEMPLATE.map((c) => {
+    if (c.id === 'aliado') {
+      const gap = diffDays(c.cutoffIso!, c.dueIso!);
+      return reanchor(c, addDaysIso(addDaysIso(todayIso, 3), -gap));
+    }
+    if (c.id === 'bac') return reanchor(c, cutoffWhoseNextIs(addDaysIso(todayIso, -1)));
+    if (c.id === 'bac2') return reanchor(c, addDaysIso(todayIso, -5));
+    return c;
+  });
+}
+
+// Every demo card's template data — ids, banks, products — for lookups that
+// don't care about dates.
+export const DEMO_CARD_IDS = DEMO_TEMPLATE.map((c) => c.id);
 
 // Demo cards keep their fixed named gradient. Real cards, unless the user
 // picked a color, get one hashed from their id — so two real cards never

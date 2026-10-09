@@ -14,6 +14,7 @@ import { DraggableCardStack } from '../components/DraggableCardStack';
 import { useCards } from '../context/CardsContext';
 import { money } from '../format';
 import { deriveStatus, priorityOrder, dueDateOrder, StatusRow } from '../status';
+import { DecoratedCard } from '../decorate';
 
 const RING_R = 15;
 
@@ -57,6 +58,23 @@ function Shimmer({ style }: { style: any }) {
       )}
     </View>
   );
+}
+
+// Demo banner: the soonest unpaid card, counted from today (demo dates are
+// re-anchored daily, so this always reads "in 3 days" for Banco General).
+function demoDueText(unpaid: DecoratedCard[], todayIso: string, lang: 'en' | 'es'): string {
+  const next = [...unpaid].filter((c) => c.dueIso).sort((a, b) => a.dueIso!.localeCompare(b.dueIso!))[0];
+  if (!next) return '';
+  const days = Math.round(
+    (new Date(next.dueIso + 'T00:00:00').getTime() - new Date(todayIso + 'T00:00:00').getTime()) / 86400000,
+  );
+  const when =
+    lang === 'es'
+      ? days === 0 ? 'vence hoy' : days === 1 ? 'vence mañana' : `vence en ${days} días`
+      : days === 0 ? 'due today' : days === 1 ? 'due tomorrow' : `due in ${days} days`;
+  return lang === 'es'
+    ? `${next.displayName} ${when} — mínimo ${next.minText}`
+    : `${next.displayName} ${when} — ${next.minText} minimum`;
 }
 
 export function HomeScreen({ navigation, route }: any) {
@@ -122,7 +140,7 @@ export function HomeScreen({ navigation, route }: any) {
   const nextDueText = !unpaid.length
     ? t.everythingPaidCycle
     : isDemo
-      ? t.demoDueBanner
+      ? demoDueText(unpaid, todayIso, lang)
       : `${unpaid.length} ${t.cardsWord} ${t.withBalanceDue}`;
 
   const renderCardFace = (c: (typeof cards)[number]) => {

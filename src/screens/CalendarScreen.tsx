@@ -9,27 +9,10 @@ import { useAppSettings } from '../context/AppSettingsContext';
 import { CalendarMascot } from '../components/Mascot';
 import { money } from '../format';
 
-const UPCOMING: Record<'en' | 'es', { day: string; mon: string; card: string; note: string; amount: string; min: string; due: boolean }[]> = {
-  en: [
-    { day: '18', mon: 'Sep', card: 'Banco General Visa Infinite', note: 'In 4 days · full payment', amount: 'US$ 3,420.10', min: 'US$ 171.01', due: true },
-    { day: '22', mon: 'Sep', card: 'BAC Platinum', note: 'Nothing to pay', amount: 'US$ 0.00', min: 'US$ 0.00', due: false },
-    { day: '25', mon: 'Sep', card: 'BAC Visa Signature', note: 'In 11 days', amount: 'US$ 1,284.52', min: 'US$ 64.23', due: false },
-    { day: '02', mon: 'Oct', card: 'Davibank Mastercard Black', note: 'Next cycle', amount: 'US$ 2,140.50', min: 'US$ 214.05', due: false },
-  ],
-  es: [
-    { day: '18', mon: 'Sep', card: 'Banco General Visa Infinite', note: 'En 4 días · pago de contado', amount: 'US$ 3,420.10', min: 'US$ 171.01', due: true },
-    { day: '22', mon: 'Sep', card: 'BAC Platinum', note: 'Nada por pagar', amount: 'US$ 0.00', min: 'US$ 0.00', due: false },
-    { day: '25', mon: 'Sep', card: 'BAC Visa Signature', note: 'En 11 días', amount: 'US$ 1,284.52', min: 'US$ 64.23', due: false },
-    { day: '02', mon: 'Oct', card: 'Davibank Mastercard Black', note: 'Próximo ciclo', amount: 'US$ 2,140.50', min: 'US$ 214.05', due: false },
-  ],
-};
-
 const WEEKDAY_LABELS: Record<'en' | 'es', string[]> = {
   en: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
   es: ['L', 'M', 'M', 'J', 'V', 'S', 'D'],
 };
-
-const MONTH_ABBR_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 type DayEvent = {
   kind: 'due' | 'paid';
@@ -79,6 +62,13 @@ export function CalendarScreen({ navigation }: any) {
   ).current;
 
   const unpaid = cards.filter((c) => !c.paid);
+  const es = lang === 'es';
+  const daysFromToday = (iso: string) =>
+    Math.round(
+      (new Date(iso + 'T00:00:00').getTime() -
+        new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) /
+        86400000,
+    );
   const usdTotal = unpaid.reduce((n, c) => n + c.remaining, 0);
   const monthDueText = `${unpaid.length} ${t.cardsWord} ${t.withBalanceDue} · ${money('US$', usdTotal)}`;
 
@@ -88,10 +78,38 @@ export function CalendarScreen({ navigation }: any) {
       (map[day] ?? (map[day] = [])).push(event);
     };
     if (isDemo) {
-      const currentMonAbbr = MONTH_ABBR_EN[month];
-      for (const u of UPCOMING[lang]) {
-        if (u.mon !== currentMonAbbr) continue;
-        add(Number(u.day), { kind: 'due', card: u.card, note: u.note, amount: u.amount, min: u.min });
+      // Demo dates are re-anchored to today (buildDemoCards), so the calendar
+      // is built from the same cards Home shows — Banco General is always
+      // due in 3 days, and the paid cards show as settled.
+      for (const c of cards) {
+        if (!c.dueIso) continue;
+        const d = new Date(c.dueIso + 'T00:00:00');
+        if (d.getFullYear() !== year || d.getMonth() !== month) continue;
+        if (!c.paid) {
+          const n = daysFromToday(c.dueIso);
+          const inDays =
+            n <= 0
+              ? es ? 'Vence hoy' : 'Due today'
+              : n === 1
+                ? es ? 'Mañana' : 'Tomorrow'
+                : es ? `En ${n} días` : `In ${n} days`;
+          add(d.getDate(), {
+            kind: 'due',
+            card: `${c.displayName} ${c.product}`.trim(),
+            note: `${inDays} · ${es ? 'pago de contado' : 'full payment'}`,
+            amount: c.balanceText,
+            min: c.minText,
+            cardId: c.id,
+          });
+        } else {
+          add(d.getDate(), {
+            kind: 'paid',
+            card: `${c.displayName} ${c.product}`.trim(),
+            note: c.balance === 0 ? (es ? 'Nada por pagar' : 'Nothing to pay') : es ? 'Pagado' : 'Paid',
+            amount: c.statementText,
+            cardId: c.id,
+          });
+        }
       }
     } else {
       for (const c of unpaid) {
@@ -133,22 +151,26 @@ export function CalendarScreen({ navigation }: any) {
     { day: 'numeric', month: 'long' },
   );
 
-  const firstUnpaid = unpaid[0];
-  const es = lang === 'es';
+  // Demo: the soonest unpaid due date. Real accounts keep the existing
+  // behavior (first unpaid card in the user's own order).
+  const firstUnpaid = isDemo
+    ? ([...unpaid].filter((c) => c.dueIso).sort((a, b) => a.dueIso!.localeCompare(b.dueIso!))[0] ?? unpaid[0])
+    : unpaid[0];
   const remindersState = es ? `recordatorios ${reminder ? 'activos' : 'apagados'}` : `reminders ${reminder ? 'on' : 'off'}`;
-  const previewTitle = isDemo
+  const demoDays = firstUnpaid?.dueIso ? daysFromToday(firstUnpaid.dueIso) : null;
+  const previewTitle = isDemo && firstUnpaid && demoDays !== null
     ? es
-      ? 'Banco General · vence en 3 días'
-      : 'Banco General · due in 3 days'
+      ? `${firstUnpaid.displayName} · vence en ${demoDays} días`
+      : `${firstUnpaid.displayName} · due in ${demoDays} days`
     : firstUnpaid
       ? `${firstUnpaid.displayName} · ${firstUnpaid.dueShort}`
       : es
         ? 'No tienes pagos pendientes'
         : "You're all caught up";
-  const previewBody = isDemo
+  const previewBody = isDemo && firstUnpaid
     ? es
-      ? `Total US$ 3,420.10 · mínimo US$ 171.01 · ${remindersState}`
-      : `US$ 3,420.10 full · US$ 171.01 minimum · ${remindersState}`
+      ? `Total ${firstUnpaid.balanceText} · mínimo ${firstUnpaid.minText} · ${remindersState}`
+      : `${firstUnpaid.balanceText} full · ${firstUnpaid.minText} minimum · ${remindersState}`
     : firstUnpaid
       ? `${firstUnpaid.balanceText} · ${es ? 'mínimo' : 'min'} ${firstUnpaid.minText} · ${remindersState}`
       : remindersState;
