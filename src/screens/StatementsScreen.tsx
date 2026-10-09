@@ -19,7 +19,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { FunctionsFetchError } from '@supabase/supabase-js';
-import { radius, spacing, ColorTokens, CARD_PALETTE, fonts } from '../theme';
+import { radius, spacing, ColorTokens, CARD_PALETTE, fonts, VIVID } from '../theme';
 import { isOfflineError, offlineMessage } from '../errors';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
@@ -1138,7 +1138,7 @@ function RealStatementsFlow({ navigation, route }: any) {
                   {lang === 'es' ? 'Una vez · desde Archivos o un escaneo' : 'One-time · from Files or a scan'}
                 </Text>
               </View>
-              <Ionicons name="document-text-outline" size={22} color={colors.ink2} />
+              <Ionicons name="document-attach-outline" size={22} color={colors.accent} />
             </View>
             <Pressable
               onPress={pickAndUpload}
@@ -1182,12 +1182,17 @@ function RealStatementsFlow({ navigation, route }: any) {
                   <Text style={styles.optionNumText}>2</Text>
                 </View>
                 <View style={styles.optionHeadText}>
-                  <Text style={styles.optionTitle}>{lang === 'es' ? 'Reenvía el correo' : 'Forward the email'}</Text>
+                  <View style={styles.optionTitleRow}>
+                    <Text style={styles.optionTitle}>{lang === 'es' ? 'Reenvía el correo' : 'Forward the email'}</Text>
+                    <View style={styles.autoBadge}>
+                      <Text style={styles.autoBadgeText}>{lang === 'es' ? 'Automático' : 'Automatic'}</Text>
+                    </View>
+                  </View>
                   <Text style={styles.optionMeta}>
                     {lang === 'es' ? 'Configúralo una vez · se actualiza cada mes' : 'Set it once · updates every month'}
                   </Text>
                 </View>
-                <Ionicons name="mail-outline" size={22} color={colors.ink2} />
+                <Ionicons name="mail-outline" size={22} color={colors.accent} />
               </View>
               <Text style={styles.optionFieldLabel}>{lang === 'es' ? 'Tu dirección privada' : 'Your private address'}</Text>
               <View style={[styles.inboxRow, { marginTop: 0 }]}>
@@ -1267,7 +1272,10 @@ function RealStatementsFlow({ navigation, route }: any) {
 
           <Pressable onPress={() => navigation.navigate('AddCard')} style={styles.manualLink} hitSlop={6}>
             <Text style={styles.manualLinkText}>
-              {lang === 'es' ? '¿Prefieres agregarla a mano? Agregar tarjeta manualmente' : 'Prefer to enter it by hand? Add a card manually'}
+              {lang === 'es' ? '¿Sin PDF? ' : 'No PDF? '}
+              <Text style={styles.manualLinkAction}>
+                {lang === 'es' ? 'Agregar tarjeta manualmente' : 'Add a card manually'}
+              </Text>
             </Text>
           </Pressable>
 
@@ -1651,11 +1659,14 @@ function makeStyles(colors: ColorTokens) {
       width: 26,
       height: 26,
       borderRadius: 13,
-      backgroundColor: colors.tint,
+      backgroundColor: colors.accent,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    optionNumText: { fontSize: 13, fontWeight: '700', color: colors.ink },
+    optionNumText: { fontSize: 13, fontWeight: '700', color: colors.onTint2 },
+    optionTitleRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+    autoBadge: { paddingVertical: 2, paddingHorizontal: 8, borderRadius: 999, backgroundColor: VIVID.green },
+    autoBadgeText: { fontSize: 11, fontWeight: '700', color: '#121212' },
     optionTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
     optionMeta: { fontSize: 12, color: colors.ink3, marginTop: 2 },
     optionBtn: {
@@ -1671,7 +1682,7 @@ function makeStyles(colors: ColorTokens) {
     optionFieldLabel: { fontSize: 12, fontWeight: '500', color: colors.ink3, marginBottom: -6 },
     optionSteps: { gap: 6 },
     optionStep: { flexDirection: 'row', gap: 10 },
-    optionStepKey: { width: 12, fontSize: 12.5, fontWeight: '700', color: colors.ink },
+    optionStepKey: { width: 12, fontSize: 12.5, fontWeight: '700', color: colors.accent },
     optionStepText: { flex: 1, fontSize: 12.5, lineHeight: 18, color: colors.ink2 },
     orRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 8 },
     orLine: { flex: 1, height: 1, backgroundColor: colors.line },
@@ -1690,7 +1701,7 @@ function makeStyles(colors: ColorTokens) {
     tipBox: { padding: 12, borderRadius: radius.md, backgroundColor: colors.surface2 },
     tipText: { fontSize: 12.5, lineHeight: 18, color: colors.ink2 },
     tipStrong: { fontWeight: '600', color: colors.ink },
-    tipLink: { fontWeight: '600', color: colors.ink, textDecorationLine: 'underline' },
+    tipLink: { fontWeight: '600', color: colors.accent, textDecorationLine: 'underline' },
     uploadBtn: {
       borderWidth: 1,
       borderStyle: 'dashed',
@@ -1898,7 +1909,8 @@ function makeStyles(colors: ColorTokens) {
     },
     zeroTxBannerText: { fontSize: 12, color: colors.accentInk, lineHeight: 17 },
     manualLink: { marginTop: 18, alignItems: 'center' },
-    manualLinkText: { fontSize: 12, color: colors.ink, fontWeight: '500' },
+    manualLinkText: { fontSize: 12, color: colors.ink3 },
+    manualLinkAction: { color: colors.accent, fontWeight: '600', textDecorationLine: 'underline' },
     matchInlineBanner: {
       flexDirection: 'row',
       alignItems: 'center',

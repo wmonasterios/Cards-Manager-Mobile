@@ -132,6 +132,11 @@ before touching any screen's styling:
   signalled via `seg1`/`seg3` (ring/chart colors) and `ink` vs `ink3` (weight),
   not via colored borders. A primary button is a solid fill (`backgroundColor:
   colors.accent`) with `color: colors.onTint2` text, not an outline.
+  **Deliberate exception (owner's call, Oct 2026):** the Statements screen's
+  two "add a statement" option cards use `accent` on the 1/2 number circles,
+  the a/b step letters, the card icons, the "See how" tip link and the
+  "Add a card manually" link — to make the two ways in read as a guided
+  choice. Don't "fix" this back to neutral ink; keep it scoped to that block.
 - `fonts.display` / `fonts.displayMedium` (Bricolage Grotesque 600/500) are
   for titles and large amounts only, loaded at runtime via `expo-font` +
   `@expo-google-fonts/bricolage-grotesque` in `App.tsx`, with a system-font
