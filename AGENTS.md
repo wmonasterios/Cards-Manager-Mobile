@@ -84,11 +84,27 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
   android` runs**: get the SHA-1 via `eas credentials`, go back to that API
   key, set "Application restrictions" → "Apps para Android", add
   `com.poquet` (and `com.poquet.preview`) with their SHA-1s.
-- **Android is paused (Oct 2026).** Firebase config and the FCM key are
-  already in place (`google-services.json`, EAS env). Still needed before
-  shipping: finish the Play Console organization/app forms, write the Play
-  Store listing, run the first `eas build --platform android`, do an
-  internal test, then come back and do the SHA-1 restriction above.
+- **Android status (10 Oct 2026).** Play Console (org account Bite Panama,
+  S.A., app `com.poquet`) is set up: forms, store listing (es-419) and
+  category done. First build shipped (`eas build --platform android
+  --profile production`, versionCode 2, version 1.1.0, AAB). Internal test is
+  active; **open test** was approved on 8 Oct (submission 1) and the track was
+  resumed (it starts paused). Public join link, used by poquetapp.com's
+  `ANDROID_TEST_URL`: `https://play.google.com/apps/testing/com.poquet`.
+  Open issue: the link showed "App not available" on a real Android with the
+  open test limited to Panama (suspect: the Google account's Play country).
+  On 10 Oct all countries were added and re-sent for review; once it says
+  "Published", retest on a real device. If it still fails, build versionCode 3
+  and upload it to open test only (version 2 also sits in internal test and
+  shows "Superseded" in open test). Still pending: the SHA-1 restriction above
+  (needs the upload keystore SHA-1 from `eas credentials` **and** the Play app
+  signing SHA-1 from Play Console → App integrity), and checking biometrics
+  and Apple sign-in on a real Android device.
+- **Android and iOS share one OTA channel.** `eas update --branch production`
+  publishes for both platforms, and every build is `1.1.0`, so one production
+  OTA reaches TestFlight and Play at once. The `production` workflow can be
+  triggered by a `vX.Y.Z` tag or by `workflow_dispatch`; last run 10 Oct
+  (986d808) caught Play and TestFlight up with `main`.
 
 # Security: PIN + Face ID (Oct 2026)
 
