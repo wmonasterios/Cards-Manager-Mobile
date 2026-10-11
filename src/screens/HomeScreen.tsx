@@ -13,8 +13,16 @@ import { CardArt } from '../components/CardArt';
 import { DraggableCardStack } from '../components/DraggableCardStack';
 import { useCards } from '../context/CardsContext';
 import { money } from '../format';
+import { Ionicons } from '@expo/vector-icons';
+import { usePersistedState } from '../storage/usePersistedState';
+
+// "Hide amounts" mode: every formatted amount ("US$ 3,420.10") becomes
+// "US$ ••••", so the app can be shown to someone without revealing balances.
+const MASKED = '••••';
+function maskAmounts(text: string): string {
+  return text.replace(/(\S+) -?\d[\d,]*\.\d{2}/g, `$1 ${MASKED}`);
+}
 import { deriveStatus, priorityOrder, dueDateOrder, StatusRow } from '../status';
-import { DecoratedCard } from '../decorate';
 
 const RING_R = 15;
 
@@ -60,24 +68,6 @@ function Shimmer({ style }: { style: any }) {
   );
 }
 
-// Demo banner: the soonest unpaid card, counted from today (demo dates are
-// re-anchored daily, so this always reads "in 3 days" for Banco General).
-function demoDueText(unpaid: DecoratedCard[], todayIso: string, lang: 'en' | 'es'): string {
-  const due = (c: DecoratedCard) => c.nextDueIso ?? c.dueIso;
-  const next = [...unpaid].filter((c) => due(c)).sort((a, b) => due(a)!.localeCompare(due(b)!))[0];
-  if (!next) return '';
-  const days = Math.round(
-    (new Date(due(next) + 'T00:00:00').getTime() - new Date(todayIso + 'T00:00:00').getTime()) / 86400000,
-  );
-  const when =
-    lang === 'es'
-      ? days === 0 ? 'vence hoy' : days === 1 ? 'vence mañana' : `vence en ${days} días`
-      : days === 0 ? 'due today' : days === 1 ? 'due tomorrow' : `due in ${days} days`;
-  return lang === 'es'
-    ? `${next.displayName} ${when} — mínimo ${next.minText}`
-    : `${next.displayName} ${when} — ${next.minText} minimum`;
-}
-
 export function HomeScreen({ navigation, route }: any) {
   const { cards, isDemo, loaded, loadError, refresh, reorderCards } = useCards();
   const colors = useColors();
@@ -85,6 +75,8 @@ export function HomeScreen({ navigation, route }: any) {
   const { lang } = useLocale();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [reordering, setReordering] = useState(false);
+  const [hideAmounts, setHideAmounts] = usePersistedState<boolean>('home.hideAmounts', false);
+  const mask = (text: string) => (hideAmounts ? maskAmounts(text) : text);
   // Which shortcut produced the current order, so the matching button can
   // stay highlighted — cleared on any manual drag, since that invalidates it.
   const [activeSort, setActiveSort] = useState<'priority' | 'dueDate' | null>(null);
@@ -138,12 +130,6 @@ export function HomeScreen({ navigation, route }: any) {
     }
   };
 
-  const nextDueText = !unpaid.length
-    ? t.everythingPaidCycle
-    : isDemo
-      ? demoDueText(unpaid, todayIso, lang)
-      : `${unpaid.length} ${t.cardsWord} ${t.withBalanceDue}`;
-
   const renderCardFace = (c: (typeof cards)[number]) => {
     const ink = artInk(c.id, c.colorKey);
     return (
@@ -156,7 +142,7 @@ export function HomeScreen({ navigation, route }: any) {
             </Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={[styles.cardBalance, { color: ink.main }]}>{c.balanceText}</Text>
+            <Text style={[styles.cardBalance, { color: ink.main }]}>{mask(c.balanceText)}</Text>
             <Text style={[styles.cardSub, { color: ink.sub }]}>{c.dueShort}</Text>
           </View>
         </View>
@@ -174,15 +160,27 @@ export function HomeScreen({ navigation, route }: any) {
       >
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.kicker}>
-              {(isDemo
-                ? lang === 'es'
-                  ? `${t.totalOwed} de ${DEMO_PERSONA}`
-                  : `${DEMO_PERSONA}'s ${t.totalOwed.toLowerCase()}`
-                : t.totalOwed
-              ).toUpperCase()}
-            </Text>
-            <Text style={styles.total}>{money('US$', totalOwed)}</Text>
+            <View style={styles.kickerRow}>
+              <Text style={styles.kicker}>
+                {(isDemo
+                  ? lang === 'es'
+                    ? `${t.totalOwed} de ${DEMO_PERSONA}`
+                    : `${DEMO_PERSONA}'s ${t.totalOwed.toLowerCase()}`
+                  : t.totalOwed
+                ).toUpperCase()}
+              </Text>
+              <Pressable
+                onPress={() => setHideAmounts(!hideAmounts)}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  hideAmounts ? (lang === 'es' ? 'Mostrar montos' : 'Show amounts') : lang === 'es' ? 'Ocultar montos' : 'Hide amounts'
+                }
+              >
+                <Ionicons name={hideAmounts ? 'eye-off-outline' : 'eye-outline'} size={16} color={colors.ink3} />
+              </Pressable>
+            </View>
+            <Text style={styles.total}>{mask(money('US$', totalOwed))}</Text>
             <Text style={styles.totalNote}>
               {cards.length} {isDemo ? (lang === 'es' ? 'tarjetas de ejemplo' : 'sample cards') : t.cardsWord} ·{' '}
               {unpaid.length} {t.withBalance}
@@ -246,13 +244,6 @@ export function HomeScreen({ navigation, route }: any) {
                 </Text>
               </Pressable>
             </View>
-          </View>
-        )}
-
-        {cards.length > 0 && (
-          <View style={styles.dueBanner}>
-            <View style={styles.dueDot} />
-            <Text style={styles.dueText}>{nextDueText}</Text>
           </View>
         )}
 
@@ -368,13 +359,13 @@ export function HomeScreen({ navigation, route }: any) {
                       </Text>
                     </View>
                     <Text style={styles.statusSub} numberOfLines={1}>
-                      {r.sub}
+                      {mask(r.sub)}
                     </Text>
                     {r.chips.length > 0 && (
                       <View style={styles.statusChips}>
                         {r.chips.map((ch, i) => (
                           <View key={i} style={[styles.statusChip, { backgroundColor: ch.bg }]}>
-                            <Text style={[styles.statusChipText, { color: ch.ink }]}>{ch.text}</Text>
+                            <Text style={[styles.statusChipText, { color: ch.ink }]}>{mask(ch.text)}</Text>
                           </View>
                         ))}
                       </View>
@@ -410,6 +401,7 @@ function makeStyles(colors: ColorTokens) {
       paddingHorizontal: spacing.xl,
       paddingTop: spacing.xxl,
     },
+    kickerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     kicker: {
       fontSize: 12,
       fontWeight: '500',
@@ -456,21 +448,6 @@ function makeStyles(colors: ColorTokens) {
     reorderSortBtnText: { fontSize: 11.5, fontWeight: '500', color: colors.accentInk },
     reorderSortBtnActive: { backgroundColor: colors.accent, borderColor: colors.accent },
     reorderSortBtnTextActive: { color: colors.onTint2 },
-    dueBanner: {
-      marginTop: 14,
-      marginHorizontal: spacing.xl,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      paddingVertical: 10,
-      paddingHorizontal: 12,
-      borderRadius: radius.md,
-      backgroundColor: colors.tint,
-      borderWidth: 1,
-      borderColor: colors.line,
-    },
-    dueDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accentInk2 },
-    dueText: { fontSize: 12.5, fontWeight: '500', color: colors.accentInk, flexShrink: 1 },
     emptyState: {
       marginTop: 18,
       marginHorizontal: spacing.xl,

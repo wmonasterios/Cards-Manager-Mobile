@@ -11,6 +11,8 @@ import { Segmented } from '../components/Segmented';
 import { BackButton } from '../components/BackButton';
 import { useCards } from '../context/CardsContext';
 import { money } from '../format';
+import { Ionicons } from '@expo/vector-icons';
+import { Confetti } from '../components/Confetti';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Pay'>;
 type PayMode = 'min' | 'full' | 'custom';
@@ -31,6 +33,9 @@ export function PayScreen({ route, navigation }: Props) {
   const [mode, setMode] = useState<PayMode>('full');
   const [custom, setCustom] = useState('');
   const [when, setWhen] = useState<PayDate>('today');
+  // Shown after saving a payment that settles the card (with confetti) or
+  // newly covers the minimum (an honest heads-up about interest).
+  const [celebration, setCelebration] = useState<null | { kind: 'full' | 'min'; title: string; body: string }>(null);
 
   if (!card) return null;
 
@@ -64,7 +69,31 @@ export function PayScreen({ route, navigation }: Props) {
       return;
     }
     const paidOnIso = when === 'today' ? toIso(todayDate) : toIso(dueDate);
+    // Decide the message from the card as it was *before* this payment.
+    const es = lang === 'es';
+    const settlesCard = afterAmount <= 0.005;
+    const coversMinNow = !card.minCovered && card.paidAmt + payAmount >= card.min - 0.005;
     addPayment(card.id, payAmount, whenLabel, paidOnIso);
+    if (settlesCard) {
+      setCelebration({
+        kind: 'full',
+        title: es ? '¡Felicidades!' : 'Congratulations!',
+        body: es
+          ? `Pagaste el total de ${card.displayName}. No pagarás intereses.`
+          : `You paid ${card.displayName} in full. You won't pay interest.`,
+      });
+      return;
+    }
+    if (coversMinNow) {
+      setCelebration({
+        kind: 'min',
+        title: es ? 'Estás al día' : "You're up to date",
+        body: es
+          ? `Cubriste el mínimo de ${card.displayName}, pero te cobrarán intereses sobre el saldo restante de ${money('US$', afterAmount)}.`
+          : `You covered ${card.displayName}'s minimum, but you'll be charged interest on the remaining ${money('US$', afterAmount)}.`,
+      });
+      return;
+    }
     Alert.alert(
       t.paymentRegisteredTemplate
         .replace('{amount}', money('US$', payAmount))
@@ -151,6 +180,31 @@ export function PayScreen({ route, navigation }: Props) {
           </View>
         </View>
       </ScrollView>
+
+      {celebration && (
+        <View style={styles.celebrateBackdrop}>
+          <View style={styles.celebrateCard} accessibilityLiveRegion="polite">
+            <View
+              style={[
+                styles.celebrateIcon,
+                { backgroundColor: celebration.kind === 'full' ? colors.accent : colors.tint },
+              ]}
+            >
+              <Ionicons
+                name={celebration.kind === 'full' ? 'sparkles' : 'checkmark'}
+                size={26}
+                color={celebration.kind === 'full' ? colors.onTint2 : colors.ink}
+              />
+            </View>
+            <Text style={styles.celebrateTitle}>{celebration.title}</Text>
+            <Text style={styles.celebrateBody}>{celebration.body}</Text>
+            <Pressable onPress={() => navigation.goBack()} style={styles.celebrateBtn} accessibilityRole="button">
+              <Text style={styles.celebrateBtnText}>{lang === 'es' ? 'Listo' : 'Done'}</Text>
+            </Pressable>
+          </View>
+          {celebration.kind === 'full' && <Confetti />}
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -203,6 +257,36 @@ function makeStyles(colors: ColorTokens) {
       alignItems: 'center',
     },
     saveBtnText: { fontSize: 14, fontWeight: '500', color: colors.onTint2 },
+    celebrateBackdrop: {
+      position: 'absolute', top: 0, right: 0, bottom: 0, left: 0,
+      backgroundColor: 'rgba(5,7,15,0.72)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: spacing.xl,
+    },
+    celebrateCard: {
+      width: '100%',
+      maxWidth: 360,
+      padding: 24,
+      borderRadius: radius.xl,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.line,
+      alignItems: 'center',
+    },
+    celebrateIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+    celebrateTitle: { fontSize: 24, fontFamily: fonts.display, color: colors.ink, marginTop: 16, textAlign: 'center' },
+    celebrateBody: { fontSize: 14, lineHeight: 20, color: colors.ink2, marginTop: 8, textAlign: 'center' },
+    celebrateBtn: {
+      marginTop: 20,
+      minHeight: 48,
+      alignSelf: 'stretch',
+      borderRadius: radius.md,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    celebrateBtnText: { fontSize: 15, fontWeight: '600', color: colors.onTint2 },
     historyTitle: { fontSize: 16, fontWeight: '500', color: colors.ink, marginTop: 24 },
     listCard: {
       marginTop: 10,

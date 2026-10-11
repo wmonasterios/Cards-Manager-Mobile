@@ -294,7 +294,7 @@ export function CalendarScreen({ navigation }: any) {
             <View style={styles.emptyCard}>
               <CalendarMascot size={52} />
               <Text style={styles.emptyText}>
-                {lang === 'es' ? 'No hay pagos este día.' : 'No payments this day.'}
+                {lang === 'es' ? 'No hay eventos este día' : 'No events this day'}
               </Text>
             </View>
           ) : (
