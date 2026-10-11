@@ -134,6 +134,13 @@ new account" signal for OAuth, so those still go straight to `finish()`.
 - Settings → "Set/Change/Remove PIN" lets an existing user add one later
   without going through signup again.
 
+**Forgot password (Oct 2026)** is a code flow, not a link: `requestPasswordReset`
+(`resetPasswordForEmail`) → user types the code → `resetPasswordWithCode`
+(`verifyOtp` type `recovery`, then `updateUser`). It only works if Supabase →
+Authentication → Emails → **Reset Password** template includes `{{ .Token }}`.
+Supabase Auth errors are shown through `src/authErrors.ts` (`friendlyAuthError`)
+— never show `error.message` raw, it's always English.
+
 # Design system ("Poquet" redesign, Oct 2026)
 
 Landed via 4 PRs from a separate Claude session (claude.ai, not this CLI) —
