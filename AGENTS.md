@@ -73,17 +73,23 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
 - `google-services.json` (Firebase, project `poquet-357ab` under
   `admin@bitelatam.com`) is checked into the repo — expected, Firebase client
   keys are meant to ship in code/binaries, GitHub's secret-scanning alert on
-  it is a false-positive-by-design. **But** the underlying API key
-  (`AIzaSyCw4u5...PNeo`, in Google Cloud Console → APIs & Services →
-  Credentials, under the `poquet-357ab` *Firebase* project — not the same as
-  any Google Cloud project with a similar name under this account) currently
-  has **no Android app restriction** ("Application restrictions: Ninguno").
-  Restricting it needs a package name + SHA-1 pair, and no Android build has
-  happened yet in this project (iOS-only so far), so there's no signing
-  keystore to get a SHA-1 from. **TODO once the first `eas build --platform
-  android` runs**: get the SHA-1 via `eas credentials`, go back to that API
-  key, set "Application restrictions" → "Apps para Android", add
-  `com.poquet` (and `com.poquet.preview`) with their SHA-1s.
+  it is a false-positive-by-design. The underlying API key
+  (`AIzaSyCw4u5...PNeo`, "Android key (auto created by Firebase)" in Google
+  Cloud Console → APIs & Services → Credentials, under the `poquet-357ab`
+  *Firebase* project — not the same as any Google Cloud project with a
+  similar name under this account) was restricted on 11 Oct 2026 to
+  "Apps para Android" with package `com.poquet` and two SHA-1s: the upload
+  key (EAS keystore, `53:47:26:8E:…:0C:08`, same one Play Console shows as
+  the upload certificate) and the Play app signing key
+  (`B5:F1:9A:F3:…:F9:DE`). The key only appears in `google-services.json`
+  (Android), so this doesn't affect iOS. **TODO when a `preview` Android
+  build exists**: add `com.poquet.preview` with that build's SHA-1 (it has
+  none yet — adding it without one would make the key reject that variant).
+  If Play ever rotates the app signing key (Play Console → Protegida con
+  Play → Gestiona la firma de aplicaciones de Play; a previous key from 5 Oct
+  2026 is listed with 0% installs), add the new SHA-1 too. The separate
+  "Browser key" is unrestricted by app (API-limited only); the app doesn't
+  use it.
 - **Android status (10 Oct 2026).** Play Console (org account Bite Panama,
   S.A., app `com.poquet`) is set up: forms, store listing (es-419) and
   category done. First build shipped (`eas build --platform android
@@ -96,10 +102,8 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
   On 10 Oct all countries were added and re-sent for review; once it says
   "Published", retest on a real device. If it still fails, build versionCode 3
   and upload it to open test only (version 2 also sits in internal test and
-  shows "Superseded" in open test). Still pending: the SHA-1 restriction above
-  (needs the upload keystore SHA-1 from `eas credentials` **and** the Play app
-  signing SHA-1 from Play Console → App integrity), and checking biometrics
-  and Apple sign-in on a real Android device.
+  shows "Superseded" in open test). Still pending: checking biometrics and
+  Apple sign-in on a real Android device.
 - **Android and iOS share one OTA channel.** `eas update --branch production`
   publishes for both platforms, and every build is `1.1.0`, so one production
   OTA reaches TestFlight and Play at once. The `production` workflow can be
