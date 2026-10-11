@@ -5,9 +5,9 @@ import { radius, spacing, ColorTokens, fonts } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { useCards } from '../context/CardsContext';
-import { useAppSettings } from '../context/AppSettingsContext';
 import { CalendarMascot } from '../components/Mascot';
 import { money } from '../format';
+import { artGradient } from '../data';
 
 const WEEKDAY_LABELS: Record<'en' | 'es', string[]> = {
   en: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
@@ -21,6 +21,7 @@ type DayEvent = {
   amount: string;
   min?: string;
   cardId?: string;
+  colorKey?: string;
 };
 
 export function CalendarScreen({ navigation }: any) {
@@ -28,7 +29,6 @@ export function CalendarScreen({ navigation }: any) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { cards, isDemo, paymentHistory } = useCards();
-  const { reminder, toggleReminder } = useAppSettings();
 
   const today = useMemo(() => new Date(), []);
   const [monthOffset, setMonthOffset] = useState(0);
@@ -77,72 +77,87 @@ export function CalendarScreen({ navigation }: any) {
     const add = (day: number, event: DayEvent) => {
       (map[day] ?? (map[day] = [])).push(event);
     };
-    if (isDemo) {
-      // Demo dates are re-anchored to today (buildDemoCards), so the calendar
-      // is built from the same cards Home shows — Banco General is always
-      // due in 3 days, and the paid cards show as settled.
-      for (const c of cards) {
-        if (!c.dueIso) continue;
-        const d = new Date(c.dueIso + 'T00:00:00');
-        if (d.getFullYear() !== year || d.getMonth() !== month) continue;
-        if (!c.paid) {
-          const n = daysFromToday(c.dueIso);
-          const inDays =
-            n <= 0
-              ? es ? 'Vence hoy' : 'Due today'
-              : n === 1
-                ? es ? 'Mañana' : 'Tomorrow'
-                : es ? `En ${n} días` : `In ${n} days`;
-          add(d.getDate(), {
-            kind: 'due',
-            card: `${c.displayName} ${c.product}`.trim(),
-            note: `${inDays} · ${es ? 'pago de contado' : 'full payment'}`,
-            amount: c.balanceText,
-            min: c.minText,
-            cardId: c.id,
-          });
-        } else {
-          add(d.getDate(), {
-            kind: 'paid',
-            card: `${c.displayName} ${c.product}`.trim(),
-            note: c.balance === 0 ? (es ? 'Nada por pagar' : 'Nothing to pay') : es ? 'Pagado' : 'Paid',
-            amount: c.statementText,
-            cardId: c.id,
-          });
-        }
-      }
-    } else {
-      for (const c of unpaid) {
-        if (!c.dueIso) continue;
-        const d = new Date(c.dueIso + 'T00:00:00');
-        if (d.getFullYear() !== year || d.getMonth() !== month) continue;
-        add(d.getDate(), {
-          kind: 'due',
-          card: `${c.displayName} ${c.product}`.trim(),
-          note: c.dueShort,
-          amount: c.balanceText,
-          min: c.minText,
-          cardId: c.id,
-        });
-      }
+    const inMonth = (iso: string) => {
+      const d = new Date(iso + 'T00:00:00');
+      return d.getFullYear() === year && d.getMonth() === month ? d.getDate() : null;
+    };
+    // Days (per card) that already show a registered payment, so a settled
+    // deadline on that same day doesn't get a second, duplicate "paid" row.
+    const paidDays = new Set<string>();
+    if (!isDemo) {
       for (const c of cards) {
         for (const p of paymentHistory(c.id)) {
           if (!p.paidOnIso) continue;
-          const d = new Date(p.paidOnIso + 'T00:00:00');
-          if (d.getFullYear() !== year || d.getMonth() !== month) continue;
-          add(d.getDate(), {
+          const day = inMonth(p.paidOnIso);
+          if (day === null) continue;
+          paidDays.add(`${c.id}:${day}`);
+          add(day, {
             kind: 'paid',
             card: `${c.displayName} ${c.product}`.trim(),
-            note: lang === 'es' ? 'Pagado' : 'Paid',
+            note: es ? 'Pagado' : 'Paid',
             amount: money(c.cur, p.amount),
             cardId: c.id,
+            colorKey: c.colorKey,
           });
         }
       }
     }
+    // Every deadline on each card's current statement — one per card when the
+    // bank uses a single date, or the minimum and the full payment separately
+    // when they differ (see PayEvent in decorate.ts). Demo dates are
+    // re-anchored to today, so this matches what Home shows.
+    for (const c of cards) {
+      for (const ev of c.payEvents) {
+        const day = inMonth(ev.iso);
+        if (day === null) continue;
+        const card = `${c.displayName} ${c.product}`.trim();
+        if (!ev.settled) {
+          const n = daysFromToday(ev.iso);
+          const when =
+            n < 0
+              ? es ? 'Vencido' : 'Overdue'
+              : n === 0
+                ? es ? 'Vence hoy' : 'Due today'
+                : n === 1
+                  ? es ? 'Mañana' : 'Tomorrow'
+                  : es ? `En ${n} días` : `In ${n} days`;
+          const what =
+            ev.kind === 'min' ? (es ? 'pago mínimo' : 'minimum payment') : es ? 'pago de contado' : 'full payment';
+          add(day, {
+            kind: 'due',
+            card,
+            note: `${when} · ${what}`,
+            amount: ev.amountText,
+            min: ev.kind === 'both' && !c.minCovered ? c.minText : undefined,
+            cardId: c.id,
+            colorKey: c.colorKey,
+          });
+        } else {
+          if (ev.kind !== 'min' && paidDays.has(`${c.id}:${day}`)) continue;
+          add(day, {
+            kind: 'paid',
+            card,
+            note:
+              ev.kind === 'min'
+                ? es ? 'Pago mínimo · cubierto' : 'Minimum payment · covered'
+                : c.balance === 0
+                  ? es ? 'Nada por pagar' : 'Nothing to pay'
+                  : es ? 'Pagado' : 'Paid',
+            amount: ev.kind === 'min' ? money(c.cur, c.min) : c.statementText,
+            cardId: c.id,
+            colorKey: c.colorKey,
+          });
+        }
+      }
+    }
+    // Pending first, then settled, so the list under the calendar leads with
+    // what still needs doing.
+    for (const day of Object.keys(map)) {
+      map[Number(day)].sort((x, y) => (x.kind === y.kind ? 0 : x.kind === 'due' ? -1 : 1));
+    }
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDemo, unpaid, cards, paymentHistory, lang, month, year]);
+  }, [isDemo, cards, paymentHistory, lang, month, year]);
 
   const dayEvents = eventsByDay[selectedDay] ?? [];
   const isToday = isCurrentMonth && selectedDay === today.getDate();
@@ -150,30 +165,6 @@ export function CalendarScreen({ navigation }: any) {
     lang === 'es' ? 'es-PA' : 'en-US',
     { day: 'numeric', month: 'long' },
   );
-
-  // Demo: the soonest unpaid due date. Real accounts keep the existing
-  // behavior (first unpaid card in the user's own order).
-  const firstUnpaid = isDemo
-    ? ([...unpaid].filter((c) => c.dueIso).sort((a, b) => a.dueIso!.localeCompare(b.dueIso!))[0] ?? unpaid[0])
-    : unpaid[0];
-  const remindersState = es ? `recordatorios ${reminder ? 'activos' : 'apagados'}` : `reminders ${reminder ? 'on' : 'off'}`;
-  const demoDays = firstUnpaid?.dueIso ? daysFromToday(firstUnpaid.dueIso) : null;
-  const previewTitle = isDemo && firstUnpaid && demoDays !== null
-    ? es
-      ? `${firstUnpaid.displayName} · vence en ${demoDays} días`
-      : `${firstUnpaid.displayName} · due in ${demoDays} days`
-    : firstUnpaid
-      ? `${firstUnpaid.displayName} · ${firstUnpaid.dueShort}`
-      : es
-        ? 'No tienes pagos pendientes'
-        : "You're all caught up";
-  const previewBody = isDemo && firstUnpaid
-    ? es
-      ? `Total ${firstUnpaid.balanceText} · mínimo ${firstUnpaid.minText} · ${remindersState}`
-      : `${firstUnpaid.balanceText} full · ${firstUnpaid.minText} minimum · ${remindersState}`
-    : firstUnpaid
-      ? `${firstUnpaid.balanceText} · ${es ? 'mínimo' : 'min'} ${firstUnpaid.minText} · ${remindersState}`
-      : remindersState;
 
   const cells: (number | null)[] = [
     ...Array(firstWeekday).fill(null),
@@ -209,38 +200,70 @@ export function CalendarScreen({ navigation }: any) {
                 if (n === null) return <View key={i} style={styles.cell} />;
                 const events = eventsByDay[n] ?? [];
                 const hasEvents = events.length > 0;
-                const hasDue = events.some((e) => e.kind === 'due');
                 const sel = selectedDay === n;
+                // Today stays marked (outline + accent number) even after
+                // selecting another day or moving to another month and back.
+                const isTodayCell = isCurrentMonth && n === today.getDate();
                 return (
                   <Pressable
                     key={i}
                     onPress={() => setSelectedDay(n)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: sel }}
+                    accessibilityLabel={`${n}${isTodayCell ? (es ? ', hoy' : ', today') : ''}${hasEvents ? (es ? `, ${events.length} eventos` : `, ${events.length} events`) : ''}`}
                     style={[
                       styles.cell,
                       styles.dayCell,
-                      { backgroundColor: sel ? colors.tint2 : hasEvents ? colors.line2 : 'transparent' },
+                      {
+                        backgroundColor: sel ? colors.tint2 : hasEvents ? colors.line2 : 'transparent',
+                        borderColor: isTodayCell && !sel ? colors.accent : 'transparent',
+                      },
                     ]}
                   >
-                    <Text style={[styles.dayNum, { color: sel ? colors.onTint2 : hasEvents ? colors.ink : colors.ink3 }]}>
-                      {n}
-                    </Text>
-                    <View
+                    <Text
                       style={[
-                        styles.dayDot,
+                        styles.dayNum,
                         {
-                          backgroundColor: !hasEvents
-                            ? 'transparent'
-                            : sel
-                              ? colors.onTint2
-                              : hasDue
-                                ? colors.accentInk2
-                                : colors.ink3,
+                          color: sel ? colors.onTint2 : isTodayCell ? colors.accent : hasEvents ? colors.ink : colors.ink3,
+                          fontWeight: sel || isTodayCell ? '800' : '500',
                         },
                       ]}
-                    />
+                    >
+                      {n}
+                    </Text>
+                    {/* One dot per event (max 3). Color follows the event, not
+                        the card: filled = to pay, hollow grey = paid. */}
+                    <View style={styles.dotRow}>
+                      {events.slice(0, 3).map((e, k) => (
+                        <View
+                          key={k}
+                          style={[
+                            styles.dayDot,
+                            e.kind === 'due'
+                              ? { backgroundColor: sel ? colors.onTint2 : colors.seg1 }
+                              : { borderWidth: 1.5, borderColor: sel ? colors.onTint2 : colors.ink3 },
+                          ]}
+                        />
+                      ))}
+                    </View>
                   </Pressable>
                 );
               })}
+            </View>
+          </View>
+
+          <View style={styles.legendRow}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: colors.seg1 }]} />
+              <Text style={styles.legendText}>{es ? 'Por pagar' : 'To pay'}</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { borderWidth: 1.5, borderColor: colors.ink3 }]} />
+              <Text style={styles.legendText}>{es ? 'Pagado / nada por pagar' : 'Paid / nothing to pay'}</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendToday, { borderColor: colors.accent }]} />
+              <Text style={styles.legendText}>{es ? 'Hoy' : 'Today'}</Text>
             </View>
           </View>
         </View>
@@ -267,12 +290,23 @@ export function CalendarScreen({ navigation }: any) {
                     disabled={!cardId}
                     onPress={cardId ? () => navigation.navigate('CardDetail', { cardId }) : undefined}
                   >
+                    {/* The card's own color lives here (not on the calendar dots). */}
+                    {cardId && (
+                      <View
+                        style={[
+                          styles.cardBar,
+                          u.kind === 'due'
+                            ? { backgroundColor: artGradient(cardId, u.colorKey)[1] }
+                            : { borderWidth: 2, borderColor: artGradient(cardId, u.colorKey)[1] },
+                        ]}
+                      />
+                    )}
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text style={styles.upCard} numberOfLines={1}>
                         {u.card}
                       </Text>
                       <Text
-                        style={[styles.upNote, { color: u.kind === 'due' ? colors.accentInk : colors.ink2 }]}
+                        style={[styles.upNote, { color: u.kind === 'due' ? colors.ink : colors.ink3 }]}
                         numberOfLines={1}
                       >
                         {u.note}
@@ -293,32 +327,6 @@ export function CalendarScreen({ navigation }: any) {
           )}
         </View>
 
-        <View style={styles.section}>
-          <View style={styles.reminderCard}>
-            <View style={styles.reminderTop}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.reminderTitle}>{t.reminders}</Text>
-                <Text style={styles.reminderSub}>{t.remindersSub}</Text>
-              </View>
-              <Pressable
-                onPress={toggleReminder}
-                style={[styles.switchTrack, { backgroundColor: reminder ? colors.tint2 : colors.line2 }]}
-              >
-                <View
-                  style={[
-                    styles.switchKnob,
-                    { left: reminder ? 20 : 2, backgroundColor: reminder ? colors.onArt : colors.ink3 },
-                  ]}
-                />
-              </Pressable>
-            </View>
-            <View style={styles.previewCard}>
-              <Text style={styles.previewKicker}>{t.notifPreview.toUpperCase()}</Text>
-              <Text style={styles.previewTitle}>{previewTitle}</Text>
-              <Text style={styles.previewBody}>{previewBody}</Text>
-            </View>
-          </View>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -360,9 +368,16 @@ function makeStyles(colors: ColorTokens) {
     weekLabel: { flex: 1, textAlign: 'center', fontSize: 10, fontWeight: '500', color: colors.ink3 },
     grid: { flexDirection: 'row', flexWrap: 'wrap' },
     cell: { width: `${100 / 7}%`, aspectRatio: 1, padding: 2 },
-    dayCell: { borderRadius: 9, alignItems: 'center', justifyContent: 'center', gap: 3 },
-    dayNum: { fontSize: 12, fontWeight: '500' },
-    dayDot: { width: 4, height: 4, borderRadius: 2 },
+    dayCell: { borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', gap: 3 },
+    dayNum: { fontSize: 13, fontWeight: '500' },
+    dotRow: { flexDirection: 'row', gap: 3, height: 6, alignItems: 'center' },
+    dayDot: { width: 6, height: 6, borderRadius: 3 },
+    legendRow: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 16, rowGap: 8, marginTop: 12 },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    legendDot: { width: 7, height: 7, borderRadius: 4 },
+    legendToday: { width: 16, height: 16, borderRadius: 5, borderWidth: 1.5 },
+    legendText: { fontSize: 12, color: colors.ink3 },
+    cardBar: { width: 8, height: 28, borderRadius: 4 },
     section: { paddingHorizontal: spacing.xl, marginTop: spacing.xl },
     sectionTitle: { fontSize: 16, fontWeight: '500', color: colors.ink },
     emptyCard: {
@@ -390,28 +405,5 @@ function makeStyles(colors: ColorTokens) {
     upNote: { fontSize: 11, marginTop: 3 },
     upAmount: { fontSize: 14, fontWeight: '600', color: colors.ink },
     upMin: { fontSize: 10.5, color: colors.ink3, marginTop: 3 },
-    reminderCard: {
-      padding: 16,
-      borderRadius: radius.xl,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.line,
-    },
-    reminderTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    reminderTitle: { fontSize: 14, fontWeight: '500', color: colors.ink },
-    reminderSub: { fontSize: 11.5, color: colors.ink2, marginTop: 5 },
-    switchTrack: { width: 44, height: 26, borderRadius: 999, borderWidth: 1, borderColor: colors.line },
-    switchKnob: { position: 'absolute', top: 2, width: 20, height: 20, borderRadius: 999 },
-    previewCard: {
-      marginTop: 14,
-      padding: 12,
-      borderRadius: radius.md,
-      backgroundColor: colors.bg,
-      borderWidth: 1,
-      borderColor: colors.line2,
-    },
-    previewKicker: { fontSize: 11, fontWeight: '500', color: colors.ink3, letterSpacing: 1 },
-    previewTitle: { fontSize: 12.5, fontWeight: '500', color: colors.ink, marginTop: 8 },
-    previewBody: { fontSize: 11.5, color: colors.ink2, marginTop: 3 },
   });
 }

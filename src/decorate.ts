@@ -13,6 +13,18 @@ export type DecoratedTransaction = Transaction & {
   cardShort: string;
 };
 
+// One payment deadline on a card's current statement. When the bank uses a
+// single date for both, there's one 'both' event; when the minimum and the
+// full payment have different dates, there's a 'min' and a 'full' event.
+export type PayEvent = {
+  kind: 'min' | 'full' | 'both';
+  iso: string;
+  label: string; // "Oct 14"
+  amount: number;
+  amountText: string;
+  settled: boolean;
+};
+
 export type DecoratedCard = Card & {
   paid: boolean;
   paidAmt: number;
@@ -33,6 +45,12 @@ export type DecoratedCard = Card & {
   displaySub: string;
   reviewCount: number;
   dtx: DecoratedTransaction[];
+  minCovered: boolean;
+  payEvents: PayEvent[];
+  // The next deadline still pending (undefined once the card is paid).
+  nextDueIso?: string;
+  nextDueLabel?: string;
+  nextDueKind?: PayEvent['kind'];
 };
 
 export type Payment = { amount: number; when: string; paidOnIso?: string };
@@ -77,6 +95,30 @@ export function decorateCard(
   const usedPct = c.limit > 0 ? Math.round((remaining / c.limit) * 100) : 0;
   const fmtC = (n: number) => money(c.cur, n);
 
+  // There's no separate "minimum paid" flag: the minimum counts as covered
+  // once this cycle's registered payments reach it (or the card is paid).
+  const minCovered = paid || paidAmt >= c.min - 0.005;
+  const fullLeft = paid ? 0 : Math.max(0, (c.fullAmount ?? c.balance) - paidAmt);
+  const payEvents: PayEvent[] = [];
+  if (c.dueIso && c.fullDueIso && c.fullDueIso !== c.dueIso) {
+    const minLeft = Math.max(0, c.min - paidAmt);
+    payEvents.push(
+      { kind: 'min', iso: c.dueIso, label: c.due, amount: minLeft, amountText: fmtC(minLeft), settled: minCovered },
+      {
+        kind: 'full',
+        iso: c.fullDueIso,
+        label: c.fullDue ?? c.due,
+        amount: fullLeft,
+        amountText: fmtC(fullLeft),
+        settled: paid,
+      },
+    );
+    payEvents.sort((a, b) => a.iso.localeCompare(b.iso));
+  } else if (c.dueIso) {
+    payEvents.push({ kind: 'both', iso: c.dueIso, label: c.due, amount: remaining, amountText: fmtC(remaining), settled: paid });
+  }
+  const next = payEvents.find((e) => !e.settled);
+
   return {
     ...c,
     paid,
@@ -93,7 +135,7 @@ export function decorateCard(
     limitText: fmtC(c.limit),
     usedText: fmtC(remaining),
     availableText: fmtC(c.limit - remaining),
-    dueShort: paid ? t.paidWord : `${t.dueWord} ${c.due}`,
+    dueShort: paid ? t.paidWord : `${t.dueWord} ${next?.label ?? c.due}`,
     stateText: paid
       ? t.nothing
       : paidAmt > 0
@@ -107,5 +149,10 @@ export function decorateCard(
     displaySub: c.nickname ? [c.bank, c.product].filter(Boolean).join(' ') : c.product,
     reviewCount,
     dtx: c.tx.map((tr) => decorateTransaction(tr, c, colors)),
+    minCovered,
+    payEvents,
+    nextDueIso: next?.iso,
+    nextDueLabel: next?.label,
+    nextDueKind: next?.kind,
   };
 }

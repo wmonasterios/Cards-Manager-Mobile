@@ -63,10 +63,11 @@ function Shimmer({ style }: { style: any }) {
 // Demo banner: the soonest unpaid card, counted from today (demo dates are
 // re-anchored daily, so this always reads "in 3 days" for Banco General).
 function demoDueText(unpaid: DecoratedCard[], todayIso: string, lang: 'en' | 'es'): string {
-  const next = [...unpaid].filter((c) => c.dueIso).sort((a, b) => a.dueIso!.localeCompare(b.dueIso!))[0];
+  const due = (c: DecoratedCard) => c.nextDueIso ?? c.dueIso;
+  const next = [...unpaid].filter((c) => due(c)).sort((a, b) => due(a)!.localeCompare(due(b)!))[0];
   if (!next) return '';
   const days = Math.round(
-    (new Date(next.dueIso + 'T00:00:00').getTime() - new Date(todayIso + 'T00:00:00').getTime()) / 86400000,
+    (new Date(due(next) + 'T00:00:00').getTime() - new Date(todayIso + 'T00:00:00').getTime()) / 86400000,
   );
   const when =
     lang === 'es'

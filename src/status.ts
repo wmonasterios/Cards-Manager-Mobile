@@ -63,7 +63,11 @@ export function deriveStatus(cards: DecoratedCard[], todayIso: string, t: Dict, 
     const stmtLate = !hasStatement || (nextCutoffIso !== null && todayIso > nextCutoffIso);
     const daysLate = hasStatement && nextCutoffIso ? Math.max(daysBetween(nextCutoffIso, todayIso), 0) : 0;
 
-    const dueDays = c.dueIso ? daysBetween(todayIso, c.dueIso) : 999;
+    // Counts down to the next deadline still pending: the minimum's date, or —
+    // when the bank sets a separate one and the minimum is already covered —
+    // the full payment's.
+    const dueIso = c.nextDueIso ?? c.dueIso;
+    const dueDays = dueIso ? daysBetween(todayIso, dueIso) : 999;
     const daysToNextCutoff = hasStatement && nextCutoffIso ? Math.max(daysBetween(todayIso, nextCutoffIso), 0) : 999;
     // Once a card is paid off there's no due date left to count down to — the
     // next thing it actually needs is its next statement, so the ring keeps
@@ -85,8 +89,11 @@ export function deriveStatus(cards: DecoratedCard[], todayIso: string, t: Dict, 
       chips.push({ text: `${c.reviewCount} ${t.toReviewWord}`, bg: colors.tint, ink: colors.accentInk });
     }
     if (!c.paid && !stmtLate) {
+      const fullNext = c.nextDueKind === 'full';
       chips.push({
-        text: `${t.minWord} ${c.minText}`,
+        text: fullNext
+          ? `${t.fullPaymentWord} ${c.payEvents.find((e) => e.kind === 'full')?.amountText ?? c.balanceText}`
+          : `${t.minWord} ${c.minText}`,
         bg: urgent ? colors.tint : 'transparent',
         ink: urgent ? colors.accentInk : colors.ink3,
       });
@@ -108,7 +115,7 @@ export function deriveStatus(cards: DecoratedCard[], todayIso: string, t: Dict, 
         : t.noStatementYet
       : c.paid
         ? `${t.paidWord} · ${t.nextCutoffWord} ${c.cutoff}`
-        : `${t.dueWord} ${c.due} · ${c.balanceText}`;
+        : `${t.dueWord} ${c.nextDueLabel ?? c.due} · ${c.balanceText}`;
 
     const action: StatusAction = stmtLate ? 'upload' : c.reviewCount > 0 ? 'review' : !c.paid ? 'pay' : 'open';
     const actionLabel = { upload: t.actionUpload, review: t.actionReview, pay: t.actionPay, open: t.actionOpen }[
@@ -172,7 +179,8 @@ export function priorityOrder(cards: DecoratedCard[], todayIso: string): string[
       const hasStatement = !!c.cutoffIso;
       const nextCutoffIso = hasStatement ? addMonths(c.cutoffIso!, 1) : null;
       const stmtLate = !hasStatement || (nextCutoffIso !== null && todayIso > nextCutoffIso);
-      const dueDays = c.dueIso ? daysBetween(todayIso, c.dueIso) : 999;
+      const nextDue = c.nextDueIso ?? c.dueIso;
+      const dueDays = nextDue ? daysBetween(todayIso, nextDue) : 999;
       const daysToNextCutoff = hasStatement && nextCutoffIso ? Math.max(daysBetween(todayIso, nextCutoffIso), 0) : 999;
       // Mirrors deriveStatus: once paid, what's actually approaching is the
       // next cutoff, not the (already met) due date.
@@ -206,7 +214,7 @@ export function priorityOrder(cards: DecoratedCard[], todayIso: string): string[
 // first), for the same reason priorityOrder does above.
 export function dueDateOrder(cards: DecoratedCard[]): string[] {
   return cards
-    .map((c) => ({ id: c.id, dueIso: c.dueIso ?? '9999-99-99', remaining: c.remaining }))
+    .map((c) => ({ id: c.id, dueIso: c.nextDueIso ?? c.dueIso ?? '9999-99-99', remaining: c.remaining }))
     .sort((a, b) => a.dueIso.localeCompare(b.dueIso) || b.remaining - a.remaining)
     .map((s) => s.id);
 }

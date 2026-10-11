@@ -59,20 +59,30 @@ export async function schedulePaymentReminders(cards: DecoratedCard[]) {
   if (!granted) return;
 
   const ids: string[] = [];
+  // One reminder per pending deadline: a single one when the bank uses one
+  // date, or one for the minimum and one for the full payment when they differ.
   for (const card of cards) {
-    if (card.paid || !card.dueIso) continue;
-    const due = new Date(card.dueIso + 'T09:00:00');
-    const fireAt = new Date(due.getTime() - 3 * 24 * 60 * 60 * 1000);
-    if (fireAt.getTime() <= Date.now()) continue;
-    const id = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: `${card.displayName} due in 3 days`,
-        body: `${card.balanceText} · minimum ${card.minText}`,
-        data: { cardId: card.id, type: 'payment_reminder' },
-      },
-      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fireAt },
-    });
-    ids.push(id);
+    if (card.paid) continue;
+    for (const ev of card.payEvents) {
+      if (ev.settled) continue;
+      const due = new Date(ev.iso + 'T09:00:00');
+      const fireAt = new Date(due.getTime() - 3 * 24 * 60 * 60 * 1000);
+      if (fireAt.getTime() <= Date.now()) continue;
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title:
+            ev.kind === 'full'
+              ? `${card.displayName} full payment due in 3 days`
+              : ev.kind === 'min'
+                ? `${card.displayName} minimum due in 3 days`
+                : `${card.displayName} due in 3 days`,
+          body: ev.kind === 'full' ? `Full payment ${ev.amountText}` : `${card.balanceText} · minimum ${card.minText}`,
+          data: { cardId: card.id, type: 'payment_reminder' },
+        },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fireAt },
+      });
+      ids.push(id);
+    }
   }
   await AsyncStorage.setItem(REMINDER_IDS_KEY, JSON.stringify(ids));
 }

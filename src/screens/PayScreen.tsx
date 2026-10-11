@@ -44,7 +44,8 @@ export function PayScreen({ route, navigation }: Props) {
 
   const locale = lang === 'es' ? 'es-PA' : 'en-US';
   const todayDate = new Date();
-  const dueDate = card.dueIso ? new Date(card.dueIso + 'T00:00:00') : todayDate;
+  const nextDue = card.nextDueIso ?? card.dueIso;
+  const dueDate = nextDue ? new Date(nextDue + 'T00:00:00') : todayDate;
   const formatLong = (d: Date) => d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
   const formatShort = (d: Date) => d.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
   const dateText =

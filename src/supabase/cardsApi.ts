@@ -78,6 +78,10 @@ export function dbCardToCard(row: DbCard, transactions: DbTransaction[] = []): C
     cutoff: shortDate(row.cutoff_date),
     dueIso: row.due_date ?? undefined,
     cutoffIso: row.cutoff_date ?? undefined,
+    ...(row.full_payment_due_date && row.full_payment_due_date !== row.due_date
+      ? { fullDueIso: row.full_payment_due_date, fullDue: shortDate(row.full_payment_due_date) }
+      : {}),
+    fullAmount: row.full_payment_amount != null ? Number(row.full_payment_amount) : undefined,
     plansNote: '',
     cycleNote: '',
     plans: buildInstalmentPlans(cardTx),

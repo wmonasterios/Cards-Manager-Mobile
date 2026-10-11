@@ -74,6 +74,11 @@ export type Card = {
   cutoff: string;
   dueIso?: string;
   cutoffIso?: string;
+  // Some banks give the full-payment ("pago de contado") deadline a different
+  // date than the minimum payment's (due/dueIso). Only set when it differs.
+  fullDue?: string;
+  fullDueIso?: string;
+  fullAmount?: number;
   plansNote: string;
   cycleNote: string;
   plans: InstalmentPlan[];
