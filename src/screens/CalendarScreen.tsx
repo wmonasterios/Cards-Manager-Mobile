@@ -19,6 +19,9 @@ type DayEvent = {
   card: string;
   note: string;
   amount: string;
+  // Raw amount + currency, so the day summary can add up what's due.
+  value?: number;
+  cur?: string;
   min?: string;
   cardId?: string;
   colorKey?: string;
@@ -61,7 +64,6 @@ export function CalendarScreen({ navigation }: any) {
     }),
   ).current;
 
-  const unpaid = cards.filter((c) => !c.paid);
   const es = lang === 'es';
   const daysFromToday = (iso: string) =>
     Math.round(
@@ -69,8 +71,6 @@ export function CalendarScreen({ navigation }: any) {
         new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) /
         86400000,
     );
-  const usdTotal = unpaid.reduce((n, c) => n + c.remaining, 0);
-  const monthDueText = `${unpaid.length} ${t.cardsWord} ${t.withBalanceDue} · ${money('US$', usdTotal)}`;
 
   const eventsByDay = useMemo(() => {
     const map: Record<number, DayEvent[]> = {};
@@ -128,6 +128,8 @@ export function CalendarScreen({ navigation }: any) {
             card,
             note: `${when} · ${what}`,
             amount: ev.amountText,
+            value: ev.amount,
+            cur: c.cur,
             min: ev.kind === 'both' && !c.minCovered ? c.minText : undefined,
             cardId: c.id,
             colorKey: c.colorKey,
@@ -161,6 +163,22 @@ export function CalendarScreen({ navigation }: any) {
 
   const dayEvents = eventsByDay[selectedDay] ?? [];
   const isToday = isCurrentMonth && selectedDay === today.getDate();
+
+  // Summary under the month name follows the selected day: how many cards have
+  // a payment due that day and what they add up to (per currency).
+  const dueToday = dayEvents.filter((e) => e.kind === 'due');
+  const dueCards = new Set(dueToday.map((e) => e.cardId ?? e.card)).size;
+  const totalsByCur = new Map<string, number>();
+  for (const e of dueToday) {
+    if (e.value === undefined || !e.cur) continue;
+    totalsByCur.set(e.cur, (totalsByCur.get(e.cur) ?? 0) + e.value);
+  }
+  const totalsText = [...totalsByCur].map(([cur, n]) => money(cur, n)).join(' + ');
+  const daySummary = dueCards
+    ? `${dueCards} ${es ? (dueCards === 1 ? 'tarjeta por pagar' : 'tarjetas por pagar') : dueCards === 1 ? 'card to pay' : 'cards to pay'}${totalsText ? ` · ${totalsText}` : ''}`
+    : dayEvents.length
+      ? es ? 'Nada pendiente por pagar este día' : 'Nothing left to pay this day'
+      : es ? 'No hay eventos este día' : 'No events this day';
   const selectedDateLabel = new Date(year, month, selectedDay).toLocaleDateString(
     lang === 'es' ? 'es-PA' : 'en-US',
     { day: 'numeric', month: 'long' },
@@ -185,7 +203,7 @@ export function CalendarScreen({ navigation }: any) {
               <Text style={styles.monthNavIcon}>{'›'}</Text>
             </Pressable>
           </View>
-          <Text style={styles.sub}>{monthDueText}</Text>
+          <Text style={styles.daySummary}>{daySummary}</Text>
 
           <View style={styles.calendarCard} {...panResponder.panHandlers}>
             <View style={styles.weekRow}>
@@ -339,6 +357,7 @@ function makeStyles(colors: ColorTokens) {
     top: { paddingTop: spacing.xxl, paddingHorizontal: spacing.xl },
     title: { fontSize: 26, fontFamily: fonts.displayMedium, color: colors.ink, letterSpacing: -0.3 },
     sub: { fontSize: 12.5, color: colors.ink2, marginTop: 2 },
+    daySummary: { fontSize: 12.5, color: colors.ink2, marginTop: 12 },
     monthNavRow: {
       marginTop: 14,
       flexDirection: 'row',
