@@ -12,6 +12,7 @@ import { BackButton } from '../components/BackButton';
 import { Segmented } from '../components/Segmented';
 import { useAuth } from '../context/AuthContext';
 import { enterApp } from '../navigation/navigationRef';
+import { friendlyAuthError } from '../authErrors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Auth'>;
 type Mode = 'signin' | 'signup';
@@ -21,7 +22,18 @@ export function AuthScreen({ navigation, route }: Props) {
   const { isDark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { lang } = useLocale();
-  const { signIn, signUp, confirmSignup, resendConfirmation, signInWithGoogle, signInWithApple } = useAuth();
+  const {
+    signIn,
+    signUp,
+    confirmSignup,
+    resendConfirmation,
+    signInWithGoogle,
+    signInWithApple,
+    requestPasswordReset,
+    resetPasswordWithCode,
+  } = useAuth();
+  const es = lang === 'es';
+  const err = (e: string | null) => friendlyAuthError(e, lang);
 
   // Reached from onboarding's "add my first statement" CTA: once signed in,
   // land straight in Statements to continue that upload instead of bouncing
@@ -47,6 +59,10 @@ export function AuthScreen({ navigation, route }: Props) {
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [awaitingCode, setAwaitingCode] = useState(false);
+  // Forgot-password flow: ask for the email → send a code → code + new password.
+  const [recovery, setRecovery] = useState<null | 'email' | 'code'>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [newPassword2, setNewPassword2] = useState('');
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
@@ -62,7 +78,7 @@ export function AuthScreen({ navigation, route }: Props) {
     const { error } = await signInWithGoogle();
     setGoogleBusy(false);
     if (error) {
-      Alert.alert(lang === 'es' ? 'No se pudo iniciar sesión con Google' : 'Could not sign in with Google', error);
+      Alert.alert(lang === 'es' ? 'No se pudo iniciar sesión con Google' : 'Could not sign in with Google', err(error));
       return;
     }
     finish();
@@ -71,7 +87,7 @@ export function AuthScreen({ navigation, route }: Props) {
   const handleApple = async () => {
     const { error } = await signInWithApple();
     if (error) {
-      Alert.alert(lang === 'es' ? 'No se pudo iniciar sesión con Apple' : 'Could not sign in with Apple', error);
+      Alert.alert(lang === 'es' ? 'No se pudo iniciar sesión con Apple' : 'Could not sign in with Apple', err(error));
       return;
     }
     finish();
@@ -95,7 +111,12 @@ export function AuthScreen({ navigation, route }: Props) {
     const result = mode === 'signin' ? await signIn(email.trim(), password) : await signUp(email.trim(), password);
     setBusy(false);
     if (result.error) {
-      Alert.alert(lang === 'es' ? 'No se pudo iniciar sesión' : 'Could not sign in', result.error);
+      Alert.alert(
+        mode === 'signin'
+          ? es ? 'No se pudo iniciar sesión' : 'Could not sign in'
+          : es ? 'No se pudo crear la cuenta' : 'Could not create the account',
+        err(result.error),
+      );
       return;
     }
     if (mode === 'signup' && 'needsConfirmation' in result && result.needsConfirmation) {
@@ -115,7 +136,7 @@ export function AuthScreen({ navigation, route }: Props) {
     const { error } = await confirmSignup(email.trim(), code.trim());
     setBusy(false);
     if (error) {
-      Alert.alert(lang === 'es' ? 'No se pudo confirmar tu cuenta' : 'Could not confirm your account', error);
+      Alert.alert(lang === 'es' ? 'No se pudo confirmar tu cuenta' : 'Could not confirm your account', err(error));
       return;
     }
     finishSignup();
@@ -126,7 +147,7 @@ export function AuthScreen({ navigation, route }: Props) {
     const { error } = await resendConfirmation(email.trim());
     setResending(false);
     if (error) {
-      Alert.alert(lang === 'es' ? 'No se pudo reenviar el código' : 'Could not resend the code', error);
+      Alert.alert(lang === 'es' ? 'No se pudo reenviar el código' : 'Could not resend the code', err(error));
       return;
     }
     Alert.alert(
@@ -134,6 +155,154 @@ export function AuthScreen({ navigation, route }: Props) {
       lang === 'es' ? 'Revisa tu correo por el nuevo código.' : 'Check your email for a new code.',
     );
   };
+
+  const sendRecoveryCode = async (isResend = false) => {
+    if (!email.trim()) {
+      Alert.alert(es ? 'Ingresa tu correo.' : 'Enter your email.');
+      return;
+    }
+    if (isResend) setResending(true);
+    else setBusy(true);
+    const { error } = await requestPasswordReset(email.trim());
+    setBusy(false);
+    setResending(false);
+    if (error) {
+      Alert.alert(es ? 'No se pudo enviar el código' : 'Could not send the code', err(error));
+      return;
+    }
+    if (isResend) {
+      Alert.alert(es ? 'Código enviado' : 'Code sent', es ? 'Revisa tu correo por el nuevo código.' : 'Check your email for a new code.');
+    }
+    setRecovery('code');
+  };
+
+  const submitNewPassword = async () => {
+    if (!code.trim()) {
+      Alert.alert(es ? 'Ingresa el código de tu correo.' : 'Enter the code from your email.');
+      return;
+    }
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
+      Alert.alert(
+        es ? 'Elige una contraseña más larga' : 'Choose a longer password',
+        es ? `Usa al menos ${MIN_PASSWORD_LENGTH} caracteres.` : `Use at least ${MIN_PASSWORD_LENGTH} characters.`,
+      );
+      return;
+    }
+    if (newPassword !== newPassword2) {
+      Alert.alert(es ? 'Las contraseñas no coinciden' : "Passwords don't match");
+      return;
+    }
+    setBusy(true);
+    const { error } = await resetPasswordWithCode(email.trim(), code.trim(), newPassword);
+    setBusy(false);
+    if (error) {
+      Alert.alert(es ? 'No se pudo cambiar la contraseña' : 'Could not change the password', err(error));
+      return;
+    }
+    Alert.alert(es ? 'Listo' : 'Done', es ? 'Tu contraseña se actualizó.' : 'Your password was updated.');
+    finish();
+  };
+
+  if (recovery) {
+    return (
+      <SafeAreaView style={styles.screen} edges={['top']}>
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <View style={styles.top}>
+            <BackButton onPress={() => setRecovery(recovery === 'code' ? 'email' : null)} />
+            <Text style={styles.title}>
+              {recovery === 'email'
+                ? es ? 'Recupera tu contraseña' : 'Reset your password'
+                : es ? 'Crea una nueva contraseña' : 'Create a new password'}
+            </Text>
+            <Text style={styles.sub}>
+              {recovery === 'email'
+                ? es
+                  ? 'Te enviaremos un código a tu correo para que crees una contraseña nueva.'
+                  : "We'll email you a code so you can create a new password."
+                : es
+                  ? `Si existe una cuenta con ${email.trim()}, te enviamos un código. Ingrésalo junto con tu nueva contraseña.`
+                  : `If an account exists for ${email.trim()}, we sent it a code. Enter it with your new password.`}
+            </Text>
+
+            {recovery === 'email' ? (
+              <>
+                <Text style={styles.label}>{es ? 'CORREO' : 'EMAIL'}</Text>
+                <TextInput
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="you@example.com"
+                  placeholderTextColor={colors.ink3}
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  keyboardType="email-address"
+                  style={styles.input}
+                />
+                <Pressable onPress={() => sendRecoveryCode()} disabled={busy} style={[styles.submitBtn, busy && { opacity: 0.6 }]}>
+                  {busy ? (
+                    <ActivityIndicator color={colors.onTint2} />
+                  ) : (
+                    <Text style={styles.submitBtnText}>{es ? 'Enviar código' : 'Send code'}</Text>
+                  )}
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Text style={styles.label}>{es ? 'CÓDIGO' : 'CODE'}</Text>
+                <TextInput
+                  value={code}
+                  onChangeText={setCode}
+                  placeholder="123456"
+                  placeholderTextColor={colors.ink3}
+                  keyboardType="number-pad"
+                  autoComplete="one-time-code"
+                  textContentType="oneTimeCode"
+                  maxLength={8}
+                  style={styles.input}
+                />
+                <Text style={styles.label}>{es ? 'NUEVA CONTRASEÑA' : 'NEW PASSWORD'}</Text>
+                <TextInput
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.ink3}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  textContentType="newPassword"
+                  style={styles.input}
+                />
+                <Text style={styles.passwordHint}>
+                  {es ? `Al menos ${MIN_PASSWORD_LENGTH} caracteres.` : `At least ${MIN_PASSWORD_LENGTH} characters.`}
+                </Text>
+                <Text style={styles.label}>{es ? 'REPITE LA CONTRASEÑA' : 'REPEAT PASSWORD'}</Text>
+                <TextInput
+                  value={newPassword2}
+                  onChangeText={setNewPassword2}
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.ink3}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  textContentType="newPassword"
+                  style={styles.input}
+                />
+                <Pressable onPress={submitNewPassword} disabled={busy} style={[styles.submitBtn, busy && { opacity: 0.6 }]}>
+                  {busy ? (
+                    <ActivityIndicator color={colors.onTint2} />
+                  ) : (
+                    <Text style={styles.submitBtnText}>{es ? 'Guardar y entrar' : 'Save and sign in'}</Text>
+                  )}
+                </Pressable>
+                <Pressable onPress={() => sendRecoveryCode(true)} disabled={resending} hitSlop={8} style={{ marginTop: 16 }}>
+                  <Text style={styles.resendText}>
+                    {resending ? (es ? 'Enviando…' : 'Sending…') : es ? 'Reenviar código' : 'Resend code'}
+                  </Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   if (awaitingCode) {
     return (
@@ -235,6 +404,21 @@ export function AuthScreen({ navigation, route }: Props) {
               {lang === 'es' ? `Al menos ${MIN_PASSWORD_LENGTH} caracteres.` : `At least ${MIN_PASSWORD_LENGTH} characters.`}
             </Text>
           )}
+          {mode === 'signin' && (
+            <Pressable
+              onPress={() => {
+                setCode('');
+                setNewPassword('');
+                setNewPassword2('');
+                setRecovery('email');
+              }}
+              hitSlop={10}
+              accessibilityRole="button"
+              style={styles.forgotLink}
+            >
+              <Text style={styles.forgotText}>{es ? '¿Olvidaste tu contraseña?' : 'Forgot your password?'}</Text>
+            </Pressable>
+          )}
 
           <Pressable onPress={submit} disabled={busy} style={[styles.submitBtn, busy && { opacity: 0.6 }]}>
             {busy ? (
@@ -298,6 +482,8 @@ function makeStyles(colors: ColorTokens) {
       fontSize: 14,
     },
     passwordHint: { fontSize: 11, color: colors.ink3, marginTop: 6 },
+    forgotLink: { alignSelf: 'flex-end', marginTop: 12, minHeight: 24, justifyContent: 'center' },
+    forgotText: { fontSize: 12.5, fontWeight: '500', color: colors.ink2, textDecorationLine: 'underline' },
     submitBtn: {
       marginTop: 24,
       padding: 14,

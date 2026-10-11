@@ -13,6 +13,8 @@ type AuthContextValue = {
   resendConfirmation: (email: string) => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
   signInWithApple: () => Promise<{ error: string | null }>;
+  requestPasswordReset: (email: string) => Promise<{ error: string | null }>;
+  resetPasswordWithCode: (email: string, code: string, newPassword: string) => Promise<{ error: string | null }>;
 };
 
 const AUTH_TIMEOUT_MS = 12000;
@@ -117,6 +119,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Forgot password, as a code typed in the app (like signup confirmation)
+  // rather than a link: works even if the email is opened on another device.
+  // Needs the "Reset Password" email template to include {{ .Token }}.
+  const requestPasswordReset = async (email: string) => {
+    try {
+      const { error } = await withTimeout(supabase.auth.resetPasswordForEmail(email));
+      return { error: error?.message ?? null };
+    } catch (e: any) {
+      return { error: e?.message ?? TIMEOUT_MESSAGE };
+    }
+  };
+
+  // Verifying the recovery code signs the user in; the new password is then
+  // set on that session.
+  const resetPasswordWithCode = async (email: string, code: string, newPassword: string) => {
+    try {
+      // If a previous attempt already verified the code (signing in) but
+      // failed to save the password, don't burn the code again — just retry
+      // the update on the session it created.
+      const { data: current } = await supabase.auth.getSession();
+      if (current.session?.user.email?.toLowerCase() !== email.toLowerCase()) {
+        const { error: otpError } = await withTimeout(
+          supabase.auth.verifyOtp({ email, token: code, type: 'recovery' }),
+        );
+        if (otpError) return { error: otpError.message };
+      }
+      const { error } = await withTimeout(supabase.auth.updateUser({ password: newPassword }));
+      return { error: error?.message ?? null };
+    } catch (e: any) {
+      return { error: e?.message ?? TIMEOUT_MESSAGE };
+    }
+  };
+
   const signInWithGoogle = () => signInWithOAuthProvider('google');
   const signInWithApple = () => signInWithAppleNative();
 
@@ -131,6 +166,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       resendConfirmation,
       signInWithGoogle,
       signInWithApple,
+      requestPasswordReset,
+      resetPasswordWithCode,
     }),
     [session, loading],
   );
