@@ -433,7 +433,7 @@ export function AdvisorScreen({ navigation }: any) {
         )}
 
         {!sending && !limitReached && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} keyboardShouldPersistTaps="handled">
+          <ScrollView horizontal style={styles.chipsBar} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} keyboardShouldPersistTaps="handled">
             {suggestions.map((s) => (
               <Pressable key={s} style={styles.chip} onPress={() => send(s)}>
                 <Text style={styles.chipText}>{s}</Text>
@@ -541,9 +541,12 @@ function makeStyles(colors: ColorTokens) {
       alignItems: 'center',
       gap: 8,
     },
-    chips: { paddingHorizontal: 16, paddingBottom: 10, gap: 8 },
+    // A horizontal ScrollView in a flex column stretches to fill the free
+    // height unless told not to grow — that's what made the chips huge.
+    chipsBar: { flexGrow: 0, flexShrink: 0 },
+    chips: { paddingHorizontal: 16, paddingBottom: 10, gap: 8, alignItems: 'center' },
     chip: {
-      minHeight: 36,
+      height: 36,
       paddingHorizontal: 14,
       borderRadius: radius.pill,
       borderWidth: 1,
