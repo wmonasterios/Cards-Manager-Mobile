@@ -7,6 +7,7 @@ import * as Updates from 'expo-updates';
 import { ColorTokens } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
+import { useCards } from '../context/CardsContext';
 
 // The tabs shown in the floating bar. Statements and Settings are still tab
 // routes (so every existing navigate('Statements') keeps working) but live
@@ -33,6 +34,7 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { lang, t } = useLocale();
   const es = lang === 'es';
+  const { isDemo } = useCards();
 
   const current = state.routes[state.index]?.name;
   const activeTab: Visible = UNDER_MORE.has(current) ? 'More' : (current as Visible);
@@ -50,13 +52,19 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
     if (!event.defaultPrevented) navigation.navigate(name as never);
   };
 
-  const openAdvisor = () =>
-    Alert.alert(
-      es ? 'Asesor Poquet' : 'Poquet Advisor',
-      es
-        ? 'Muy pronto: aquí vivirá tu asesor de finanzas personales.'
-        : 'Coming soon: your personal finance advisor will live here.',
-    );
+  // The advisor reads real card data, so the demo (no account) can't use it.
+  const openAdvisor = () => {
+    if (isDemo) {
+      Alert.alert(
+        es ? 'Asesor Poquet' : 'Poquet Advisor',
+        es
+          ? 'Crea una cuenta o inicia sesión para usar el Asesor con tus propias tarjetas.'
+          : 'Create an account or sign in to use the advisor with your own cards.',
+      );
+      return;
+    }
+    navigation.navigate('Advisor' as never);
+  };
 
   return (
     <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
