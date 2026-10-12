@@ -220,3 +220,18 @@ absent, a deliberate tradeoff favoring not breaking the real flow over
 hardening a low-severity edge case, since forwarding tokens aren't
 guessable). Shown in Statements as a card with a "Confirm in Gmail" button
 (link flow) or a copyable code (older flow).
+
+# AI advisor (MVP, Oct 2026)
+
+Preview-only (`ADVISOR_BUTTON_VISIBLE` in `FloatingTabBar` hides it on the
+`production` channel) and gated server-side by `advisor_access.enabled`
+(only the owner so far). Tables: `supabase/migrations/20261012_advisor.sql`.
+Edge function `advisor-chat` is in the repo (`verify_jwt: true`) — edit it
+there and redeploy via `deploy_edge_function`. App side:
+`src/supabase/advisorApi.ts`, `AdvisorScreen` (consent → chat → limit) and
+`AdvisorMemoryScreen`.
+
+**TODO (owner's call):** once poquetapp.com publishes the Terms of Use and
+Privacy pages, add links to both on the consent screen (`AdvisorScreen`,
+consent mode, next to the "Puedes ver y borrar…" line). Left out on purpose
+until those pages exist, so the screen never links to a 404.
