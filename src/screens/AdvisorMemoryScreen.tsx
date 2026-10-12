@@ -34,9 +34,48 @@ export function AdvisorMemoryScreen({ navigation }: any) {
   const [kind, setKind] = useState<MemoryKind>('goal');
   const [saving, setSaving] = useState(false);
 
-  const labels: Record<MemoryKind, { group: string; chip: string }> = es
-    ? { goal: { group: 'METAS', chip: 'Meta' }, preference: { group: 'PREFERENCIAS', chip: 'Preferencia' }, event: { group: 'EVENTOS', chip: 'Evento' } }
-    : { goal: { group: 'GOALS', chip: 'Goal' }, preference: { group: 'PREFERENCES', chip: 'Preference' }, event: { group: 'EVENTS', chip: 'Event' } };
+  // Each kind with what it's for and an example, so the user knows which to pick.
+  const labels: Record<MemoryKind, { group: string; chip: string; hint: string; example: string }> = es
+    ? {
+        goal: {
+          group: 'METAS',
+          chip: 'Meta',
+          hint: 'Algo que quieres lograr con tu dinero. El Asesor te dirá cómo vas.',
+          example: 'Ej.: Gastar menos de US$ 300 al mes en restaurantes',
+        },
+        preference: {
+          group: 'PREFERENCIAS',
+          chip: 'Preferencia',
+          hint: 'Cómo quieres que te responda o qué tener en cuenta siempre.',
+          example: 'Ej.: Respuestas cortas, con el número primero',
+        },
+        event: {
+          group: 'EVENTOS',
+          chip: 'Evento',
+          hint: 'Algo que viene y afecta tus gastos, para que lo considere al aconsejarte.',
+          example: 'Ej.: Viaje familiar en diciembre',
+        },
+      }
+    : {
+        goal: {
+          group: 'GOALS',
+          chip: 'Goal',
+          hint: 'Something you want to achieve with your money. The advisor will tell you how you are doing.',
+          example: 'E.g. Spend under US$ 300 a month on restaurants',
+        },
+        preference: {
+          group: 'PREFERENCES',
+          chip: 'Preference',
+          hint: 'How you want it to answer, or something to always keep in mind.',
+          example: 'E.g. Short answers, number first',
+        },
+        event: {
+          group: 'EVENTS',
+          chip: 'Event',
+          hint: 'Something coming up that affects your spending, so it factors it in.',
+          example: 'E.g. Family trip in December',
+        },
+      };
 
   const load = useCallback(async () => {
     try {
@@ -187,11 +226,12 @@ export function AdvisorMemoryScreen({ navigation }: any) {
                 </Pressable>
               ))}
             </View>
+            <Text style={[styles.sub, { marginBottom: 10 }]}>{labels[kind].hint}</Text>
             <TextInput
               style={styles.input}
               value={draft}
               onChangeText={setDraft}
-              placeholder={es ? 'Ej.: Gastar menos de US$ 300 al mes en restaurantes' : 'E.g. Spend under US$ 300 a month on restaurants'}
+              placeholder={labels[kind].example}
               placeholderTextColor={colors.ink3}
               maxLength={280}
               multiline
