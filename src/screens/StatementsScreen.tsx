@@ -1095,10 +1095,14 @@ function RealStatementsFlow({ navigation, route }: any) {
         }
       >
         <View style={styles.top}>
-          <BackButton onPress={() => backFromTab(navigation)} />
-          <Text style={styles.title}>
-            {lang === 'es' ? 'Agregar un estado de cuenta' : 'Add a statement'}
-          </Text>
+          {/* Back arrow sits on the title's row (like Card detail), so the
+              title stays at the same height as every other tab screen. */}
+          <View style={styles.titleRow}>
+            <BackButton onPress={() => backFromTab(navigation)} />
+            <Text style={[styles.title, styles.titleInRow]}>
+              {lang === 'es' ? 'Agregar un estado de cuenta' : 'Add a statement'}
+            </Text>
+          </View>
           <Text style={styles.sub}>
             {emailAddress
               ? lang === 'es'
@@ -1376,8 +1380,10 @@ export function StatementsScreen({ navigation, route }: any) {
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.top}>
-          <BackButton onPress={() => (stage !== 'idle' ? setStage('idle') : backFromTab(navigation))} />
-          <Text style={styles.title}>{title}</Text>
+          <View style={styles.titleRow}>
+            <BackButton onPress={() => (stage !== 'idle' ? setStage('idle') : backFromTab(navigation))} />
+            <Text style={[styles.title, styles.titleInRow]}>{title}</Text>
+          </View>
           <Text style={styles.sub}>{sub}</Text>
         </View>
 
@@ -1689,6 +1695,8 @@ function makeStyles(colors: ColorTokens) {
     scrollContent: { paddingBottom: 40 },
     top: { paddingTop: spacing.xxl, paddingHorizontal: spacing.xl },
     title: { fontSize: 26, fontFamily: fonts.displayMedium, color: colors.ink, marginTop: 20, letterSpacing: -0.3 },
+    titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    titleInRow: { flex: 1, marginTop: 0 },
     sub: { fontSize: 12.5, color: colors.ink2, marginTop: 8, lineHeight: 18, maxWidth: 320 },
     section: { paddingHorizontal: spacing.xl, marginTop: spacing.xl },
     parseProgressRow: {

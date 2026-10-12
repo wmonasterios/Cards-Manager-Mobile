@@ -209,8 +209,10 @@ export function SettingsScreen({ navigation }: any) {
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.top}>
-          <BackButton onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('More'))} />
-          <Text style={[styles.title, { marginTop: 20 }]}>{t.settings}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <BackButton onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('More'))} />
+            <Text style={[styles.title, { flex: 1 }]}>{t.settings}</Text>
+          </View>
 
           <View style={styles.accountRow}>
             <View style={styles.avatar}>

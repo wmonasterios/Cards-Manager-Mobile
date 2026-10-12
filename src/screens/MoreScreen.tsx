@@ -28,13 +28,9 @@ export function MoreScreen({ navigation }: any) {
         {
           icon: 'cloud-upload-outline',
           title: es ? 'Agregar un estado de cuenta' : 'Add a statement',
-          sub: es ? 'Sube el PDF o reenvía el correo del banco' : "Upload the PDF or forward the bank's email",
-          onPress: () => navigation.navigate('Statements', { cardId: undefined }),
-        },
-        {
-          icon: 'document-text-outline',
-          title: es ? 'Historial y correo de reenvío' : 'History and forwarding address',
-          sub: es ? 'Todos tus estados de cuenta y tu dirección privada' : 'All your statements and your private address',
+          sub: es
+            ? 'Sube el PDF o reenvía el correo · historial y dirección de reenvío'
+            : 'Upload the PDF or forward the email · history and forwarding address',
           onPress: () => navigation.navigate('Statements', { cardId: undefined }),
         },
       ],
