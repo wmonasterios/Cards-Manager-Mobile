@@ -1100,7 +1100,7 @@ function RealStatementsFlow({ navigation, route }: any) {
           <View style={styles.titleRow}>
             <BackButton onPress={() => backFromTab(navigation)} />
             <Text style={[styles.title, styles.titleInRow]}>
-              {lang === 'es' ? 'Agregar un estado de cuenta' : 'Add a statement'}
+              {lang === 'es' ? 'Estado de cuenta' : 'Add a statement'}
             </Text>
           </View>
           <Text style={styles.sub}>
@@ -1361,7 +1361,7 @@ export function StatementsScreen({ navigation, route }: any) {
   const title =
     stage === 'review' ? (lang === 'es' ? 'Revisa lo que leímos' : 'Check what we read')
       : stage === 'parsing' ? (lang === 'es' ? 'Leyendo tu estado de cuenta' : 'Reading your statement')
-        : (lang === 'es' ? 'Agregar un estado de cuenta' : 'Add a statement');
+        : (lang === 'es' ? 'Estado de cuenta' : 'Add a statement');
   const sub =
     stage === 'review'
       ? (lang === 'es' ? 'Estos valores salen del PDF. Confirma y la tarjeta se actualiza.' : 'These values come straight from the PDF. Confirm and the card updates.')
