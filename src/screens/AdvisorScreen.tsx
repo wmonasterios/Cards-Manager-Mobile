@@ -465,7 +465,7 @@ export function AdvisorScreen({ navigation }: any) {
           </Pressable>
         </View>
         <Text style={styles.disclaimer}>
-          {es ? 'Educativo, no es asesoría financiera. Puede equivocarse.' : 'Educational, not financial advice. It can make mistakes.'}
+          {es ? 'Respuestas generadas con IA. Educativo, no es asesoría financiera; puede equivocarse.' : 'AI-generated answers. Educational, not financial advice; it can make mistakes.'}
         </Text>
       </KeyboardAvoidingView>
     </SafeAreaView>
