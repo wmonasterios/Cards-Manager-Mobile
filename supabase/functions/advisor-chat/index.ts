@@ -243,7 +243,7 @@ const TOOLS: any[] = [
   },
   {
     name: "interest_and_fees",
-    description: "Interest and bank fees charged in a period, per card. Dates default to the last 12 months.",
+    description: "Interest and bank fees charged in a period, per card, split into interest and fees. Installment (cuota) charges and financed-purchase principal are excluded — use installment_plans for those. Dates default to the last 12 months.",
     input_schema: { type: "object", properties: { start_date: { type: "string" }, end_date: { type: "string" } } },
   },
   {
@@ -400,14 +400,43 @@ async function runTool(ctx: Ctx, name: string, input: any): Promise<unknown> {
         .or("category.eq.fees,merchant.ilike.%interes%,merchant.ilike.%interest%,merchant.ilike.%cargo por%")
         .limit(2000);
       if (error) throw new Error(error.message);
-      const per = new Map<string, number>();
-      for (const r of data ?? []) per.set(r.card_id, (per.get(r.card_id) ?? 0) + Math.abs(Number(r.amount)));
-      const total = [...per.values()].reduce((n, v) => n + v, 0);
+      // Banks often file installment charges and financed balances (e.g.
+      // "DAVIVIENDA 6% 48 MESES CUOTA:01/48", -17,500) under fees; those are
+      // principal being repaid, not a cost, so they must never be summed here.
+      const isInstallment = (m: string) => /cuota|placuota|\b\d{1,2}\s*\/\s*\d{1,2}\b|\d+\s*meses/i.test(m);
+      const isInterest = (m: string) => /inter[eé]s|interest|financiam/i.test(m);
+      const per = new Map<string, { interest: number; fees: number }>();
+      let excludedCount = 0;
+      let excludedTotal = 0;
+      for (const r of data ?? []) {
+        const m = String(r.merchant ?? "");
+        const v = Math.abs(Number(r.amount));
+        if (isInstallment(m)) {
+          excludedCount += 1;
+          excludedTotal += v;
+          continue;
+        }
+        const e = per.get(r.card_id) ?? { interest: 0, fees: 0 };
+        if (isInterest(m)) e.interest += v;
+        else e.fees += v;
+        per.set(r.card_id, e);
+      }
+      const rows = [...per.entries()].map(([id, e]) => ({
+        card: byId.get(id)?.ref,
+        name: byId.get(id)?.name,
+        interest: r2(e.interest),
+        fees: r2(e.fees),
+        total: r2(e.interest + e.fees),
+      }));
       return {
         period: { start, end },
-        total: r2(total),
-        by_card: [...per.entries()].map(([id, v]) => ({ card: byId.get(id)?.ref, name: byId.get(id)?.name, total: r2(v) })),
-        note: "Includes rows categorized as fees plus merchants that look like interest charges.",
+        interest_total: r2(rows.reduce((n, x) => n + x.interest, 0)),
+        fees_total: r2(rows.reduce((n, x) => n + x.fees, 0)),
+        total: r2(rows.reduce((n, x) => n + x.total, 0)),
+        by_card: rows.sort((a, b) => b.total - a.total),
+        excluded_installments: { count: excludedCount, total: r2(excludedTotal) },
+        note:
+          "interest = lines that look like interest/financing charges; fees = other bank charges (annual fee, memberships, insurance, admin charges). Installment/financed-balance lines are excluded and are NOT a cost.",
       };
     }
     case "installment_plans": {
@@ -481,12 +510,15 @@ NUMBERS
 - Charges are negative in raw data; talk about them as positive spending amounts.
 - Use the card's currency symbol as given (e.g. "US$ 1,234.56").
 - Interest rates are usually not in the data; don't assume one. If an answer depends on a rate, say so.
+- Installment payments (cuotas) and financed balances are repayments of principal, never interest or fees — don't add them to costs.
+- Earlier turns only keep the text of your answers, not the tool results behind them. If the user asks where a previous figure came from, call the relevant tool again and check before answering; never claim you invented a number without checking.
 
 STYLE
 - Reply in ${lang === "es" ? "Spanish (neutral Latin American, tú)" : "English"}.
 - Lead with the answer and its number, then at most 3 short sentences or a short list. No headings, no tables, no emoji.
 - Be warm and direct, never judgmental. If the person sounds distressed about money, acknowledge it kindly and suggest talking to their bank or a financial counselor.
 - Plain text only (no markdown symbols other than "- " for short lists).
+- Write dates the way people say them (${lang === "es" ? '"13 de octubre", "lunes 13"' : '"October 13", "Monday the 13th"'}), never as 2026-10-13.
 
 MEMORY
 - Use the user's saved goals and preferences below to tailor answers.
