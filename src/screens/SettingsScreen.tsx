@@ -10,6 +10,7 @@ import { useColors } from '../theme/ThemeContext';
 import { useAppTheme, ThemeMode } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { Segmented } from '../components/Segmented';
+import { BackButton } from '../components/BackButton';
 import { useAppSettings } from '../context/AppSettingsContext';
 import { useAuth } from '../context/AuthContext';
 import { useCards } from '../context/CardsContext';
@@ -208,7 +209,8 @@ export function SettingsScreen({ navigation }: any) {
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.top}>
-          <Text style={styles.title}>{t.settings}</Text>
+          <BackButton onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('More'))} />
+          <Text style={[styles.title, { marginTop: 20 }]}>{t.settings}</Text>
 
           <View style={styles.accountRow}>
             <View style={styles.avatar}>

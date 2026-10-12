@@ -1,62 +1,28 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { TabParamList } from './types';
-import { useColors } from '../theme/ThemeContext';
 import { useT } from '../i18n/LocaleContext';
 import { HomeScreen } from '../screens/HomeScreen';
 import { CalendarScreen } from '../screens/CalendarScreen';
 import { InsightsScreen } from '../screens/InsightsScreen';
 import { StatementsScreen } from '../screens/StatementsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { MoreScreen } from '../screens/MoreScreen';
+import { FloatingTabBar } from '../components/FloatingTabBar';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
-const ICONS: Record<keyof TabParamList, keyof typeof Ionicons.glyphMap> = {
-  Home: 'albums-outline',
-  Calendar: 'calendar-outline',
-  Insights: 'pie-chart-outline',
-  Statements: 'document-text-outline',
-  Settings: 'settings-outline',
-};
-
 export function TabNavigator() {
-  const colors = useColors();
   const t = useT();
 
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarActiveTintColor: colors.ink,
-        tabBarInactiveTintColor: colors.ink3,
-        tabBarStyle: {
-          backgroundColor: colors.bg,
-          borderTopColor: colors.hair2,
-        },
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '500' },
-        tabBarIcon: ({ color, focused }) => (
-          // The active tab's icon sits in a small accent pill (lime / black);
-          // labels stay in regular ink, never the accent.
-          <View
-            style={{
-              width: 44,
-              height: 24,
-              borderRadius: 999,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: focused ? colors.accent : 'transparent',
-            }}
-          >
-            <Ionicons
-              name={ICONS[route.name as keyof TabParamList]}
-              size={18}
-              color={focused ? colors.onTint2 : color}
-            />
-          </View>
-        ),
-      })}
+      // Floating capsule bar (Home · Calendar · Insights · More) + the advisor
+      // button. Statements and Settings stay tab routes, reached from More, and
+      // "history" lets their back button return to wherever they were opened.
+      tabBar={(props) => <FloatingTabBar {...props} />}
+      backBehavior="history"
+      screenOptions={{ headerShown: false }}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: t.cards }} />
       <Tab.Screen name="Calendar" component={CalendarScreen} options={{ title: t.calendarTab }} />
@@ -75,6 +41,7 @@ export function TabNavigator() {
         })}
       />
       <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: t.settings }} />
+      <Tab.Screen name="More" component={MoreScreen} options={{ title: 'More' }} />
     </Tab.Navigator>
   );
 }

@@ -6,6 +6,7 @@ export type TabParamList = {
   Insights: undefined;
   Statements: { cardId?: string; statementId?: string } | undefined;
   Settings: undefined;
+  More: undefined;
 };
 
 export type RootStackParamList = {

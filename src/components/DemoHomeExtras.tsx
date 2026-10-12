@@ -28,12 +28,12 @@ const TOUR = {
   es: [
     { title: 'Cuánto debes, de un vistazo', body: `Poquet suma lo que debes en todas tus tarjetas. Aquí ves las de ${DEMO_PERSONA}; con tu cuenta verás las tuyas.` },
     { title: 'Qué vence primero', body: 'Los anillos de «Necesita atención» cuentan los días que faltan para pagar cada tarjeta. Tócalos para ver el detalle.' },
-    { title: 'Tus estados de cuenta', body: 'En la pestaña Estados subes el PDF del banco o lo reenvías por correo. Poquet lo lee y actualiza la tarjeta sola.' },
+    { title: 'Tus estados de cuenta', body: 'Con el + de arriba (o en Más → Estados de cuenta) subes el PDF del banco o lo reenvías por correo. Poquet lo lee y actualiza la tarjeta sola.' },
   ],
   en: [
     { title: 'What you owe, at a glance', body: `Poquet adds up what you owe across all your cards. Here you see ${DEMO_PERSONA}'s; with your account you'll see yours.` },
     { title: "What's due first", body: 'The rings under “Needs attention” count the days left to pay each card. Tap one for the details.' },
-    { title: 'Your statements', body: "In the Statements tab you upload your bank's PDF or forward it by email. Poquet reads it and updates the card for you." },
+    { title: 'Your statements', body: "With the + at the top (or More → Statements) you upload your bank's PDF or forward it by email. Poquet reads it and updates the card for you." },
   ],
 };
 

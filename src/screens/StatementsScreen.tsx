@@ -218,6 +218,13 @@ async function pollForCompletion(id: string, maxWaitMs = 90000, intervalMs = 400
   return last;
 }
 
+// Statements now opens from "More" (or Home's +), so it needs a way back:
+// to wherever it was opened from, or to More when there's no history.
+function backFromTab(navigation: any) {
+  if (navigation.canGoBack()) navigation.goBack();
+  else navigation.navigate('More');
+}
+
 function RealStatementsFlow({ navigation, route }: any) {
   const { lang, t } = useLocale();
   const colors = useColors();
@@ -1088,7 +1095,8 @@ function RealStatementsFlow({ navigation, route }: any) {
         }
       >
         <View style={styles.top}>
-          <Text style={[styles.title, { marginTop: 0 }]}>
+          <BackButton onPress={() => backFromTab(navigation)} />
+          <Text style={styles.title}>
             {lang === 'es' ? 'Agregar un estado de cuenta' : 'Add a statement'}
           </Text>
           <Text style={styles.sub}>
@@ -1368,8 +1376,8 @@ export function StatementsScreen({ navigation, route }: any) {
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.top}>
-          {stage !== 'idle' && <BackButton onPress={() => setStage('idle')} />}
-          <Text style={[styles.title, stage === 'idle' && { marginTop: 0 }]}>{title}</Text>
+          <BackButton onPress={() => (stage !== 'idle' ? setStage('idle') : backFromTab(navigation))} />
+          <Text style={styles.title}>{title}</Text>
           <Text style={styles.sub}>{sub}</Text>
         </View>
 
