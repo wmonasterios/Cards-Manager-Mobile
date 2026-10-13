@@ -228,8 +228,8 @@ export function StatementDetailScreen({ route, navigation }: any) {
           <Text style={[styles.cardTitle, { textAlign: 'center' }]}>{es ? 'Leyendo el PDF otra vez…' : 'Reading the PDF again…'}</Text>
           <Text style={[styles.small, { textAlign: 'center' }]}>
             {es
-              ? 'Suele tardar entre 30 y 60 segundos. No cambiamos nada hasta que elijas.'
-              : 'It usually takes 30 to 60 seconds. Nothing changes until you choose.'}
+              ? 'Suele tardar alrededor de un minuto; si algo no cuadra lo revisa una segunda vez y puede tardar hasta dos. No cambiamos nada hasta que elijas.'
+              : "It usually takes about a minute; if something doesn't add up it double-checks, which can take up to two. Nothing changes until you choose."}
           </Text>
         </View>
       </SafeAreaView>

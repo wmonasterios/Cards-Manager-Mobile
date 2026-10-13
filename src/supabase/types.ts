@@ -101,6 +101,7 @@ export type ParsedStatement = {
   last4?: string | null;
   currency?: string;
   balance: number;
+  previous_balance?: number | null;
   credit_limit?: number | null;
   minimum_payment: number;
   cutoff_date: string;
