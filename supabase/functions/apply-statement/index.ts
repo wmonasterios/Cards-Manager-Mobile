@@ -399,7 +399,11 @@ Deno.serve(async (req: Request) => {
     // once normalized) before classifying or inserting anything. Each existing
     // row can absorb only one incoming line, so two genuinely identical
     // charges on the same day still both land the first time.
-    let incoming = fields.transactions ?? [];
+    // The reader sometimes lists the statement's opening balance ("Saldo
+    // Anterior") as if it were a charge. It isn't one — counting it once
+    // added US$ 8,230.95 of fake spending to a ConnectMiles month.
+    const NOT_A_TRANSACTION = /^\s*(saldo\s+(anterior|inicial|previo)|balance\s+(anterior|forward)|previous\s+balance)\b/i;
+    let incoming = (fields.transactions ?? []).filter((tx) => !NOT_A_TRANSACTION.test(tx.merchant ?? ""));
     if (!created && incoming.length > 0) {
       const dates = incoming.map((tx) => tx.date).filter(Boolean).sort();
       const { data: already } = await supabase
