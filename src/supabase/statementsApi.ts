@@ -66,9 +66,10 @@ export async function applyStatement(
   statementId: string,
   fields: ParsedStatement,
   cardId?: string,
+  opts?: { replace?: boolean },
 ): Promise<{ cardId: string; created: boolean; transactionsInserted: number; duplicate?: boolean; cutoffDate?: string }> {
   const { data, error } = await supabase.functions.invoke('apply-statement', {
-    body: { statementId, fields, cardId },
+    body: { statementId, fields, cardId, replace: opts?.replace ?? false },
   });
   if (error) throw error;
   if (data?.error) throw new Error(data.error);
@@ -172,4 +173,72 @@ export async function getGmailForwardingCode(userId: string): Promise<GmailForwa
 // still shows, instead of staying dismissed forever.
 export async function dismissGmailForwardingCode(userId: string, at: string): Promise<void> {
   await supabase.from('profiles').update({ gmail_fwd_dismissed_at: at }).eq('id', userId);
+}
+
+// "Quedarme con la anterior" after a re-read: parse-statement overwrote the
+// statement's reading and flagged it for review, so put the old one back.
+export async function restoreStatementReading(statementId: string, parsed: ParsedStatement): Promise<void> {
+  const { error } = await supabase.from('statements').update({ parsed, status: 'applied' }).eq('id', statementId);
+  if (error) throw error;
+}
+
+// Deleting a saved statement takes its transactions with it (they'd otherwise
+// keep counting as spending) and its PDF. If it was the card's most recent
+// statement, the card's balance, minimum and dates go back to the previous
+// one's, so the card never shows figures from a statement that's gone.
+export async function deleteAppliedStatement(statementId: string): Promise<{ transactionsDeleted: number; rolledBack: boolean }> {
+  const { data: st, error: stErr } = await supabase
+    .from('statements')
+    .select('id, card_id, storage_path, parsed')
+    .eq('id', statementId)
+    .single();
+  if (stErr) throw stErr;
+
+  const { data: gone, error: txErr } = await supabase
+    .from('transactions')
+    .delete()
+    .eq('statement_id', statementId)
+    .select('id');
+  if (txErr) throw txErr;
+
+  if (st.storage_path) {
+    const { error: storageErr } = await supabase.storage.from('statements').remove([st.storage_path]);
+    if (storageErr) throw storageErr;
+  }
+  const { error: delErr } = await supabase.from('statements').delete().eq('id', statementId);
+  if (delErr) throw delErr;
+
+  let rolledBack = false;
+  const cutoff: string | undefined = (st.parsed as ParsedStatement | null)?.cutoff_date;
+  if (st.card_id && cutoff) {
+    const { data: card } = await supabase.from('cards').select('cutoff_date').eq('id', st.card_id).single();
+    if (card?.cutoff_date === cutoff) {
+      const { data: rest } = await supabase
+        .from('statements')
+        .select('parsed')
+        .eq('card_id', st.card_id)
+        .eq('status', 'applied');
+      const prev = ((rest ?? []) as { parsed: ParsedStatement | null }[])
+        .map((r) => r.parsed)
+        .filter((p): p is ParsedStatement => !!p?.cutoff_date)
+        .sort((a, b) => b.cutoff_date.localeCompare(a.cutoff_date))[0];
+      if (prev) {
+        const { error: cardErr } = await supabase
+          .from('cards')
+          .update({
+            balance: prev.balance,
+            minimum_payment: prev.minimum_payment,
+            cutoff_date: prev.cutoff_date,
+            due_date: prev.due_date,
+            full_payment_due_date: prev.full_payment_due_date ?? null,
+            full_payment_amount: prev.full_payment_amount ?? null,
+            ...(prev.credit_limit ? { credit_limit: prev.credit_limit } : {}),
+          })
+          .eq('id', st.card_id);
+        if (cardErr) throw cardErr;
+        rolledBack = true;
+      }
+    }
+  }
+  return { transactionsDeleted: gone?.length ?? 0, rolledBack };
 }

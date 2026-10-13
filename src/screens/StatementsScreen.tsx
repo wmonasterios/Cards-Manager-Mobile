@@ -47,6 +47,8 @@ import {
 import { listCardAliases } from '../supabase/cardsApi';
 import { DbStatement, DbCardAlias, ParsedStatement } from '../supabase/types';
 import { DecoratedCard } from '../decorate';
+import { reconcileStatements } from '../statementCheck';
+import { money } from '../format';
 
 type UploadStage = 'idle' | 'parsing' | 'review';
 type RealStage = 'idle' | 'uploading' | 'parsing' | 'review' | 'error';
@@ -312,6 +314,46 @@ function RealStatementsFlow({ navigation, route }: any) {
 
   const visibleHistory =
     filterCard && !showAllCards ? history.filter((s) => s.card_id === filterCard.id) : history;
+
+  // "Cuadra" / "No cuadra por US$ x" per saved statement (see statementCheck).
+  const checks = useMemo(() => reconcileStatements(history), [history]);
+  const statusPill = (s: DbStatement) => {
+    const c = s.status === 'applied' ? checks.get(s.id) : undefined;
+    if (c?.kind === 'ok') {
+      return (
+        <View style={styles.checkPill}>
+          <Ionicons name="checkmark" size={14} color={colors.ink2} />
+          <Text style={[styles.historyStatus, { color: colors.ink2 }]}>{lang === 'es' ? 'Cuadra' : 'Balances'}</Text>
+        </View>
+      );
+    }
+    if (c?.kind === 'off') {
+      const cur = s.parsed?.currency && s.parsed.currency !== 'USD' ? s.parsed.currency : 'US$';
+      return (
+        <View style={{ alignItems: 'flex-end' }}>
+          <View style={styles.checkPill}>
+            <View style={[styles.checkDot, { backgroundColor: colors.seg3 }]} />
+            <Text style={[styles.historyStatus, { color: colors.ink, fontWeight: '700' }]}>
+              {lang === 'es' ? 'No cuadra' : 'Off'}
+            </Text>
+          </View>
+          <Text style={styles.checkDiff}>
+            {lang === 'es' ? 'por' : 'by'} {money(cur, c.diff)}
+          </Text>
+        </View>
+      );
+    }
+    return (
+      <Text
+        style={[
+          styles.historyStatus,
+          { color: s.status === 'failed' ? colors.accentInk2 : s.status === 'applied' ? colors.ink2 : colors.accentInk },
+        ]}
+      >
+        {statusLabel(s.status, lang)}
+      </Text>
+    );
+  };
 
   // Gaps between cut-off months only make sense once we're looking at one
   // card's own chronology, not the mixed, upload-ordered "all cards" list.
@@ -618,6 +660,8 @@ function RealStatementsFlow({ navigation, route }: any) {
   const handleStatementPress = (s: DbStatement) => {
     if (s.status === 'needs_review') {
       resumeReview(s);
+    } else if (s.status === 'applied') {
+      navigation.navigate('StatementDetail', { statementId: s.id });
     } else {
       openStatementPdf(s.id);
     }
@@ -1288,21 +1332,7 @@ function RealStatementsFlow({ navigation, route }: any) {
                               {statementDateLabel(item.statement, lang)} · {sourceLabel(item.statement, lang)}
                             </Text>
                           </View>
-                          <Text
-                            style={[
-                              styles.historyStatus,
-                              {
-                                color:
-                                  item.statement.status === 'failed'
-                                    ? colors.accentInk2
-                                    : item.statement.status === 'applied'
-                                      ? colors.ink2
-                                      : colors.accentInk,
-                              },
-                            ]}
-                          >
-                            {statusLabel(item.statement.status, lang)}
-                          </Text>
+                          {statusPill(item.statement)}
                         </Pressable>
                       ),
                     )
@@ -1328,14 +1358,7 @@ function RealStatementsFlow({ navigation, route }: any) {
                         {statementDateLabel(s, lang)} · {sourceLabel(s, lang)}
                       </Text>
                     </View>
-                    <Text
-                      style={[
-                        styles.historyStatus,
-                        { color: s.status === 'failed' ? colors.accentInk2 : s.status === 'applied' ? colors.ink2 : colors.accentInk },
-                      ]}
-                    >
-                      {statusLabel(s.status, lang)}
-                    </Text>
+                    {statusPill(s)}
                   </Pressable>
                 ))}
               </View>
@@ -1890,6 +1913,9 @@ function makeStyles(colors: ColorTokens) {
     historyRowTitle: { fontSize: 13, fontWeight: '500', color: colors.ink },
     historyRowSub: { fontSize: 11, color: colors.ink3, marginTop: 2 },
     historyStatus: { fontSize: 11, fontWeight: '500' },
+    checkPill: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    checkDot: { width: 8, height: 8, borderRadius: 4 },
+    checkDiff: { fontSize: 11, color: colors.ink3, marginTop: 2 },
     stepRow: {
       flexDirection: 'row',
       alignItems: 'center',

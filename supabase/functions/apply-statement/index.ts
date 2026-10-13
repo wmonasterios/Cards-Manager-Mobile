@@ -244,10 +244,13 @@ Deno.serve(async (req: Request) => {
   });
 
   try {
-    const { statementId, fields, cardId: requestedCardId } = (await req.json()) as {
+    const { statementId, fields, cardId: requestedCardId, replace } = (await req.json()) as {
       statementId: string;
       fields: ParsedFields;
       cardId?: string;
+      // "Volver a leer": this statement was already applied and has just been
+      // re-read; its old rows are swapped for the new reading.
+      replace?: boolean;
     };
     if (!statementId || !fields) {
       return new Response(JSON.stringify({ error: "statementId and fields are required" }), { status: 400, headers: corsHeaders });
@@ -312,7 +315,10 @@ Deno.serve(async (req: Request) => {
 
     if (existing) {
       cardId = existing.id;
-      const isNewer = !existing.cutoff_date || (fields.cutoff_date && fields.cutoff_date > existing.cutoff_date);
+      const isNewer =
+        !existing.cutoff_date ||
+        (fields.cutoff_date && fields.cutoff_date > existing.cutoff_date) ||
+        (!!replace && fields.cutoff_date === existing.cutoff_date);
       if (isNewer) {
         await supabase.from("cards").update({
           product: fields.product ?? existing.product,
@@ -395,6 +401,31 @@ Deno.serve(async (req: Request) => {
       { onConflict: "card_id,bank_text,last4", ignoreDuplicates: true },
     );
 
+    // Re-reading an applied statement: take its old rows out first (so the
+    // dedup below doesn't match the new reading against the old one), but
+    // remember what the user changed by hand on them to carry it over.
+    type Kept = { date: string; merchant: string; amount: string; category: string | null; excluded: boolean };
+    const kept: Kept[] = [];
+    if (replace && !created) {
+      const { data: oldRows } = await supabase
+        .from("transactions")
+        .select("occurred_on, merchant, amount, category, category_source, excluded_from_spend")
+        .eq("statement_id", statementId);
+      for (const t of (oldRows ?? []) as any[]) {
+        if (t.category_source === "manual" || t.excluded_from_spend) {
+          kept.push({
+            date: t.occurred_on,
+            merchant: t.merchant,
+            amount: Number(t.amount).toFixed(2),
+            category: t.category_source === "manual" ? t.category : null,
+            excluded: !!t.excluded_from_spend,
+          });
+        }
+      }
+      const { error: delErr } = await supabase.from("transactions").delete().eq("statement_id", statementId);
+      if (delErr) throw new Error(delErr.message);
+    }
+
     // Drop lines this card already has (same date and amount, merchant equal
     // once normalized) before classifying or inserting anything. Each existing
     // row can absorb only one incoming line, so two genuinely identical
@@ -463,9 +494,22 @@ Deno.serve(async (req: Request) => {
       const { data: insertedRows, error: txErr } = await supabase
         .from("transactions")
         .upsert(txRows, { onConflict: "card_id,dedup_key", ignoreDuplicates: true })
-        .select("id");
+        .select("id, occurred_on, merchant, amount");
       if (txErr) throw new Error(txErr.message);
       inserted = insertedRows?.length ?? 0;
+      for (const k of kept) {
+        const hit = (insertedRows ?? []).find(
+          (t: any) => t.occurred_on === k.date && Number(t.amount).toFixed(2) === k.amount && sameMerchant(t.merchant, k.merchant),
+        );
+        if (!hit) continue;
+        const patch: Record<string, unknown> = {};
+        if (k.category) {
+          patch.category = k.category;
+          patch.category_source = "manual";
+        }
+        if (k.excluded) patch.excluded_from_spend = true;
+        await supabase.from("transactions").update(patch).eq("id", (hit as any).id);
+      }
     }
 
     await supabase

@@ -20,6 +20,7 @@ import { PinSetupScreen } from '../screens/PinSetupScreen';
 import { DemoIntroScreen } from '../screens/DemoIntroScreen';
 import { DemoExitScreen } from '../screens/DemoExitScreen';
 import { AdvisorScreen } from '../screens/AdvisorScreen';
+import { StatementDetailScreen } from '../screens/StatementDetailScreen';
 import { AdvisorMemoryScreen } from '../screens/AdvisorMemoryScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -64,6 +65,7 @@ export function RootNavigator() {
         component={DemoExitScreen}
         options={{ presentation: 'transparentModal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: 'transparent' } }}
       />
+      <Stack.Screen name="StatementDetail" component={StatementDetailScreen} />
       <Stack.Screen name="Advisor" component={AdvisorScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="AdvisorMemory" component={AdvisorMemoryScreen} />
       <Stack.Screen name="PinSetup" component={PinSetupScreen} options={{ presentation: 'modal', gestureEnabled: false }} />

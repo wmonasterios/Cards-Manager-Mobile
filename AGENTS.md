@@ -221,6 +221,18 @@ second statement for the same card + cutoff is dropped (copy and PDF
 deleted) and the user is told "Ya lo tenías". Useful audit: per card,
 `balance(n) = balance(n-1) - sum(parsed amounts)` should hold to the cent.
 
+**Statement detail (Oct 2026):** tapping an applied statement in the
+history opens `StatementDetailScreen`. History rows and the detail show the
+balance check from `src/statementCheck.ts` ("Cuadra" / "No cuadra por US$ x",
+nothing for a card's first statement). "Volver a leer" calls parse-statement
+on the same PDF (which overwrites `parsed` and sets `needs_review`), shows
+before/after, then either `applyStatement(..., { replace: true })` (old rows
+deleted, `manual` categories and `excluded_from_spend` carried over by
+matching date/amount/merchant) or `restoreStatementReading` (also run on
+unmount if the user leaves undecided). "Eliminar" = `deleteAppliedStatement`:
+its transactions, PDF and row, and if it was the card's latest statement the
+card's balance/minimum/dates roll back to the previous statement's.
+
 `receive-statement-email` also gained Gmail forwarding-confirmation
 handling: Gmail won't start forwarding to a user's `u-<token>@stmts.
 poquetapp.com` address until confirmed, and sends that confirmation (a
