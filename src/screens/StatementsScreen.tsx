@@ -1043,9 +1043,14 @@ function RealStatementsFlow({ navigation, route }: any) {
             )}
 
             <View style={styles.reviewActions}>
-              <Pressable onPress={confirmApply} disabled={applying} style={[styles.saveBtn, applying && { opacity: 0.6 }]}>
+              <Pressable onPress={confirmApply} disabled={applying} style={[styles.saveBtn, applying && { opacity: 0.85 }]}>
                 {applying ? (
-                  <ActivityIndicator color={colors.accent} />
+                  // The spinner used to be accent-on-accent (invisible), so a
+                  // 30-60s save looked like nothing was happening.
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                    <ActivityIndicator color={colors.onTint2} size="small" />
+                    <Text style={styles.saveBtnText}>{lang === 'es' ? 'Guardando…' : 'Saving…'}</Text>
+                  </View>
                 ) : (
                   <Text style={styles.saveBtnText}>{lang === 'es' ? 'Guardar en la tarjeta' : 'Save to card'}</Text>
                 )}
@@ -1058,6 +1063,13 @@ function RealStatementsFlow({ navigation, route }: any) {
                 )}
               </Pressable>
             </View>
+            {applying && (
+              <Text style={styles.savingHint}>
+                {lang === 'es'
+                  ? 'Clasificando comercios y guardando transacciones. Puede tardar hasta un minuto; si sales, te avisamos cuando termine.'
+                  : "Classifying merchants and saving transactions. This can take up to a minute; if you leave, we'll notify you when it's done."}
+              </Text>
+            )}
           </View>
         </ScrollView>
 
@@ -1937,6 +1949,7 @@ function makeStyles(colors: ColorTokens) {
       alignItems: 'center',
     },
     saveBtnText: { fontSize: 13.5, fontWeight: '500', color: colors.onTint2 },
+    savingHint: { fontSize: 12, lineHeight: 17, color: colors.ink3, marginTop: 10, textAlign: 'center' },
     discardBtn: {
       paddingVertical: 13,
       paddingHorizontal: 15,
