@@ -38,10 +38,16 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
   for the statement-forward-by-email feature (`receive-statement-email`
   edge function) — never touch one's DNS/routing while working on the
   other.
-- Anthropic API billing (used by `parse-statement` and `apply-statement`'s
-  merchant classifier) has auto-reload on (tops up to $15 below $5) and a
-  $50/month spend limit with an email alert at $20. If testers multiply,
-  revisit these numbers before they become a real constraint.
+- Anthropic API: since 12 Oct 2026 the `ANTHROPIC_API_KEY` secret (used by
+  `parse-statement`, `receive-statement-email`, `apply-statement`'s merchant
+  classifier and `advisor-chat`) is a key from the **Bite Panama, S.A.**
+  organization in the Claude Console (`admin@bitelatam.com`), linked to the
+  `poquet-backend` service account (Developer role, Default workspace scope,
+  no expiry) — not the owner's personal console account any more. Billing:
+  auto-reload, $50/month spend limit, email alert at $20. If testers
+  multiply, revisit these numbers before they become a real constraint.
+  Zero Data Retention is requested per organization via Anthropic sales; we
+  only use the Messages API (PDFs inline as base64, no Files/Batch API).
 - **A new native module imported from an always-mounted component can crash
   OTA, not just "not work."** `expo-secure-store` (added Oct 2026 for the PIN
   lock) resolves its native binding at JS-*import* time
@@ -229,7 +235,10 @@ Preview-only (`ADVISOR_BUTTON_VISIBLE` in `FloatingTabBar` hides it on the
 Edge function `advisor-chat` is in the repo (`verify_jwt: true`) — edit it
 there and redeploy via `deploy_edge_function`. App side:
 `src/supabase/advisorApi.ts`, `AdvisorScreen` (consent → chat → limit) and
-`AdvisorMemoryScreen`.
+`AdvisorMemoryScreen`. Tools the model can call live in `TOOLS`/`runTool`
+(cards, upcoming payments, spending, merchants, transactions, interest and
+fees — which must keep excluding installment principal —, installment plans,
+statement coverage, remember/forget).
 
 **TODO (owner's call):** once poquetapp.com publishes the Terms of Use and
 Privacy pages, add links to both on the consent screen (`AdvisorScreen`,

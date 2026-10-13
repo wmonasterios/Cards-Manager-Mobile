@@ -252,6 +252,18 @@ const TOOLS: any[] = [
     input_schema: { type: "object", properties: {} },
   },
   {
+    name: "statement_coverage",
+    description:
+      "Which months each card has a statement uploaded for (by statement cutoff month), and which months are missing in a range. Use it for questions about missing data, gaps, or whether the history is complete. Defaults to January of the current year through the current month.",
+    input_schema: {
+      type: "object",
+      properties: {
+        start_month: { type: "string", description: "YYYY-MM" },
+        end_month: { type: "string", description: "YYYY-MM" },
+      },
+    },
+  },
+  {
     name: "remember",
     description:
       "Save a goal, preference or upcoming event the user explicitly asked you to remember, in their own words (max 200 characters). Never save health, income, debts or anything they didn't ask you to keep.",
@@ -464,6 +476,46 @@ async function runTool(ctx: Ctx, name: string, input: any): Promise<unknown> {
           last_charged: r.occurred_on,
           card: byId.get(r.card_id)?.ref,
         })),
+      };
+    }
+    case "statement_coverage": {
+      const cards = await loadCards(ctx);
+      const t = todayIso();
+      const okMonth = (m: unknown) => typeof m === "string" && /^\d{4}-\d{2}$/.test(m);
+      const startM = okMonth(input?.start_month) ? input.start_month : `${t.slice(0, 4)}-01`;
+      const endM = okMonth(input?.end_month) ? input.end_month : t.slice(0, 7);
+      const months: string[] = [];
+      for (let y = Number(startM.slice(0, 4)), m = Number(startM.slice(5, 7)); `${y}-${String(m).padStart(2, "0")}` <= endM && months.length < 36; ) {
+        months.push(`${y}-${String(m).padStart(2, "0")}`);
+        m += 1;
+        if (m > 12) { m = 1; y += 1; }
+      }
+      const { data, error } = await ctx.db
+        .from("statements")
+        .select("card_id, cutoff:parsed->>cutoff_date")
+        .eq("status", "applied")
+        .not("card_id", "is", null)
+        .limit(1000);
+      if (error) throw new Error(error.message);
+      const byCard = new Map<string, Set<string>>();
+      for (const r of (data ?? []) as any[]) {
+        if (typeof r.cutoff !== "string" || !validIso(r.cutoff)) continue;
+        const set = byCard.get(r.card_id) ?? new Set<string>();
+        set.add(r.cutoff.slice(0, 7));
+        byCard.set(r.card_id, set);
+      }
+      return {
+        range: { start_month: startM, end_month: endM },
+        note: "Months are statement cutoff months. The current month's statement may simply not have been issued yet.",
+        cards: cards.map((c) => {
+          const have = byCard.get(c.id) ?? new Set<string>();
+          return {
+            card: c.ref,
+            name: c.name,
+            months_with_statement: months.filter((m) => have.has(m)),
+            missing_months: months.filter((m) => !have.has(m)),
+          };
+        }),
       };
     }
     case "remember": {
