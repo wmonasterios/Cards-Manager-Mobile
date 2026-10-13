@@ -213,7 +213,13 @@ inserting: same date and amount, and a merchant equal once normalized (no
 accents, letters/digits only, shared prefix — statements truncate names).
 `dedup_key` alone wasn't enough: the same statement read twice (uploaded,
 then forwarded by email) can come back as "Grand Deli Gourmet OBA Panamá"
-one time and "GRAND DELI GOURMET OBA PANAM" the next.
+one time and "GRAND DELI GOURMET OBA PANAM" the next. Within a single
+statement, repeated identical lines (same day, merchant, amount) are real
+separate charges — statement totals only reconcile with all of them — so
+repeats get `dedup_key` suffixes `#2`, `#3`… instead of being collapsed. A
+second statement for the same card + cutoff is dropped (copy and PDF
+deleted) and the user is told "Ya lo tenías". Useful audit: per card,
+`balance(n) = balance(n-1) - sum(parsed amounts)` should hold to the cent.
 
 `receive-statement-email` also gained Gmail forwarding-confirmation
 handling: Gmail won't start forwarding to a user's `u-<token>@stmts.

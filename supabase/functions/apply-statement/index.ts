@@ -429,8 +429,16 @@ Deno.serve(async (req: Request) => {
       }),
     );
 
+    // Two identical lines on one statement (same day, merchant and amount —
+    // two small Uber rides, a fee charged on two sub-accounts) are two real
+    // charges: the statement's totals only reconcile with both. The base
+    // dedupKey would collapse them into one, so repeats get "#2", "#3"…
+    const seen = new Map<string, number>();
     const txRows = incoming.map((tx) => {
       const { category, source } = classifications.get(tx.merchant)!;
+      const base = dedupKey(tx);
+      const n = (seen.get(base) ?? 0) + 1;
+      seen.set(base, n);
       return {
         user_id: user.id,
         card_id: cardId,
@@ -440,7 +448,7 @@ Deno.serve(async (req: Request) => {
         amount: tx.amount,
         category,
         category_source: source,
-        dedup_key: dedupKey(tx),
+        dedup_key: n === 1 ? base : `${base}#${n}`,
         plan: tx.plan ?? null,
         plan_rate: tx.plan_rate ?? null,
       };
