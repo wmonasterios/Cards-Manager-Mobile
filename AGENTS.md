@@ -258,6 +258,16 @@ hardening a low-severity edge case, since forwarding tokens aren't
 guessable). Shown in Statements as a card with a "Confirm in Gmail" button
 (link flow) or a copyable code (older flow).
 
+# 1,000-row cap (Oct 2026)
+
+PostgREST returns at most 1,000 rows per request, and `.limit(5000)` does
+**not** raise it. Anything that can read more than that — the app's
+`listTransactions`, the advisor's `spendRows`/`interest_and_fees`
+(`allRows`), apply-statement's dedup lookup — pages with `.range()` and a
+stable order (`occurred_on`, `id`). Before this, an account with 2,017
+transactions only saw the newest 1,000 (Insights started in May). Keep new
+queries over `transactions` paginated.
+
 # AI advisor (MVP, Oct 2026)
 
 Preview-only (`ADVISOR_BUTTON_VISIBLE` in `FloatingTabBar` hides it on the

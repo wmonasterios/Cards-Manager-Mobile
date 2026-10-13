@@ -462,14 +462,25 @@ Deno.serve(async (req: Request) => {
     let incoming = (fields.transactions ?? []).filter((tx) => !NOT_A_TRANSACTION.test(tx.merchant ?? ""));
     if (!created && incoming.length > 0) {
       const dates = incoming.map((tx) => tx.date).filter(Boolean).sort();
-      const { data: already } = await supabase
-        .from("transactions")
-        .select("occurred_on, merchant, amount")
-        .eq("card_id", cardId)
-        .gte("occurred_on", dates[0])
-        .lte("occurred_on", dates[dates.length - 1])
-        .limit(5000);
-      const pool = (already ?? []).map((t: any) => ({ date: t.occurred_on as string, merchant: t.merchant as string, amount: Number(t.amount).toFixed(2) }));
+      // PostgREST returns at most 1,000 rows per request (.limit can't raise
+      // it), and an installment line dated months back can stretch this range
+      // over a year of the card's history — page through it.
+      const already: any[] = [];
+      for (let from = 0; from < 50000; from += 1000) {
+        const { data, error } = await supabase
+          .from("transactions")
+          .select("occurred_on, merchant, amount")
+          .eq("card_id", cardId)
+          .gte("occurred_on", dates[0])
+          .lte("occurred_on", dates[dates.length - 1])
+          .order("occurred_on")
+          .order("id")
+          .range(from, from + 999);
+        if (error) throw new Error(error.message);
+        already.push(...(data ?? []));
+        if (!data || data.length < 1000) break;
+      }
+      const pool = already.map((t: any) => ({ date: t.occurred_on as string, merchant: t.merchant as string, amount: Number(t.amount).toFixed(2) }));
       incoming = incoming.filter((tx) => {
         const i = pool.findIndex((p) => p.date === tx.date && p.amount === Number(tx.amount).toFixed(2) && sameMerchant(p.merchant, tx.merchant));
         if (i === -1) return true;

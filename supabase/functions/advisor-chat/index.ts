@@ -167,20 +167,35 @@ async function categoryLabels(ctx: Ctx): Promise<Map<string, string>> {
   return new Map((data ?? []).map((c: any) => [c.id, ctx.lang === "es" ? c.label_es : c.label_en]));
 }
 
+// PostgREST caps every response at 1,000 rows whatever .limit() says, so a
+// year of spending (2,000+ lines) came back truncated and totals were short.
+// Page through with a stable order instead. `build` must return a fresh query.
+// deno-lint-ignore no-explicit-any
+async function allRows(build: () => any, max = 20000): Promise<any[]> {
+  const out: any[] = [];
+  for (let from = 0; from < max; from += 1000) {
+    const { data, error } = await build().order("occurred_on").order("id").range(from, from + 999);
+    if (error) throw new Error(error.message);
+    out.push(...(data ?? []));
+    if (!data || data.length < 1000) break;
+  }
+  return out;
+}
+
 async function spendRows(ctx: Ctx, start: string, end: string, cardId: string | null, category?: string) {
-  let q = ctx.db
-    .from("transactions")
-    .select("occurred_on, merchant, amount, category, card_id, plan")
-    .gte("occurred_on", start)
-    .lte("occurred_on", end)
-    .lt("amount", 0)
-    .eq("excluded_from_spend", false)
-    .limit(5000);
-  if (cardId) q = q.eq("card_id", cardId);
-  if (category) q = q.eq("category", category);
-  const { data, error } = await q;
-  if (error) throw new Error(error.message);
-  return (data ?? []).filter((t: any) => !["payment", "transfer"].includes(t.category));
+  const rows = await allRows(() => {
+    let q = ctx.db
+      .from("transactions")
+      .select("occurred_on, merchant, amount, category, card_id, plan")
+      .gte("occurred_on", start)
+      .lte("occurred_on", end)
+      .lt("amount", 0)
+      .eq("excluded_from_spend", false);
+    if (cardId) q = q.eq("card_id", cardId);
+    if (category) q = q.eq("category", category);
+    return q;
+  });
+  return rows.filter((t: any) => !["payment", "transfer"].includes(t.category));
 }
 
 const TOOLS: any[] = [
@@ -403,15 +418,15 @@ async function runTool(ctx: Ctx, name: string, input: any): Promise<unknown> {
       const t = todayIso();
       const start = validIso(input?.start_date) ? input.start_date : addDays(t, -365);
       const end = validIso(input?.end_date) ? input.end_date : t;
-      const { data, error } = await ctx.db
-        .from("transactions")
-        .select("occurred_on, merchant, amount, category, card_id")
-        .gte("occurred_on", start)
-        .lte("occurred_on", end)
-        .lt("amount", 0)
-        .or("category.eq.fees,merchant.ilike.%interes%,merchant.ilike.%interest%,merchant.ilike.%cargo por%")
-        .limit(2000);
-      if (error) throw new Error(error.message);
+      const data = await allRows(() =>
+        ctx.db
+          .from("transactions")
+          .select("occurred_on, merchant, amount, category, card_id")
+          .gte("occurred_on", start)
+          .lte("occurred_on", end)
+          .lt("amount", 0)
+          .or("category.eq.fees,merchant.ilike.%interes%,merchant.ilike.%interest%,merchant.ilike.%cargo por%")
+      );
       // Banks often file installment charges and financed balances (e.g.
       // "DAVIVIENDA 6% 48 MESES CUOTA:01/48", -17,500) under fees; those are
       // principal being repaid, not a cost, so they must never be summed here.
