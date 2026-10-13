@@ -40,6 +40,45 @@ function sameMerchant(a: string, b: string) {
   return n >= 8 && x.slice(0, n) === y.slice(0, n);
 }
 
+const MONTHS_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sept", "oct", "nov", "dic"];
+const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function shortDate(iso: string, isEs: boolean) {
+  const [, m, d] = iso.split("-").map(Number);
+  if (!m || !d) return iso;
+  return isEs ? `${d} ${MONTHS_ES[m - 1]}` : `${MONTHS_EN[m - 1]} ${d}`;
+}
+
+// The same statement arriving twice (uploaded, then forwarded; or forwarded
+// twice) is caught before anything is saved: the new copy and its PDF are
+// removed and the user is told it was already there, instead of piling up a
+// second history entry for the same cutoff.
+async function notifyDuplicate(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  bank: string,
+  cutoff: string,
+) {
+  try {
+    const { data: profile } = await supabase.from("profiles").select("push_token, lang").eq("id", userId).single();
+    const pushToken = profile?.push_token as string | undefined;
+    if (!pushToken) return;
+    const isEs = profile?.lang === "es";
+    await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({
+        to: pushToken,
+        title: isEs ? "Ya lo tenías" : "Already saved",
+        body: isEs
+          ? `${bank}: el estado de cuenta con corte ${shortDate(cutoff, true)} ya estaba cargado. No agregamos nada.`
+          : `${bank}: the statement with cutoff ${shortDate(cutoff, false)} was already saved. Nothing was added.`,
+      }),
+    });
+  } catch {
+    // Best-effort.
+  }
+}
+
 // Saving used to run silently for 60-70+ seconds on a statement with many new
 // merchants (each classified one at a time, waiting on Claude sequentially) —
 // long enough that whoever's waiting deserves a nudge when it's actually done.
@@ -326,6 +365,26 @@ Deno.serve(async (req: Request) => {
       if (createErr || !newCard) throw new Error(createErr?.message ?? "Could not create card");
       cardId = newCard.id;
       created = true;
+    }
+
+    if (!created && fields.cutoff_date) {
+      const { data: dupRows } = await supabase
+        .from("statements")
+        .select("id")
+        .eq("card_id", cardId)
+        .eq("status", "applied")
+        .eq("parsed->>cutoff_date", fields.cutoff_date)
+        .neq("id", statementId)
+        .limit(1);
+      if (dupRows && dupRows.length > 0) {
+        if (statement.storage_path) await supabase.storage.from("statements").remove([statement.storage_path]);
+        await supabase.from("statements").delete().eq("id", statementId);
+        await notifyDuplicate(supabase, user.id, fields.bank, fields.cutoff_date);
+        return new Response(
+          JSON.stringify({ cardId, created: false, transactionsInserted: 0, duplicate: true, cutoffDate: fields.cutoff_date }),
+          { headers: { ...corsHeaders, "content-type": "application/json" } },
+        );
+      }
     }
 
     // Learn this (bank, last4) combination for next time, whichever card it

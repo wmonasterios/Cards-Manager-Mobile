@@ -675,6 +675,19 @@ function RealStatementsFlow({ navigation, route }: any) {
       setStatementId(null);
       setFields(null);
       setChosenCardId(undefined);
+      if (result.duplicate) {
+        // The server found this card already has a statement with this
+        // cutoff and dropped the new copy instead of saving it twice.
+        const cutoff = result.cutoffDate
+          ? fromIso(result.cutoffDate).toLocaleDateString(lang === 'es' ? 'es-PA' : 'en-US', { day: 'numeric', month: 'short' })
+          : '';
+        Alert.alert(
+          lang === 'es' ? 'Ya lo tenías' : 'Already saved',
+          lang === 'es'
+            ? `Este estado de cuenta (corte ${cutoff}) ya estaba cargado, así que no agregamos nada.`
+            : `This statement (cutoff ${cutoff}) was already saved, so nothing was added.`,
+        );
+      }
       navigation.navigate('CardDetail', { cardId: result.cardId });
     } catch (err: any) {
       Alert.alert(lang === 'es' ? 'No se pudo guardar' : 'Could not save', friendlyErrorMessage(err, lang));

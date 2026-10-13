@@ -66,7 +66,7 @@ export async function applyStatement(
   statementId: string,
   fields: ParsedStatement,
   cardId?: string,
-): Promise<{ cardId: string; created: boolean; transactionsInserted: number }> {
+): Promise<{ cardId: string; created: boolean; transactionsInserted: number; duplicate?: boolean; cutoffDate?: string }> {
   const { data, error } = await supabase.functions.invoke('apply-statement', {
     body: { statementId, fields, cardId },
   });
