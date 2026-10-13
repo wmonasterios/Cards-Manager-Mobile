@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../i18n/LocaleContext';
 import {
   navigateToStatementReview,
+  navigateToStatementDetail,
   navigateToStatements,
   navigateToCardDetail,
   navigateToNotifPrimer,
@@ -26,6 +27,9 @@ function handleNotificationResponse(response: Notifications.NotificationResponse
   switch (data.type) {
     case 'statement_ready':
       if (typeof statementId === 'string') navigateToStatementReview(statementId);
+      return;
+    case 'reread_ready':
+      if (typeof statementId === 'string') navigateToStatementDetail(statementId);
       return;
     case 'statement_received':
     case 'gmail_forwarding_code':

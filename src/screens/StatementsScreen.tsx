@@ -318,6 +318,22 @@ function RealStatementsFlow({ navigation, route }: any) {
   // "Cuadra" / "No cuadra por US$ x" per saved statement (see statementCheck).
   const checks = useMemo(() => reconcileStatements(history), [history]);
   const statusPill = (s: DbStatement) => {
+    // A background "Volver a leer" in progress or waiting for a decision.
+    if (s.reread_status === 'reading' || (s.reread_status === 'ready' && s.reread_parsed)) {
+      const reading = s.reread_status === 'reading';
+      return (
+        <View style={styles.checkPill}>
+          {reading ? (
+            <ActivityIndicator size="small" color={colors.ink3} style={{ transform: [{ scale: 0.7 }] }} />
+          ) : (
+            <View style={[styles.checkDot, { backgroundColor: colors.seg3 }]} />
+          )}
+          <Text style={[styles.historyStatus, { color: reading ? colors.ink2 : colors.ink, fontWeight: reading ? undefined : '700' }]}>
+            {reading ? (lang === 'es' ? 'Leyendo…' : 'Reading…') : lang === 'es' ? 'Nueva lectura' : 'New reading'}
+          </Text>
+        </View>
+      );
+    }
     const c = s.status === 'applied' ? checks.get(s.id) : undefined;
     if (c?.kind === 'ok') {
       return (
@@ -442,6 +458,16 @@ function RealStatementsFlow({ navigation, route }: any) {
       loadGmailCode();
     }, [userId, loadGmailCode]),
   );
+
+  // While a background "Volver a leer" is running, keep the history pill fresh.
+  const anyRereading = history.some(
+    (s) => s.reread_status === 'reading' && !!s.reread_started_at && Date.now() - Date.parse(s.reread_started_at) < 6 * 60 * 1000,
+  );
+  useEffect(() => {
+    if (!anyRereading) return;
+    const t = setInterval(loadHistory, 5000);
+    return () => clearInterval(t);
+  }, [anyRereading, userId]);
 
   const onRefresh = async () => {
     setRefreshing(true);

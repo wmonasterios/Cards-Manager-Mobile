@@ -98,30 +98,73 @@ async function extract(messages: unknown[]): Promise<{ input: any; content: unkn
 // Parsing regularly takes 30-45+ seconds, long enough that someone waiting on
 // this screen may well switch tabs or background the app — this is the only
 // signal they get back once it's actually done, wherever they went.
-async function notifyParsed(
+async function notify(
   supabase: ReturnType<typeof createClient>,
   userId: string,
-  statementId: string,
-  bank: string,
-  txCount: number,
+  msg: (isEs: boolean) => { title: string; body: string },
+  data: Record<string, unknown>,
 ) {
   try {
     const { data: profile } = await supabase.from("profiles").select("push_token, lang").eq("id", userId).single();
     const pushToken = profile?.push_token as string | undefined;
     if (!pushToken) return;
-    const isEs = profile?.lang === "es";
-    const title = isEs ? "Estado de cuenta listo para revisar" : "Statement ready to review";
-    const body = isEs
-      ? `${bank} — ${txCount} ${txCount === 1 ? "transacción encontrada" : "transacciones encontradas"}. Abre la app para revisarlo.`
-      : `${bank} — ${txCount} transaction${txCount === 1 ? "" : "s"} found. Open the app to review.`;
+    const { title, body } = msg(profile?.lang === "es");
     await fetch("https://exp.host/--/api/v2/push/send", {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify({ to: pushToken, title, body, data: { statementId, type: "statement_ready" } }),
+      body: JSON.stringify({ to: pushToken, title, body, data }),
     });
   } catch {
     // Push delivery is best-effort — never fail the request over a notification.
   }
+}
+
+// Downloads the PDF and reads it, with the balance self-check: previous
+// balance - payments + charges must equal the new balance. When it doesn't,
+// the reader skipped or misread a line; give it the numbers once and let it
+// look again, keeping whichever reading is closer. Costs a second call only
+// for statements that don't add up.
+async function readStatement(supabase: ReturnType<typeof createClient>, storagePath: string): Promise<any> {
+  const { data: fileBlob, error: dlErr } = await supabase.storage.from("statements").download(storagePath);
+  if (dlErr || !fileBlob) {
+    throw new Error(`Could not download the PDF: ${dlErr?.message ?? "unknown error"}`);
+  }
+  const base64 = encodeBase64(new Uint8Array(await fileBlob.arrayBuffer()));
+  const userContent = [
+    { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } },
+    { type: "text", text: EXTRACT_PROMPT_TEXT },
+  ];
+  const first = await extract([{ role: "user", content: userContent }]);
+  let parsed = first.input;
+
+  const firstGap = balanceGap(parsed);
+  if (firstGap !== null && Math.abs(firstGap) >= 0.01) {
+    try {
+      const second = await extract([
+        { role: "user", content: userContent },
+        { role: "assistant", content: first.content },
+        {
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: first.toolUseId,
+              content:
+                `Check failed: previous_balance (${parsed.previous_balance}) minus the sum of your transaction amounts should equal balance (${parsed.balance}), ` +
+                `but it is off by ${firstGap.toFixed(2)}. Some line is missing, duplicated or misread. Go through EVERY section of the statement again ` +
+                `(each cardholder/sub-account, interest, fees, ITBMS tax, insurance, financing and installment lines, credits and reversals) and call ` +
+                `extract_statement again with the complete, corrected data. Do not invent a line just to make it balance.`,
+            },
+          ],
+        },
+      ]);
+      const secondGap = balanceGap(second.input);
+      if (secondGap !== null && Math.abs(secondGap) < Math.abs(firstGap)) parsed = second.input;
+    } catch {
+      // Keep the first reading if the second attempt fails.
+    }
+  }
+  return parsed;
 }
 
 Deno.serve(async (req: Request) => {
@@ -136,9 +179,12 @@ Deno.serve(async (req: Request) => {
   });
 
   let statementId: string | undefined;
+  // A re-read never touches the saved reading or its status, not even on errors.
+  let isReread = false;
   try {
     const body = await req.json();
     statementId = body.statementId;
+    isReread = body.reread === true;
     if (!statementId) {
       return new Response(JSON.stringify({ error: "statementId is required" }), { status: 400, headers: corsHeaders });
     }
@@ -156,75 +202,92 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!ANTHROPIC_API_KEY) {
-      await supabase.from("statements").update({
+      if (!isReread) await supabase.from("statements").update({
         status: "failed",
         error_message: "Parsing is not configured yet (missing ANTHROPIC_API_KEY).",
       }).eq("id", statementId);
       return new Response(JSON.stringify({ error: "Parsing is not configured yet." }), { status: 503, headers: corsHeaders });
     }
 
-    const { data: fileBlob, error: dlErr } = await supabase.storage
-      .from("statements")
-      .download(statement.storage_path);
-    if (dlErr || !fileBlob) {
-      throw new Error(`Could not download the PDF: ${dlErr?.message ?? "unknown error"}`);
+    // "Volver a leer" on a saved statement: answer right away and keep
+    // working in the background, so leaving the screen or the app doesn't
+    // lose it. The result goes next to the saved reading (reread_parsed),
+    // which stays untouched until the user picks one.
+    if (isReread) {
+      const startedAt = new Date().toISOString();
+      const { error: markErr } = await supabase
+        .from("statements")
+        .update({ reread_status: "reading", reread_started_at: startedAt, reread_parsed: null, reread_error: null })
+        .eq("id", statementId);
+      if (markErr) throw new Error(markErr.message);
+
+      const work = (async () => {
+        try {
+          const parsed = await readStatement(supabase, statement.storage_path);
+          await supabase
+            .from("statements")
+            .update({ reread_parsed: parsed, reread_status: "ready", reread_error: null })
+            .eq("id", statementId)
+            .eq("reread_started_at", startedAt);
+          const gap = balanceGap(parsed);
+          const bank = parsed.bank ?? statement.bank ?? "";
+          await notify(
+            supabase,
+            statement.user_id,
+            (isEs) => ({
+              title: isEs ? "Nueva lectura lista" : "New reading ready",
+              body: isEs
+                ? `${bank}${gap !== null && Math.abs(gap) < 0.01 ? " — ahora cuadra." : "."} Ábrela para comparar y elegir cuál quedarte.`
+                : `${bank}${gap !== null && Math.abs(gap) < 0.01 ? " — it now balances." : "."} Open it to compare and pick one.`,
+            }),
+            { statementId, type: "reread_ready" },
+          );
+        } catch (e) {
+          await supabase
+            .from("statements")
+            .update({ reread_status: "failed", reread_error: e instanceof Error ? e.message : "Unknown error" })
+            .eq("id", statementId)
+            .eq("reread_started_at", startedAt);
+        }
+      })();
+      // deno-lint-ignore no-explicit-any
+      const rt = (globalThis as any).EdgeRuntime;
+      if (rt?.waitUntil) rt.waitUntil(work);
+      else await work;
+
+      return new Response(JSON.stringify({ started: true, startedAt }), {
+        status: 202,
+        headers: { ...corsHeaders, "content-type": "application/json" },
+      });
     }
 
-    const bytes = new Uint8Array(await fileBlob.arrayBuffer());
-    const base64 = encodeBase64(bytes);
-
-    const userContent = [
-      { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } },
-      { type: "text", text: EXTRACT_PROMPT_TEXT },
-    ];
-    const first = await extract([{ role: "user", content: userContent }]);
-    let parsed = first.input;
-
-    // Self-check: previous balance - payments + charges must equal the new
-    // balance. When it doesn't, the reader skipped or misread a line; give it
-    // the numbers once and let it look again, keeping whichever reading is
-    // closer. Costs a second call only for statements that don't add up.
-    const firstGap = balanceGap(parsed);
-    if (firstGap !== null && Math.abs(firstGap) >= 0.01) {
-      try {
-        const second = await extract([
-          { role: "user", content: userContent },
-          { role: "assistant", content: first.content },
-          {
-            role: "user",
-            content: [
-              {
-                type: "tool_result",
-                tool_use_id: first.toolUseId,
-                content:
-                  `Check failed: previous_balance (${parsed.previous_balance}) minus the sum of your transaction amounts should equal balance (${parsed.balance}), ` +
-                  `but it is off by ${firstGap.toFixed(2)}. Some line is missing, duplicated or misread. Go through EVERY section of the statement again ` +
-                  `(each cardholder/sub-account, interest, fees, ITBMS tax, insurance, financing and installment lines, credits and reversals) and call ` +
-                  `extract_statement again with the complete, corrected data. Do not invent a line just to make it balance.`,
-              },
-            ],
-          },
-        ]);
-        const secondGap = balanceGap(second.input);
-        if (secondGap !== null && Math.abs(secondGap) < Math.abs(firstGap)) parsed = second.input;
-      } catch {
-        // Keep the first reading if the second attempt fails.
-      }
-    }
+    const parsed = await readStatement(supabase, statement.storage_path);
 
     await supabase
       .from("statements")
       .update({ parsed, status: "needs_review", error_message: null, bank: parsed.bank ?? statement.bank })
       .eq("id", statementId);
 
-    await notifyParsed(supabase, statement.user_id, statementId, parsed.bank ?? statement.bank ?? "Your card", parsed.transactions?.length ?? 0);
+    const bank = parsed.bank ?? statement.bank ?? "Your card";
+    const txCount = parsed.transactions?.length ?? 0;
+    await notify(
+      supabase,
+      statement.user_id,
+      (isEs) => ({
+        title: isEs ? "Estado de cuenta listo para revisar" : "Statement ready to review",
+        body: isEs
+          ? `${bank} — ${txCount} ${txCount === 1 ? "transacción encontrada" : "transacciones encontradas"}. Abre la app para revisarlo.`
+          : `${bank} — ${txCount} transaction${txCount === 1 ? "" : "s"} found. Open the app to review.`,
+      }),
+      { statementId, type: "statement_ready" },
+    );
 
     return new Response(JSON.stringify({ parsed }), {
       headers: { ...corsHeaders, "content-type": "application/json" },
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";
-    if (statementId) {
+    if (statementId && !isReread) {
       await supabase.from("statements").update({ status: "failed", error_message: message }).eq("id", statementId);
     }
     return new Response(JSON.stringify({ error: message }), { status: 500, headers: corsHeaders });

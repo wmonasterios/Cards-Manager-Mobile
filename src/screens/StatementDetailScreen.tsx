@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Modal, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,8 +18,8 @@ import {
   deleteAppliedStatement,
   getStatementPdfUrl,
   listNeedsReviewStatements,
-  parseStatement,
-  restoreStatementReading,
+  startReread,
+  clearReread,
 } from '../supabase/statementsApi';
 import { StatementCheck, checkAgainst, diffReadings, netOf, previousStatement, reconcileStatements, cardStatements } from '../statementCheck';
 
@@ -27,7 +28,11 @@ function friendlyErrorMessage(err: any, lang: 'en' | 'es'): string {
   return err?.message ?? String(err);
 }
 
-type Mode = 'loading' | 'view' | 'reading' | 'compare' | 'saving' | 'gone';
+type Mode = 'loading' | 'view' | 'saving' | 'gone';
+
+// A background re-read that hasn't finished after this long is treated as
+// lost (edge functions are cut off well before), so the user can start over.
+const REREAD_STALE_MS = 6 * 60 * 1000;
 
 const NOT_A_TRANSACTION = /^\s*(saldo\s+(anterior|inicial|previo)|balance\s+(anterior|forward)|previous\s+balance)\b/i;
 const txCount = (p: ParsedStatement | null | undefined) =>
@@ -57,35 +62,19 @@ export function StatementDetailScreen({ route, navigation }: any) {
 
   const [mode, setMode] = useState<Mode>('loading');
   const [rows, setRows] = useState<DbStatement[]>([]);
-  const [newReading, setNewReading] = useState<ParsedStatement | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [openingPdf, setOpeningPdf] = useState(false);
-
-  // While a re-read is undecided, parse-statement has already replaced the
-  // stored reading. If the user leaves before choosing, put the old one back.
-  const oldReadingRef = useRef<ParsedStatement | null>(null);
-  const pendingRef = useRef<Promise<unknown> | null>(null);
-  const decidedRef = useRef(true);
-  useEffect(
-    () => () => {
-      if (decidedRef.current || !oldReadingRef.current) return;
-      const old = oldReadingRef.current;
-      (pendingRef.current ?? Promise.resolve()).finally(() => {
-        restoreStatementReading(statementId, old).catch(() => {});
-      });
-    },
-    [statementId],
-  );
+  const [starting, setStarting] = useState(false);
 
   const load = useCallback(async () => {
     if (!userId) return;
     try {
       const all = await listNeedsReviewStatements(userId);
       setRows(all);
-      setMode(all.some((s) => s.id === statementId) ? 'view' : 'gone');
+      setMode((m) => (m === 'saving' ? m : all.some((s) => s.id === statementId) ? 'view' : 'gone'));
     } catch {
-      setMode('gone');
+      setMode((m) => (m === 'loading' ? 'gone' : m));
     }
   }, [userId, statementId]);
 
@@ -95,6 +84,43 @@ export function StatementDetailScreen({ route, navigation }: any) {
 
   const st = rows.find((s) => s.id === statementId);
   const parsed = st?.parsed ?? null;
+  // The re-read lives on the server row, so it survives leaving the screen or
+  // the app: 'reading' → we wait (polling), 'ready' → compare and pick.
+  const rereadStale =
+    st?.reread_status === 'reading' &&
+    !!st.reread_started_at &&
+    Date.now() - Date.parse(st.reread_started_at) > REREAD_STALE_MS;
+  const rereading = st?.reread_status === 'reading' && !rereadStale;
+  const newReading = st?.reread_status === 'ready' ? st.reread_parsed ?? null : null;
+  const rereadFailed = st?.reread_status === 'failed' || rereadStale;
+
+  useEffect(() => {
+    if (!rereading) return;
+    const t = setInterval(load, 4000);
+    const sub = AppState.addEventListener('change', (s) => s === 'active' && load());
+    return () => {
+      clearInterval(t);
+      sub.remove();
+    };
+  }, [rereading, load]);
+
+  // Tell the user once, then clear it so "Volver a leer" can be tried again.
+  const failShown = useRef(false);
+  useEffect(() => {
+    if (!rereadFailed || failShown.current) return;
+    failShown.current = true;
+    Alert.alert(
+      es ? 'No se pudo volver a leer' : "Couldn't read it again",
+      es ? 'Tu lectura guardada no cambió. Puedes intentarlo otra vez.' : 'Your saved reading is unchanged. You can try again.',
+    );
+    clearReread(statementId)
+      .then(load)
+      .catch(() => {})
+      .finally(() => {
+        failShown.current = false;
+      });
+  }, [rereadFailed, statementId, load, es]);
+
   const card = st?.card_id ? getCard(st.card_id) : undefined;
   const cur = parsed?.currency === 'USD' || !parsed?.currency ? 'US$' : parsed.currency;
   const prev = st ? previousStatement(rows, st) : undefined;
@@ -119,34 +145,33 @@ export function StatementDetailScreen({ route, navigation }: any) {
   };
 
   const reread = async () => {
-    if (!parsed) return;
-    oldReadingRef.current = parsed;
-    decidedRef.current = false;
-    setMode('reading');
-    const p = parseStatement(statementId);
-    pendingRef.current = p;
+    if (!parsed || starting) return;
+    setStarting(true);
     try {
-      const fresh = await p;
-      setNewReading(fresh);
-      setMode('compare');
+      await startReread(statementId);
+      setRows((all) =>
+        all.map((s) =>
+          s.id === statementId
+            ? { ...s, reread_status: 'reading', reread_started_at: new Date().toISOString(), reread_parsed: null }
+            : s,
+        ),
+      );
+      load();
     } catch (err) {
-      decidedRef.current = true;
-      await restoreStatementReading(statementId, parsed).catch(() => {});
-      setMode('view');
       Alert.alert(es ? 'No se pudo volver a leer' : "Couldn't read it again", friendlyErrorMessage(err, lang));
+    } finally {
+      setStarting(false);
     }
   };
 
   const keepOld = async () => {
-    if (!oldReadingRef.current) return;
     setMode('saving');
     try {
-      await restoreStatementReading(statementId, oldReadingRef.current);
-      decidedRef.current = true;
-      setNewReading(null);
+      await clearReread(statementId);
+      setMode('view');
       await load();
     } catch (err) {
-      setMode('compare');
+      setMode('view');
       Alert.alert(es ? 'No se pudo completar' : "Couldn't complete that", friendlyErrorMessage(err, lang));
     }
   };
@@ -156,12 +181,12 @@ export function StatementDetailScreen({ route, navigation }: any) {
     setMode('saving');
     try {
       await applyStatement(statementId, newReading, st.card_id ?? undefined, { replace: true });
-      decidedRef.current = true;
-      setNewReading(null);
+      await clearReread(statementId).catch(() => {});
       await refresh();
+      setMode('view');
       await load();
     } catch (err) {
-      setMode('compare');
+      setMode('view');
       Alert.alert(es ? 'No se pudo guardar' : 'Could not save', friendlyErrorMessage(err, lang));
     }
   };
@@ -187,10 +212,10 @@ export function StatementDetailScreen({ route, navigation }: any) {
       <BackButton onPress={goBack} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={styles.title} numberOfLines={1}>
-          {mode === 'compare' || mode === 'saving' ? (es ? 'Nueva lectura' : 'New reading') : title}
+          {newReading ? (es ? 'Nueva lectura' : 'New reading') : title}
         </Text>
         <Text style={styles.sub} numberOfLines={1}>
-          {mode === 'compare' || mode === 'saving' ? `${title} · ${es ? 'Corte' : 'Cutoff'} ${fmtDate(parsed?.cutoff_date, lang)}` : sub}
+          {newReading ? `${title} · ${es ? 'Corte' : 'Cutoff'} ${fmtDate(parsed?.cutoff_date, lang)}` : sub}
         </Text>
       </View>
     </View>
@@ -219,7 +244,7 @@ export function StatementDetailScreen({ route, navigation }: any) {
     );
   }
 
-  if (mode === 'reading') {
+  if (rereading) {
     return (
       <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
         {header}
@@ -228,15 +253,15 @@ export function StatementDetailScreen({ route, navigation }: any) {
           <Text style={[styles.cardTitle, { textAlign: 'center' }]}>{es ? 'Leyendo el PDF otra vez…' : 'Reading the PDF again…'}</Text>
           <Text style={[styles.small, { textAlign: 'center' }]}>
             {es
-              ? 'Suele tardar alrededor de un minuto; si algo no cuadra lo revisa una segunda vez y puede tardar hasta dos. No cambiamos nada hasta que elijas.'
-              : "It usually takes about a minute; if something doesn't add up it double-checks, which can take up to two. Nothing changes until you choose."}
+              ? 'Suele tardar alrededor de un minuto, hasta dos si algo no cuadra. Puedes salir de esta pantalla o de la app: sigue trabajando y te avisamos cuando esté lista. No cambiamos nada hasta que elijas.'
+              : "It usually takes about a minute, up to two if something doesn't add up. You can leave this screen or the app: it keeps working and we'll let you know when it's ready. Nothing changes until you choose."}
           </Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  if ((mode === 'compare' || mode === 'saving') && newReading) {
+  if (newReading) {
     const oldCheck = prev ? checkAgainst(Number(prev.parsed!.balance), parsed) : null;
     const newCheck = prev ? checkAgainst(Number(prev.parsed!.balance), newReading) : null;
     const changes = diffReadings(parsed, newReading);
@@ -380,9 +405,9 @@ export function StatementDetailScreen({ route, navigation }: any) {
       </ScrollView>
 
       <View style={styles.actions}>
-        <Pressable style={styles.primaryBtn} onPress={reread} accessibilityRole="button">
+        <Pressable style={[styles.primaryBtn, starting && { opacity: 0.85 }]} onPress={reread} disabled={starting} accessibilityRole="button">
           <View style={styles.btnInner}>
-            <Ionicons name="refresh" size={17} color={colors.onTint2} />
+            {starting ? <ActivityIndicator color={colors.onTint2} size="small" /> : <Ionicons name="refresh" size={17} color={colors.onTint2} />}
             <Text style={styles.primaryBtnText}>{es ? 'Volver a leer' : 'Read it again'}</Text>
           </View>
         </Pressable>

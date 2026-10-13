@@ -227,12 +227,18 @@ deleted) and the user is told "Ya lo tenías". Useful audit: per card,
 **Statement detail (Oct 2026):** tapping an applied statement in the
 history opens `StatementDetailScreen`. History rows and the detail show the
 balance check from `src/statementCheck.ts` ("Cuadra" / "No cuadra por US$ x",
-nothing for a card's first statement). "Volver a leer" calls parse-statement
-on the same PDF (which overwrites `parsed` and sets `needs_review`), shows
-before/after, then either `applyStatement(..., { replace: true })` (old rows
-deleted, `manual` categories and `excluded_from_spend` carried over by
-matching date/amount/merchant) or `restoreStatementReading` (also run on
-unmount if the user leaves undecided). "Eliminar" = `deleteAppliedStatement`:
+nothing for a card's first statement). "Volver a leer" runs in the
+**background**: `startReread` calls parse-statement with `reread: true`, which
+answers 202 at once, keeps reading via `EdgeRuntime.waitUntil`, and writes the
+result to `statements.reread_parsed` / `reread_status` ('reading' → 'ready' or
+'failed'; migration `20261013_statement_reread.sql`) — it never touches
+`parsed` or `status`, even on errors. A push (`type: reread_ready`) opens
+`StatementDetail`. The screen and the history pill poll while 'reading'
+(treated as lost after 6 min). The user then picks:
+`applyStatement(..., { replace: true })` (old rows deleted, `manual`
+categories and `excluded_from_spend` carried over by matching
+date/amount/merchant) + `clearReread`, or just `clearReread`.
+"Eliminar" = `deleteAppliedStatement`:
 its transactions, PDF and row, and if it was the card's latest statement the
 card's balance/minimum/dates roll back to the previous statement's.
 

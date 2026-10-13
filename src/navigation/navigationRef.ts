@@ -20,6 +20,12 @@ export function navigateToStatementReview(statementId: string) {
   });
 }
 
+export function navigateToStatementDetail(statementId: string) {
+  navigateWhenReady(() => {
+    navigationRef.navigate('StatementDetail', { statementId });
+  });
+}
+
 export function navigateToStatements() {
   navigateWhenReady(() => {
     navigationRef.navigate('Tabs', { screen: 'Statements' });

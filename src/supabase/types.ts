@@ -65,6 +65,11 @@ export type DbStatement = {
   error_message: string | null;
   received_at: string;
   applied_at: string | null;
+  // "Volver a leer" result, kept apart from `parsed` until the user picks one.
+  reread_parsed?: ParsedStatement | null;
+  reread_status?: 'reading' | 'ready' | 'failed' | null;
+  reread_started_at?: string | null;
+  reread_error?: string | null;
 };
 
 export type DbTransaction = {

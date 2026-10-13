@@ -177,8 +177,24 @@ export async function dismissGmailForwardingCode(userId: string, at: string): Pr
 
 // "Quedarme con la anterior" after a re-read: parse-statement overwrote the
 // statement's reading and flagged it for review, so put the old one back.
-export async function restoreStatementReading(statementId: string, parsed: ParsedStatement): Promise<void> {
-  const { error } = await supabase.from('statements').update({ parsed, status: 'applied' }).eq('id', statementId);
+// "Volver a leer": the server reads the PDF again in the background and
+// stores the result in reread_parsed, never touching the saved reading. The
+// call returns as soon as it has started; the screen polls the row and a push
+// arrives when it's ready, so leaving the screen or the app loses nothing.
+export async function startReread(statementId: string): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('parse-statement', {
+    body: { statementId, reread: true },
+  });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+}
+
+// Drops a finished, failed or abandoned re-read; the saved reading stays as is.
+export async function clearReread(statementId: string): Promise<void> {
+  const { error } = await supabase
+    .from('statements')
+    .update({ reread_parsed: null, reread_status: null, reread_started_at: null, reread_error: null })
+    .eq('id', statementId);
   if (error) throw error;
 }
 
