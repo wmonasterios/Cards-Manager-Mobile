@@ -196,14 +196,26 @@ export async function listPayments(userId: string): Promise<DbPayment[]> {
   return data ?? [];
 }
 
+// Supabase returns at most 1,000 rows per request, so a full history (a year
+// of statements is easily 2,000+ lines) has to be fetched page by page —
+// before this, everything older than the newest 1,000 silently disappeared
+// (Insights started in May for an account with data since January).
+const PAGE = 1000;
 export async function listTransactions(userId: string): Promise<DbTransaction[]> {
-  const { data, error } = await supabase
-    .from('transactions')
-    .select('*')
-    .eq('user_id', userId)
-    .order('occurred_on', { ascending: false });
-  if (error) throw error;
-  return data ?? [];
+  const all: DbTransaction[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('occurred_on', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    all.push(...(data ?? []));
+    if (!data || data.length < PAGE) break;
+  }
+  return all;
 }
 
 export async function setTransactionExcluded(txId: string, excluded: boolean): Promise<void> {
