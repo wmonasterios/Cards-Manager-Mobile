@@ -506,14 +506,17 @@ async function runTool(ctx: Ctx, name: string, input: any): Promise<unknown> {
       }
       return {
         range: { start_month: startM, end_month: endM },
-        note: "Months are statement cutoff months. The current month's statement may simply not have been issued yet.",
+        note:
+          "Months are statement cutoff months. Months before a card's first statement are not gaps (the card may be new), so they are not listed as missing. The current month's statement may simply not have been issued yet.",
         cards: cards.map((c) => {
           const have = byCard.get(c.id) ?? new Set<string>();
+          const first = [...have].sort()[0] ?? null;
           return {
             card: c.ref,
             name: c.name,
+            first_statement_month: first,
             months_with_statement: months.filter((m) => have.has(m)),
-            missing_months: months.filter((m) => !have.has(m)),
+            missing_months: first ? months.filter((m) => m >= first && !have.has(m)) : [],
           };
         }),
       };
