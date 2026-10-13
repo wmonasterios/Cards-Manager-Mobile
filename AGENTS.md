@@ -201,15 +201,19 @@ is also in the repo, deployed with `verify_jwt: true` — unlike
 `receive-statement-email`, which is `verify_jwt: false` since Mailgun calls it.
 Every user-owned table also has an `ON DELETE CASCADE` FK to `auth.users`;
 keep that true for any new per-user table so deleting the auth user can never
-leave orphans. `apply-statement` and `parse-statement` are **not** in the repo yet — they
-still only exist in Supabase itself, edited directly via the Supabase MCP
-tools (`get_edge_function`/`deploy_edge_function`), same as earlier in this
-project's history. Before editing any edge function: check whether its
-source is under `supabase/functions/` first. If it is, edit it there,
-commit, and redeploy via `deploy_edge_function` with that file's new
-content (committing alone does **not** deploy — there's no CI step for
-edge functions, unlike the app's own OTA publish). If it isn't in the repo,
-fetch the live source via MCP first as before.
+leave orphans. `apply-statement` and `parse-statement` are in the repo too since 12 Oct
+2026 (fetched from the live versions, then edited). Every edge function is
+now under `supabase/functions/`: edit it there, commit, and redeploy via
+`deploy_edge_function` with that file's new content (committing alone does
+**not** deploy — there's no CI step for edge functions, unlike the app's own
+OTA publish).
+
+`apply-statement` drops incoming lines the card already has before
+inserting: same date and amount, and a merchant equal once normalized (no
+accents, letters/digits only, shared prefix — statements truncate names).
+`dedup_key` alone wasn't enough: the same statement read twice (uploaded,
+then forwarded by email) can come back as "Grand Deli Gourmet OBA Panamá"
+one time and "GRAND DELI GOURMET OBA PANAM" the next.
 
 `receive-statement-email` also gained Gmail forwarding-confirmation
 handling: Gmail won't start forwarding to a user's `u-<token>@stmts.

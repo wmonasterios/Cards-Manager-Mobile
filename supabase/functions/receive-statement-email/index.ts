@@ -328,7 +328,7 @@ async function parseAndSaveStatement(
     const txCount = parsed.transactions?.length ?? 0;
     const title = isEs ? "Estado de cuenta listo para revisar" : "Statement ready to review";
     const body = isEs
-      ? `${bank} — ${txCount} transacción${txCount === 1 ? "" : "es"} encontrada${txCount === 1 ? "" : "s"}. Abre la app para revisarlo.`
+      ? `${bank} — ${txCount} ${txCount === 1 ? "transacción encontrada" : "transacciones encontradas"}. Abre la app para revisarlo.`
       : `${bank} — ${txCount} transaction${txCount === 1 ? "" : "s"} found. Open the app to review.`;
     await sendPush(pushToken, title, body, { statementId, type: "statement_ready" });
   } catch (e) {
