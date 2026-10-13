@@ -87,6 +87,8 @@ async function notifyApplied(
   userId: string,
   bank: string,
   txCount: number,
+  // Set when a re-read replaced the statement's lines: what actually changed.
+  replaced?: { added: number; removed: number },
 ) {
   try {
     const { data: profile } = await supabase.from("profiles").select("push_token, lang").eq("id", userId).single();
@@ -98,11 +100,28 @@ async function notifyApplied(
     // transaction on this statement was already saved (a duplicate email,
     // a resend, the same PDF uploaded twice). Say that plainly instead of
     // "updated with 0 transactions," which reads as something went wrong.
-    const body = txCount === 0
+    let replacedBody: string | null = null;
+    if (replaced) {
+      const { added, removed } = replaced;
+      const parts = isEs
+        ? [
+          added > 0 ? `${added} ${added === 1 ? "transacción nueva" : "transacciones nuevas"}` : "",
+          removed > 0 ? `${removed} ${removed === 1 ? "quitada" : "quitadas"}` : "",
+        ]
+        : [
+          added > 0 ? `${added} new transaction${added === 1 ? "" : "s"}` : "",
+          removed > 0 ? `${removed} removed` : "",
+        ];
+      const changes = parts.filter(Boolean).join(", ");
+      replacedBody = isEs
+        ? changes ? `${bank}: nueva lectura guardada — ${changes}.` : `${bank}: nueva lectura guardada, sin cambios en las transacciones.`
+        : changes ? `${bank}: new reading saved — ${changes}.` : `${bank}: new reading saved, no changes to the transactions.`;
+    }
+    const body = replacedBody ?? (txCount === 0
       ? (isEs ? `${bank} ya estaba al día — nada nuevo que agregar.` : `${bank} was already up to date — nothing new to add.`)
       : isEs
         ? `${bank} actualizado con ${txCount} ${txCount === 1 ? "transacción" : "transacciones"}.`
-        : `${bank} updated with ${txCount} transaction${txCount === 1 ? "" : "s"}.`;
+        : `${bank} updated with ${txCount} transaction${txCount === 1 ? "" : "s"}.`);
     await fetch("https://exp.host/--/api/v2/push/send", {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json" },
@@ -406,11 +425,17 @@ Deno.serve(async (req: Request) => {
     // remember what the user changed by hand on them to carry it over.
     type Kept = { date: string; merchant: string; amount: string; category: string | null; excluded: boolean };
     const kept: Kept[] = [];
+    let previousLines: { date: string; merchant: string; amount: string }[] | null = null;
     if (replace && !created) {
       const { data: oldRows } = await supabase
         .from("transactions")
         .select("occurred_on, merchant, amount, category, category_source, excluded_from_spend")
         .eq("statement_id", statementId);
+      previousLines = ((oldRows ?? []) as any[]).map((t) => ({
+        date: t.occurred_on,
+        merchant: t.merchant,
+        amount: Number(t.amount).toFixed(2),
+      }));
       for (const t of (oldRows ?? []) as any[]) {
         if (t.category_source === "manual" || t.excluded_from_spend) {
           kept.push({
@@ -517,9 +542,25 @@ Deno.serve(async (req: Request) => {
       .update({ card_id: cardId, status: "applied", applied_at: new Date().toISOString(), parsed: fields })
       .eq("id", statementId);
 
-    await notifyApplied(supabase, user.id, fields.bank, inserted);
+    // A re-read deletes and re-inserts every line, so "inserted" is the whole
+    // statement; tell the user what actually changed against the old rows.
+    let replaced: { added: number; removed: number } | undefined;
+    if (previousLines) {
+      const pool = [...previousLines];
+      let added = 0;
+      for (const r of txRows) {
+        const i = pool.findIndex(
+          (p) => p.date === r.occurred_on && p.amount === Number(r.amount).toFixed(2) && sameMerchant(p.merchant, r.merchant),
+        );
+        if (i === -1) added++;
+        else pool.splice(i, 1);
+      }
+      replaced = { added, removed: pool.length };
+    }
 
-    return new Response(JSON.stringify({ cardId, created, transactionsInserted: inserted }), {
+    await notifyApplied(supabase, user.id, fields.bank, inserted, replaced);
+
+    return new Response(JSON.stringify({ cardId, created, transactionsInserted: inserted, ...(replaced ?? {}) }), {
       headers: { ...corsHeaders, "content-type": "application/json" },
     });
   } catch (e) {
