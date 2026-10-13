@@ -231,6 +231,7 @@ const EXTRACT_TOOL = {
       last4: { type: "string", description: "Last 4 digits of the card number." },
       currency: { type: "string", description: "ISO currency code, e.g. USD." },
       balance: { type: "number", description: "Current/statement balance owed." },
+      previous_balance: { type: "number", description: "Previous balance carried over from the last statement (\"Saldo anterior\"), as printed. Never also list it as a transaction." },
       credit_limit: { type: "number", description: "Total credit limit of the card." },
       minimum_payment: { type: "number", description: "Minimum payment due this cycle." },
       cutoff_date: { type: "string", description: "Statement cutoff/closing date, ISO yyyy-mm-dd." },
@@ -260,7 +261,47 @@ const EXTRACT_TOOL = {
 };
 
 const EXTRACT_PROMPT_TEXT =
-  "This is a credit card statement, possibly in Spanish, from a bank in Panama. Extract every field and every transaction line using the extract_statement tool. Some statements combine multiple card sub-accounts on a single bill, each with its own transaction detail section (for example, more than one \"DETALLE DE CUENTA\" block under different card numbers) — when that happens, extract the transactions from EVERY section and combine them into one single transactions array; never skip a section, and never leave transactions empty just because there is more than one detail section. A statement can legitimately have 100-300+ individual transactions — that is normal, not a reason to summarize or shorten the list: list every single transaction line individually, in full, no matter how many there are. Never collapse repeated merchants into one entry, never truncate the array for length, and never return an empty transactions array while other fields are filled in — if you can read the balances and dates, you can read the transaction lines too. Amounts: use negative numbers for purchases/charges and positive numbers for payments or credits, regardless of how they're printed on the statement. If a value is not present, omit it rather than guessing. Do not guess a spending category — that is handled separately. Some lines are instalment/cuotas purchases showing a progress marker next to the merchant, e.g. '4/12', '4 DE 12', or 'CUOTA 04-12', sometimes with a rate like '1.2% MENSUAL' nearby — when you see this, fill the transaction's plan field with the progress exactly as printed and plan_rate with the rate if shown; leave both fields out entirely for a normal one-time charge.";
+  "This is a credit card statement, possibly in Spanish, from a bank in Panama. Extract every field and every transaction line using the extract_statement tool. Some statements combine multiple card sub-accounts on a single bill, each with its own transaction detail section (for example, more than one \"DETALLE DE CUENTA\" block under different card numbers) — when that happens, extract the transactions from EVERY section and combine them into one single transactions array; never skip a section, and never leave transactions empty just because there is more than one detail section. A statement can legitimately have 100-300+ individual transactions — that is normal, not a reason to summarize or shorten the list: list every single transaction line individually, in full, no matter how many there are. Never collapse repeated merchants into one entry, never truncate the array for length, and never return an empty transactions array while other fields are filled in — if you can read the balances and dates, you can read the transaction lines too. Amounts: use negative numbers for purchases/charges and positive numbers for payments or credits, regardless of how they're printed on the statement. If a value is not present, omit it rather than guessing. Do not guess a spending category — that is handled separately. Some lines are instalment/cuotas purchases showing a progress marker next to the merchant, e.g. '4/12', '4 DE 12', or 'CUOTA 04-12', sometimes with a rate like '1.2% MENSUAL' nearby — when you see this, fill the transaction's plan field with the progress exactly as printed and plan_rate with the rate if shown; leave both fields out entirely for a normal one-time charge. Fill previous_balance with the printed previous balance (\"Saldo anterior\") and never list it as a transaction. The numbers must reconcile: previous_balance minus payments and credits plus all charges (purchases, interest, fees, taxes such as ITBMS, insurance, installments) equals balance — if your lines don't add up, look again for the missing ones.";
+
+const NOT_A_TRANSACTION = /^\s*(saldo\s+(anterior|inicial|previo)|balance\s+(anterior|forward)|previous\s+balance)\b/i;
+
+// balance - (previous_balance - sum(amounts)); null when it can't be checked.
+function balanceGap(p: any): number | null {
+  const prev = Number(p?.previous_balance);
+  const bal = Number(p?.balance);
+  if (!Number.isFinite(prev) || !Number.isFinite(bal) || !Array.isArray(p?.transactions)) return null;
+  const net = p.transactions
+    .filter((t: any) => !NOT_A_TRANSACTION.test(String(t?.merchant ?? "")))
+    .reduce((n: number, t: any) => n + Number(t?.amount || 0), 0);
+  return Math.round((bal - (prev - net)) * 100) / 100;
+}
+
+async function extract(messages: unknown[]): Promise<{ input: any; content: unknown; toolUseId: string }> {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": ANTHROPIC_API_KEY!,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-5",
+      max_tokens: 16000,
+      output_config: { effort: "medium" },
+      tools: [EXTRACT_TOOL],
+      tool_choice: { type: "tool", name: "extract_statement" },
+      messages,
+    }),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Anthropic API error (${res.status}): ${errText.slice(0, 500)}`);
+  }
+  const json = await res.json();
+  const toolUse = json.content?.find((b: any) => b.type === "tool_use");
+  if (!toolUse) throw new Error("The model did not return structured data.");
+  return { input: toolUse.input, content: json.content, toolUseId: toolUse.id };
+}
 
 // Runs entirely in-process instead of calling the separate parse-statement
 // function over HTTP — a server-to-server call from one edge function to
@@ -284,40 +325,42 @@ async function parseAndSaveStatement(
     }
 
     const base64 = encodeBase64(bytes);
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-5",
-        max_tokens: 16000,
-        output_config: { effort: "medium" },
-        tools: [EXTRACT_TOOL],
-        tool_choice: { type: "tool", name: "extract_statement" },
-        messages: [
+    const userContent = [
+      { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } },
+      { type: "text", text: EXTRACT_PROMPT_TEXT },
+    ];
+    const first = await extract([{ role: "user", content: userContent }]);
+    let parsed = first.input;
+
+    // Same self-check as parse-statement: if the lines don't reconcile with
+    // the balances, re-read once with the gap and keep the closer reading.
+    const firstGap = balanceGap(parsed);
+    if (firstGap !== null && Math.abs(firstGap) >= 0.01) {
+      try {
+        const second = await extract([
+          { role: "user", content: userContent },
+          { role: "assistant", content: first.content },
           {
             role: "user",
             content: [
-              { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } },
-              { type: "text", text: EXTRACT_PROMPT_TEXT },
+              {
+                type: "tool_result",
+                tool_use_id: first.toolUseId,
+                content:
+                  `Check failed: previous_balance (${parsed.previous_balance}) minus the sum of your transaction amounts should equal balance (${parsed.balance}), ` +
+                  `but it is off by ${firstGap.toFixed(2)}. Some line is missing, duplicated or misread. Go through EVERY section of the statement again ` +
+                  `(each cardholder/sub-account, interest, fees, ITBMS tax, insurance, financing and installment lines, credits and reversals) and call ` +
+                  `extract_statement again with the complete, corrected data. Do not invent a line just to make it balance.`,
+              },
             ],
           },
-        ],
-      }),
-    });
-
-    if (!anthropicRes.ok) {
-      const errText = await anthropicRes.text();
-      throw new Error(`Anthropic API error (${anthropicRes.status}): ${errText.slice(0, 500)}`);
+        ]);
+        const secondGap = balanceGap(second.input);
+        if (secondGap !== null && Math.abs(secondGap) < Math.abs(firstGap)) parsed = second.input;
+      } catch {
+        // Keep the first reading if the second attempt fails.
+      }
     }
-
-    const anthropicJson = await anthropicRes.json();
-    const toolUse = anthropicJson.content?.find((b: any) => b.type === "tool_use");
-    if (!toolUse) throw new Error("The model did not return structured data.");
-    const parsed = toolUse.input;
 
     await admin
       .from("statements")

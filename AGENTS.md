@@ -194,7 +194,10 @@ before touching any screen's styling:
 # Edge functions: versioning is now mixed (Oct 2026)
 
 `supabase/functions/receive-statement-email/index.ts` is now checked into
-this repo and matches the deployed v10 exactly (verified byte-for-byte).
+this repo (deployed v15). Both `parse-statement` and this function's
+in-process parse read `previous_balance` and, when the lines don't
+reconcile, re-read once with the gap and keep the closer reading — keep the
+two copies of the prompt/schema/self-check in sync.
 `supabase/functions/delete-account/index.ts` (in-app account deletion,
 Settings → "Delete my account", required by App Store guideline 5.1.1(v))
 is also in the repo, deployed with `verify_jwt: true` — unlike
