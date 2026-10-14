@@ -271,9 +271,10 @@ queries over `transactions` paginated.
 
 # AI advisor (MVP, Oct 2026)
 
-Preview-only (`ADVISOR_BUTTON_VISIBLE` in `FloatingTabBar` hides it on the
-`production` channel) and gated server-side by `advisor_access.enabled`
-(only the owner so far). Tables: `supabase/migrations/20261012_advisor.sql`.
+The ✨ button shows for everyone on every channel (owner's call, 14 Oct
+2026 — it used to be hidden on `production`). Access is gated server-side by
+`advisor_access.enabled` (only the owner so far); everyone else gets the
+"Muy pronto" teaser (`AdvisorScreen` mode `off`), and demo users an alert. Tables: `supabase/migrations/20261012_advisor.sql`.
 Edge function `advisor-chat` is in the repo (`verify_jwt: true`) — edit it
 there and redeploy via `deploy_edge_function`. App side:
 `src/supabase/advisorApi.ts`, `AdvisorScreen` (consent → chat → limit) and

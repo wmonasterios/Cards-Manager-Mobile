@@ -3,7 +3,6 @@ import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as Updates from 'expo-updates';
 import { ColorTokens } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
@@ -23,10 +22,9 @@ const ICONS: Record<Visible, keyof typeof Ionicons.glyphMap> = {
   More: 'menu-outline',
 };
 
-// The AI advisor's button only shows outside the production channel until the
-// advisor ships (Poquet Preview, dev builds) — so TestFlight/Play users never
-// see a button that does nothing yet.
-export const ADVISOR_BUTTON_VISIBLE = Updates.channel !== 'production';
+// The advisor button shows for everyone (owner's call, Oct 2026). Who can
+// actually chat is decided server-side by advisor_access; everyone else gets
+// the "Muy pronto" teaser in AdvisorScreen.
 
 export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const colors = useColors();
@@ -58,8 +56,8 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
       Alert.alert(
         es ? 'Asesor Poquet' : 'Poquet Advisor',
         es
-          ? 'Crea una cuenta o inicia sesión para usar el Asesor con tus propias tarjetas.'
-          : 'Create an account or sign in to use the advisor with your own cards.',
+          ? 'Muy pronto: un asistente con IA que te responde con los números de tus propias tarjetas. Crea una cuenta para estar entre los primeros.'
+          : 'Coming soon: an AI assistant that answers with your own cards\' numbers. Create an account to be among the first.',
       );
       return;
     }
@@ -90,7 +88,7 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
           );
         })}
       </View>
-      {ADVISOR_BUTTON_VISIBLE && (
+      {(
         <Pressable
           onPress={openAdvisor}
           style={styles.advisorBtn}

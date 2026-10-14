@@ -219,7 +219,50 @@ export function AdvisorScreen({ navigation }: any) {
     );
   }
 
-  if (mode === 'error' || mode === 'off') {
+  if (mode === 'off') {
+    // Not enabled for this account yet: a teaser instead of a dead end. Access
+    // is decided server-side (advisor_access), so the button can show for
+    // everyone while only enabled accounts reach the chat.
+    const examples = es
+      ? ['¿Cuánto gasté en restaurantes este mes?', '¿Qué tarjeta me conviene pagar primero?', '¿Cuánto pagué en intereses este año?']
+      : ['How much did I spend on dining this month?', 'Which card should I pay first?', 'How much interest did I pay this year?'];
+    return (
+      <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
+        <View style={styles.simpleTop}>
+          <BackButton onPress={goBack} />
+        </View>
+        <ScrollView contentContainerStyle={styles.consentScroll} showsVerticalScrollIndicator={false}>
+          <View style={styles.consentIcon}>
+            <Ionicons name="sparkles" size={26} color={colors.accent} />
+          </View>
+          <Text style={[styles.groupLabel, { marginTop: 18 }]}>{es ? 'MUY PRONTO' : 'COMING SOON'}</Text>
+          <Text style={styles.consentTitle}>{es ? 'Tu Asesor Poquet' : 'Your Poquet Advisor'}</Text>
+          <Text style={[styles.body, { marginTop: 8 }]}>
+            {es
+              ? 'Un asistente con IA que conoce tus tarjetas y te responde con tus propios números: gastos, pagos, intereses y cuotas.'
+              : 'An AI assistant that knows your cards and answers with your own numbers: spending, payments, interest and installments.'}
+          </Text>
+          <View style={{ marginTop: 20, gap: 8 }}>
+            {examples.map((q) => (
+              <View key={q} style={styles.teaserBubble}>
+                <Text style={styles.teaserText}>{q}</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={[styles.body, { marginTop: 20, color: colors.ink3 }]}>
+            {es
+              ? 'Lo estamos probando con un grupo pequeño. Te avisaremos cuando esté listo para ti.'
+              : "We're testing it with a small group. We'll let you know when it's ready for you."}
+          </Text>
+          <Pressable style={[styles.primaryBtn, { marginTop: 24 }]} onPress={goBack}>
+            <Text style={styles.primaryBtnText}>{es ? 'Entendido' : 'Got it'}</Text>
+          </Pressable>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (mode === 'error') {
     return (
       <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
         <View style={styles.simpleTop}>
@@ -228,20 +271,14 @@ export function AdvisorScreen({ navigation }: any) {
         <View style={[styles.center, { flex: 1, paddingHorizontal: 32 }]}>
           <Ionicons name="sparkles-outline" size={34} color={colors.ink3} />
           <Text style={[styles.consentTitle, { textAlign: 'center', marginTop: 16 }]}>
-            {mode === 'off'
-              ? es ? 'El Asesor llega pronto' : 'The advisor is coming soon'
-              : es ? 'No pudimos abrir el Asesor' : "We couldn't open the advisor"}
+            {es ? 'No pudimos abrir el Asesor' : "We couldn't open the advisor"}
           </Text>
           <Text style={[styles.body, { textAlign: 'center', marginTop: 8 }]}>
-            {mode === 'off'
-              ? es ? 'Todavía no está activado para tu cuenta.' : "It isn't enabled for your account yet."
-              : es ? 'Revisa tu conexión e intenta de nuevo.' : 'Check your connection and try again.'}
+            {es ? 'Revisa tu conexión e intenta de nuevo.' : 'Check your connection and try again.'}
           </Text>
-          {mode === 'error' && (
-            <Pressable style={[styles.primaryBtn, { marginTop: 20, alignSelf: 'stretch' }]} onPress={() => { setMode('loading'); load(); }}>
-              <Text style={styles.primaryBtnText}>{es ? 'Reintentar' : 'Retry'}</Text>
-            </Pressable>
-          )}
+          <Pressable style={[styles.primaryBtn, { marginTop: 20, alignSelf: 'stretch' }]} onPress={() => { setMode('loading'); load(); }}>
+            <Text style={styles.primaryBtnText}>{es ? 'Reintentar' : 'Retry'}</Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     );
@@ -474,6 +511,18 @@ export function AdvisorScreen({ navigation }: any) {
 
 function makeStyles(colors: ColorTokens) {
   return StyleSheet.create({
+    teaserBubble: {
+      alignSelf: 'flex-start',
+      maxWidth: '90%',
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: 16,
+      borderBottomLeftRadius: 6,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.line,
+    },
+    teaserText: { fontSize: 13.5, color: colors.ink },
     screen: { flex: 1, backgroundColor: colors.bg },
     center: { alignItems: 'center', justifyContent: 'center' },
     header: {
