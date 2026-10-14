@@ -10,6 +10,7 @@ import { useAppTheme } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { BackButton } from '../components/BackButton';
 import { Segmented } from '../components/Segmented';
+import { PasswordInput } from '../components/PasswordInput';
 import { useAuth } from '../context/AuthContext';
 import { enterApp } from '../navigation/navigationRef';
 import { friendlyAuthError } from '../authErrors';
@@ -260,12 +261,11 @@ export function AuthScreen({ navigation, route }: Props) {
                   style={styles.input}
                 />
                 <Text style={styles.label}>{es ? 'NUEVA CONTRASEÑA' : 'NEW PASSWORD'}</Text>
-                <TextInput
+                <PasswordInput
                   value={newPassword}
                   onChangeText={setNewPassword}
                   placeholder="••••••••"
                   placeholderTextColor={colors.ink3}
-                  secureTextEntry
                   autoCapitalize="none"
                   textContentType="newPassword"
                   style={styles.input}
@@ -274,12 +274,11 @@ export function AuthScreen({ navigation, route }: Props) {
                   {es ? `Al menos ${MIN_PASSWORD_LENGTH} caracteres.` : `At least ${MIN_PASSWORD_LENGTH} characters.`}
                 </Text>
                 <Text style={styles.label}>{es ? 'REPITE LA CONTRASEÑA' : 'REPEAT PASSWORD'}</Text>
-                <TextInput
+                <PasswordInput
                   value={newPassword2}
                   onChangeText={setNewPassword2}
                   placeholder="••••••••"
                   placeholderTextColor={colors.ink3}
-                  secureTextEntry
                   autoCapitalize="none"
                   textContentType="newPassword"
                   style={styles.input}
@@ -390,12 +389,11 @@ export function AuthScreen({ navigation, route }: Props) {
           />
 
           <Text style={styles.label}>{lang === 'es' ? 'CONTRASEÑA' : 'PASSWORD'}</Text>
-          <TextInput
+          <PasswordInput
             value={password}
             onChangeText={setPassword}
             placeholder="••••••••"
             placeholderTextColor={colors.ink3}
-            secureTextEntry
             autoCapitalize="none"
             style={styles.input}
           />
