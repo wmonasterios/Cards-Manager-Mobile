@@ -113,8 +113,8 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
 - **Android and iOS share one OTA channel.** `eas update --branch production`
   publishes for both platforms, and every build is `1.1.0`, so one production
   OTA reaches TestFlight and Play at once. The `production` workflow can be
-  triggered by a `vX.Y.Z` tag or by `workflow_dispatch`; last run 13 Oct
-  (4996a03, workflow_dispatch) caught Play and TestFlight up with `main`;
+  triggered by a `vX.Y.Z` tag or by `workflow_dispatch`; last run 14 Oct
+  (0576c77, workflow_dispatch) caught Play and TestFlight up with `main`;
   no native changes since a270c47, so no new build was needed.
 
 # Security: PIN + Face ID (Oct 2026)
