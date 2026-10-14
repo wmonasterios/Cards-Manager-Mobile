@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, StyleSheet, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,7 +10,6 @@ import { useColors } from '../theme/ThemeContext';
 import { useAppTheme, ThemeMode } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { Segmented } from '../components/Segmented';
-import { BackButton } from '../components/BackButton';
 import { useAppSettings } from '../context/AppSettingsContext';
 import { useAuth } from '../context/AuthContext';
 import { useCards } from '../context/CardsContext';
@@ -205,77 +204,101 @@ export function SettingsScreen({ navigation }: any) {
     );
   };
 
+  const es = lang === 'es';
+  const Toggle = ({ on, onPress }: { on: boolean; onPress: () => void }) => (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: on }}
+      style={[styles.switchTrack, { backgroundColor: on ? colors.tint2 : colors.line2 }]}
+    >
+      <View style={[styles.switchKnob, { left: on ? 20 : 2, backgroundColor: on ? colors.onTint2 : colors.ink3 }]} />
+    </Pressable>
+  );
+  const LinkRow = ({
+    icon,
+    title,
+    sub,
+    onPress,
+    first,
+  }: {
+    icon: keyof typeof Ionicons.glyphMap;
+    title: string;
+    sub?: string;
+    onPress: () => void;
+    first?: boolean;
+  }) => (
+    <Pressable onPress={onPress} style={[styles.navRow, !first && styles.rowBorder]} accessibilityRole="button">
+      <View style={styles.iconBox}>
+        <Ionicons name={icon} size={17} color={colors.ink2} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={styles.navTitle}>{title}</Text>
+        {!!sub && <Text style={styles.navSub} numberOfLines={2}>{sub}</Text>}
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={colors.ink3} />
+    </Pressable>
+  );
+  const notifToggles = toggles.filter((r) => r.label !== t.faceLock);
+  const faceToggle = toggles.find((r) => r.label === t.faceLock)!;
+
+  // "Más" is this one screen: statements, every setting, support, data and
+  // account, in the order the owner approved (Oct 2026) — no intermediate menu.
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.top}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <BackButton onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('More'))} />
-            <Text style={[styles.title, { flex: 1 }]}>{t.settings}</Text>
-          </View>
-
-          <View style={styles.accountRow}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{accountInitials}</Text>
-            </View>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.kicker}>{t.account.toUpperCase()}</Text>
-              <Text style={styles.accountEmail} numberOfLines={1}>
-                {accountEmail}
-              </Text>
-            </View>
-            <Pressable onPress={handleAccountAction} style={styles.accentPill}>
-              <Text style={styles.accentPillText}>{session ? t.signOut : (lang === 'es' ? 'Iniciar sesión' : 'Sign in')}</Text>
-            </Pressable>
-          </View>
+          <Text style={styles.title}>{es ? 'Más' : 'More'}</Text>
           {isDemo && (
             <Text style={styles.demoNote}>
-              {lang === 'es'
+              {es
                 ? 'Modo demo: estás viendo datos de ejemplo. Crea una cuenta para agregar tus tarjetas reales.'
                 : 'Demo mode: you are viewing example data. Create an account to add your real cards.'}
             </Text>
           )}
-          <Text style={styles.groupLabel}>{t.language.toUpperCase()}</Text>
-          <View style={{ marginTop: 10 }}>
-            <Segmented
-              options={[
-                { key: 'en', label: 'English' },
-                { key: 'es', label: 'Español' },
-              ]}
-              value={lang}
-              onChange={setLang}
+
+          <Text style={[styles.groupLabel, { marginTop: 18 }]}>{es ? 'ESTADOS DE CUENTA' : 'STATEMENTS'}</Text>
+          <View style={styles.listCard}>
+            <LinkRow
+              first
+              icon="cloud-upload-outline"
+              title={es ? 'Agregar un estado de cuenta' : 'Add a statement'}
+              sub={es ? 'Sube el PDF o reenvía el correo · historial' : 'Upload the PDF or forward the email · history'}
+              onPress={() => navigation.navigate('Statements', { cardId: undefined })}
             />
           </View>
 
           <Text style={styles.groupLabel}>{t.notifications.toUpperCase()}</Text>
           <View style={styles.listCard}>
-            {toggles.map((r) => (
-              <View key={r.label} style={styles.toggleRow}>
+            {notifToggles.map((r, i) => (
+              <View key={r.label} style={[styles.toggleRow, i > 0 && styles.rowBorder]}>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={styles.toggleLabel}>{r.label}</Text>
                   <Text style={styles.toggleSub}>{r.sub}</Text>
                 </View>
-                <Pressable
-                  onPress={r.toggle}
-                  style={[styles.switchTrack, { backgroundColor: r.on ? colors.tint2 : colors.line2 }]}
-                >
-                  <View
-                    style={[
-                      styles.switchKnob,
-                      { left: r.on ? 20 : 2, backgroundColor: r.on ? colors.onArt : colors.ink3 },
-                    ]}
-                  />
-                </Pressable>
+                <Toggle on={r.on} onPress={r.toggle} />
               </View>
             ))}
+          </View>
+
+          <Text style={styles.groupLabel}>{t.security.toUpperCase()}</Text>
+          <View style={styles.listCard}>
+            <View style={styles.toggleRow}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.toggleLabel}>{faceToggle.label}</Text>
+                <Text style={styles.toggleSub}>{faceToggle.sub}</Text>
+              </View>
+              <Toggle on={faceToggle.on} onPress={faceToggle.toggle} />
+            </View>
             {session && (
               <>
-                <Pressable onPress={handleSetOrChangePin} style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>{pinSet ? t.pinSettingsChange : t.pinSettingsSet}</Text>
+                <Pressable onPress={handleSetOrChangePin} style={[styles.toggleRow, styles.rowBorder]}>
+                  <Text style={[styles.toggleLabel, { flex: 1 }]}>{pinSet ? t.pinSettingsChange : t.pinSettingsSet}</Text>
+                  <Ionicons name="chevron-forward" size={16} color={colors.ink3} />
                 </Pressable>
                 {pinSet && (
-                  <Pressable onPress={handleRemovePin} style={styles.toggleRow}>
-                    <Text style={[styles.toggleLabel, { color: colors.seg1 }]}>{t.pinSettingsRemove}</Text>
+                  <Pressable onPress={handleRemovePin} style={[styles.toggleRow, styles.rowBorder]}>
+                    <Text style={[styles.toggleLabel, { flex: 1, color: colors.ink2 }]}>{t.pinSettingsRemove}</Text>
                   </Pressable>
                 )}
               </>
@@ -297,16 +320,27 @@ export function SettingsScreen({ navigation }: any) {
 
           <Text style={styles.groupLabel}>{t.support.toUpperCase()}</Text>
           <View style={styles.listCard}>
-            <Pressable onPress={() => navigation.navigate('Report')} style={styles.linkRow}>
-              <Ionicons name="bug-outline" size={18} color={colors.accentInk} />
-              <Text style={styles.linkLabel}>{t.reportBug}</Text>
-              <Text style={styles.linkChevron}>{'›'}</Text>
-            </Pressable>
-            <Pressable onPress={() => navigation.navigate('Fix')} style={[styles.linkRow, styles.linkRowBorder]}>
-              <Ionicons name="build-outline" size={18} color={colors.accentInk} />
-              <Text style={styles.linkLabel}>{t.fixParser}</Text>
-              <Text style={styles.linkChevron}>{'›'}</Text>
-            </Pressable>
+            <LinkRow
+              first
+              icon="chatbubble-ellipses-outline"
+              title={es ? 'Escríbenos' : 'Contact us'}
+              sub="support@poquetapp.com"
+              onPress={() => Linking.openURL('mailto:support@poquetapp.com').catch(() => {})}
+            />
+            <LinkRow icon="bug-outline" title={t.reportBug} onPress={() => navigation.navigate('Report')} />
+            <LinkRow icon="build-outline" title={t.fixParser} onPress={() => navigation.navigate('Fix')} />
+          </View>
+
+          <Text style={styles.groupLabel}>{t.language.toUpperCase()}</Text>
+          <View style={{ marginTop: 10 }}>
+            <Segmented
+              options={[
+                { key: 'en', label: 'English' },
+                { key: 'es', label: 'Español' },
+              ]}
+              value={lang}
+              onChange={setLang}
+            />
           </View>
 
           <Text style={styles.groupLabel}>{t.data.toUpperCase()}</Text>
@@ -322,37 +356,45 @@ export function SettingsScreen({ navigation }: any) {
             </View>
             <View style={styles.dataActions}>
               <Pressable onPress={handleExportCsv} disabled={exporting} style={[styles.dataBtn, exporting && { opacity: 0.6 }]}>
-                {exporting ? (
-                  <ActivityIndicator color={colors.ink} />
-                ) : (
-                  <Text style={styles.dataBtnText}>{t.exportCsv}</Text>
-                )}
+                {exporting ? <ActivityIndicator color={colors.ink} /> : <Text style={styles.dataBtnText}>{t.exportCsv}</Text>}
               </Pressable>
-              <Pressable
-                onPress={handleDeleteAll}
-                disabled={deleting}
-                style={[styles.dataBtn, { borderColor: colors.line }, deleting && { opacity: 0.6 }]}
-              >
+              <Pressable onPress={handleDeleteAll} disabled={deleting} style={[styles.dataBtn, deleting && { opacity: 0.6 }]}>
                 {deleting ? (
-                  <ActivityIndicator color={colors.accentInk} />
+                  <ActivityIndicator color={colors.ink2} />
                 ) : (
-                  <Text style={[styles.dataBtnText, { color: colors.accentInk }]}>{t.deleteAll}</Text>
+                  <Text style={[styles.dataBtnText, { color: colors.ink2 }]}>{t.deleteAll}</Text>
                 )}
               </Pressable>
               {session && (
                 <Pressable
                   onPress={handleDeleteAccount}
                   disabled={deletingAccount}
-                  style={[styles.dataBtn, { borderColor: colors.line }, deletingAccount && { opacity: 0.6 }]}
+                  style={[styles.dataBtn, deletingAccount && { opacity: 0.6 }]}
                 >
                   {deletingAccount ? (
-                    <ActivityIndicator color={colors.accentInk} />
+                    <ActivityIndicator color={colors.ink2} />
                   ) : (
-                    <Text style={[styles.dataBtnText, { color: colors.accentInk }]}>{t.deleteAccount}</Text>
+                    <Text style={[styles.dataBtnText, { color: colors.ink2 }]}>{t.deleteAccount}</Text>
                   )}
                 </Pressable>
               )}
             </View>
+          </View>
+
+          <Text style={styles.groupLabel}>{t.account.toUpperCase()}</Text>
+          <View style={styles.accountRow}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{accountInitials}</Text>
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.kicker}>{session ? (es ? 'Sesión iniciada como' : 'Signed in as') : t.account}</Text>
+              <Text style={styles.accountEmail} numberOfLines={1}>
+                {accountEmail}
+              </Text>
+            </View>
+            <Pressable onPress={handleAccountAction} style={styles.accentPill}>
+              <Text style={styles.accentPillText}>{session ? t.signOut : es ? 'Iniciar sesión' : 'Sign in'}</Text>
+            </Pressable>
           </View>
 
           <Text style={styles.groupLabel}>{t.about.toUpperCase()}</Text>
@@ -373,7 +415,7 @@ function makeStyles(colors: ColorTokens) {
     top: { paddingTop: spacing.xxl, paddingHorizontal: spacing.xl },
     title: { fontSize: 26, fontFamily: fonts.displayMedium, color: colors.ink, letterSpacing: -0.3 },
     accountRow: {
-      marginTop: 18,
+      marginTop: 10,
       padding: 16,
       borderRadius: radius.xl,
       backgroundColor: colors.surface,
@@ -401,29 +443,34 @@ function makeStyles(colors: ColorTokens) {
       borderWidth: 1,
       borderColor: colors.line,
     },
-    accentPillText: { fontSize: 11.5, fontWeight: '500', color: colors.ink },
+    accentPillText: { fontSize: 13, fontWeight: '700', color: colors.ink },
     demoNote: { fontSize: 11.5, color: colors.ink3, marginTop: 10, lineHeight: 16 },
-    groupLabel: { fontSize: 11, fontWeight: '500', color: colors.ink3, letterSpacing: 1, marginTop: 24 },
+    groupLabel: { fontSize: 11.5, fontWeight: '700', color: colors.ink3, letterSpacing: 1, marginTop: 24 },
     listCard: {
       marginTop: 10,
-      borderRadius: radius.lg,
+      borderRadius: radius.xl,
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.line,
       overflow: 'hidden',
     },
     toggleRow: {
-      borderTopWidth: 1,
-      borderTopColor: colors.hair,
-      padding: 13,
+      minHeight: 56,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
     },
-    toggleLabel: { fontSize: 13, fontWeight: '500', color: colors.ink },
-    toggleSub: { fontSize: 11, color: colors.ink3, marginTop: 3 },
+    toggleLabel: { fontSize: 14, fontWeight: '600', color: colors.ink },
+    toggleSub: { fontSize: 12, color: colors.ink3, marginTop: 2 },
     switchTrack: { width: 44, height: 26, borderRadius: 999, borderWidth: 1, borderColor: colors.line },
     switchKnob: { position: 'absolute', top: 2, width: 20, height: 20, borderRadius: 999 },
+    rowBorder: { borderTopWidth: 1, borderTopColor: colors.line2 },
+    navRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 58, paddingVertical: 9, paddingHorizontal: 14 },
+    iconBox: { width: 32, height: 32, borderRadius: 10, backgroundColor: colors.tint, alignItems: 'center', justifyContent: 'center' },
+    navTitle: { fontSize: 14, fontWeight: '600', color: colors.ink },
+    navSub: { fontSize: 12, color: colors.ink3, marginTop: 2, lineHeight: 16 },
     linkRow: {
       padding: 13,
       flexDirection: 'row',
@@ -462,15 +509,16 @@ function makeStyles(colors: ColorTokens) {
       borderColor: colors.line,
     },
     copyBtnText: { fontSize: 11, fontWeight: '500', color: colors.ink },
-    dataActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+    dataActions: { gap: 8, marginTop: 14 },
     dataBtn: {
       paddingVertical: 10,
       paddingHorizontal: 13,
       borderRadius: radius.md - 2,
       borderWidth: 1,
-      borderColor: colors.hair4,
+      borderColor: colors.line,
+      alignItems: 'center',
     },
-    dataBtnText: { fontSize: 12, fontWeight: '500', color: colors.ink },
+    dataBtnText: { fontSize: 13.5, fontWeight: '600', color: colors.ink },
     aboutCard: {
       marginTop: 10,
       padding: 16,

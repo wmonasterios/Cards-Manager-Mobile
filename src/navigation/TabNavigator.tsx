@@ -7,7 +7,6 @@ import { CalendarScreen } from '../screens/CalendarScreen';
 import { InsightsScreen } from '../screens/InsightsScreen';
 import { StatementsScreen } from '../screens/StatementsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
-import { MoreScreen } from '../screens/MoreScreen';
 import { FloatingTabBar } from '../components/FloatingTabBar';
 
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -41,7 +40,7 @@ export function TabNavigator() {
         })}
       />
       <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: t.settings }} />
-      <Tab.Screen name="More" component={MoreScreen} options={{ title: 'More' }} />
+      <Tab.Screen name="More" component={SettingsScreen} options={{ title: 'More' }} />
     </Tab.Navigator>
   );
 }
