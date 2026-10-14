@@ -46,6 +46,8 @@ export type DecoratedCard = Card & {
   reviewCount: number;
   dtx: DecoratedTransaction[];
   minCovered: boolean;
+  // Paid because registered payments cover the balance (not the Paid toggle).
+  coveredByPayments: boolean;
   payEvents: PayEvent[];
   // The next deadline still pending (undefined once the card is paid).
   nextDueIso?: string;
@@ -78,7 +80,6 @@ export function decorateCard(
   colors: ColorTokens,
   reviewCount = 0,
 ): DecoratedCard {
-  const paid = paidOverride !== undefined ? paidOverride : c.balance === 0;
   // Only payments made after the current statement's own cutoff count against
   // its balance — anything on or before that date was already the bank's own
   // problem to net out, and the "Saldo" on this very statement already did:
@@ -89,6 +90,11 @@ export function decorateCard(
     ? payments.filter((p) => !p.paidOnIso || p.paidOnIso > c.cutoffIso!)
     : payments;
   const paidAmt = relevantPayments.reduce((n, p) => n + p.amount, 0);
+  // Registered payments that cover the whole statement balance settle the
+  // card just like marking it Paid does — before this, a US$ 75 payment on a
+  // US$ 15.56 balance still showed "Vence hoy · US$ 0.00" as pending.
+  const coveredByPayments = c.balance > 0 && paidAmt >= c.balance - 0.005;
+  const paid = (paidOverride !== undefined ? paidOverride : c.balance === 0) || coveredByPayments;
   // Marking a card Paid without registering a specific payment amount still
   // means the whole balance is settled — don't leave the old balance showing.
   const remaining = paid ? 0 : Math.max(0, c.balance - paidAmt);
@@ -150,6 +156,7 @@ export function decorateCard(
     reviewCount,
     dtx: c.tx.map((tr) => decorateTransaction(tr, c, colors)),
     minCovered,
+    coveredByPayments,
     payEvents,
     nextDueIso: next?.iso,
     nextDueLabel: next?.label,

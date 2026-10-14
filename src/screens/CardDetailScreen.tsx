@@ -178,14 +178,18 @@ export function CardDetailScreen({ route, navigation }: Props) {
             >
               <Text style={styles.pillBtnText}>{t.statements}</Text>
             </Pressable>
-            <Pressable
-              onPress={handleTogglePaid}
-              style={[styles.pillBtn, styles.pillBtnAccent]}
-            >
-              <Text style={[styles.pillBtnText, { color: colors.onTint2 }]}>
-                {card.paid ? t.markUnpaid : t.markPaid}
-              </Text>
-            </Pressable>
+            {/* Settled by registered payments: the toggle would do nothing visible
+                (the payments still cover it), so it isn't offered. */}
+            {!card.coveredByPayments && (
+              <Pressable
+                onPress={handleTogglePaid}
+                style={[styles.pillBtn, styles.pillBtnAccent]}
+              >
+                <Text style={[styles.pillBtnText, { color: colors.onTint2 }]}>
+                  {card.paid ? t.markUnpaid : t.markPaid}
+                </Text>
+              </Pressable>
+            )}
           </View>
         </View>
 
