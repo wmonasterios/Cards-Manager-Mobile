@@ -243,7 +243,8 @@ export function SettingsScreen({ navigation }: any) {
   const faceToggle = toggles.find((r) => r.label === t.faceLock)!;
 
   // "Más" is this one screen: statements, every setting, support, data and
-  // account, in the order the owner approved (Oct 2026) — no intermediate menu.
+  // account, in the order the owner approved (Oct 2026; language sits right
+  // under appearance) — no intermediate menu.
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -318,6 +319,18 @@ export function SettingsScreen({ navigation }: any) {
             />
           </View>
 
+          <Text style={styles.groupLabel}>{t.language.toUpperCase()}</Text>
+          <View style={{ marginTop: 10 }}>
+            <Segmented
+              options={[
+                { key: 'en', label: 'English' },
+                { key: 'es', label: 'Español' },
+              ]}
+              value={lang}
+              onChange={setLang}
+            />
+          </View>
+
           <Text style={styles.groupLabel}>{t.support.toUpperCase()}</Text>
           <View style={styles.listCard}>
             <LinkRow
@@ -329,18 +342,6 @@ export function SettingsScreen({ navigation }: any) {
             />
             <LinkRow icon="bug-outline" title={t.reportBug} onPress={() => navigation.navigate('Report')} />
             <LinkRow icon="build-outline" title={t.fixParser} onPress={() => navigation.navigate('Fix')} />
-          </View>
-
-          <Text style={styles.groupLabel}>{t.language.toUpperCase()}</Text>
-          <View style={{ marginTop: 10 }}>
-            <Segmented
-              options={[
-                { key: 'en', label: 'English' },
-                { key: 'es', label: 'Español' },
-              ]}
-              value={lang}
-              onChange={setLang}
-            />
           </View>
 
           <Text style={styles.groupLabel}>{t.data.toUpperCase()}</Text>
