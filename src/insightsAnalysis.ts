@@ -61,18 +61,29 @@ function weekOf(iso: string): number {
   return Math.min(Math.floor((day - 1) / 7), 4);
 }
 
+// The month stepper is the navigator: it never depends on the card filter
+// (always every card) and it never jumps on its own. It runs, month by month
+// with no gaps, from the first to the last month with actual spending — a
+// lone refund dated a year back no longer creates a month of its own.
+const isSpend = (t: DecoratedTransaction) => t.amount < 0 && !t.declined && !t.excludedFromSpend;
+
 export function getAvailableMonths(cards: DecoratedCard[], lang: 'en' | 'es'): InsightsMonth[] {
-  const isos = new Set<string>();
-  for (const tx of flattenTx(cards)) {
-    isos.add(tx.iso.slice(0, 7));
+  const isos = flattenTx(cards).filter(isSpend).map((t) => t.iso.slice(0, 7)).sort();
+  if (isos.length === 0) return [];
+  const out: InsightsMonth[] = [];
+  let [y, m] = isos[0].split('-').map(Number);
+  const last = isos[isos.length - 1];
+  for (let guard = 0; guard < 240; guard++) {
+    const iso = `${y}-${String(m).padStart(2, '0')}`;
+    out.push({ iso, label: `${MONTH_NAMES[lang][m - 1]} ${y}` });
+    if (iso >= last) break;
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
   }
-  return Array.from(isos)
-    .sort()
-    .map((iso) => {
-      const [year, month] = iso.split('-');
-      const name = MONTH_NAMES[lang][parseInt(month, 10) - 1];
-      return { iso, label: `${name} ${year}` };
-    });
+  return out;
 }
 
 // weekIdx narrows every downstream total (categories, donut, the transaction list) to
@@ -88,7 +99,7 @@ export function analyseInsights(
 ): InsightsAnalysis {
   const allTx = flattenTx(cards);
   const monthTx = allTx.filter((t) => t.iso.slice(0, 7) === monthIso);
-  const monthSpendTx = monthTx.filter((t) => t.amount < 0 && !t.declined && !t.excludedFromSpend);
+  const monthSpendTx = monthTx.filter(isSpend);
   const spendTx = weekIdx === null ? monthSpendTx : monthSpendTx.filter((t) => weekOf(t.iso) === weekIdx);
 
   const spent = spendTx.reduce((n, t) => n - t.amount, 0);
@@ -152,7 +163,7 @@ export function analyseInsights(
 
   const sel = categories.find((c) => c.name === selCat) ?? null;
 
-  return { txCount: monthTx.length, spent, categories, arcs, filteredTx, weekSums, weekMax, avgWeek, delta, sel };
+  return { txCount: monthSpendTx.length, spent, categories, arcs, filteredTx, weekSums, weekMax, avgWeek, delta, sel };
 }
 
 export type CardSlice = { cardId: string; name: string; amount: number; count: number; share: number };

@@ -39,7 +39,9 @@ export function InsightsScreen({ navigation }: any) {
     [cards, excludedCardIds],
   );
 
-  const months = useMemo(() => getAvailableMonths(includedCards, lang), [includedCards, lang]);
+  // Months come from every card, not the filtered ones: the card chips only
+  // filter inside the month you're on, they never move you to another month.
+  const months = useMemo(() => getAvailableMonths(cards, lang), [cards, lang]);
   const monthIso = selectedMonthIso && months.some((m) => m.iso === selectedMonthIso)
     ? selectedMonthIso
     : months[months.length - 1]?.iso ?? null;
