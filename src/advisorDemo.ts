@@ -97,7 +97,7 @@ export function demoAnswer(q: DemoQuestion, cards: DecoratedCard[], lang: 'es' |
     const when = (d: number) =>
       es
         ? d < 0 ? `venció hace ${-d} días` : d === 0 ? 'vence hoy' : d === 1 ? 'vence mañana' : `vence en ${d} días`
-        : d < 0 ? `was due ${-d} days ago` : d === 0 ? 'is due today' : d === 1 ? 'is due tomorrow' : `is due in ${d} days`;
+        : d < 0 ? `overdue by ${-d} days` : d === 0 ? 'due today' : d === 1 ? 'due tomorrow' : `due in ${d} days`;
     const list = unpaid
       .slice(0, 3)
       .map(({ c, days }, i) => `${i + 1}. ${c.displayName}: ${when(days)}, ${$(c.fullAmount ?? c.balance)}`)
@@ -126,8 +126,8 @@ export function demoAnswer(q: DemoQuestion, cards: DecoratedCard[], lang: 'es' |
     const lines = top.map(([c, v], i) => `${i + 1}. ${cat(c)}: ${$(v)} (${Math.round((v / total) * 100)}%)`).join('\n');
     const biggest = monthRows.slice().sort((a, b) => b.amount - a.amount)[0];
     return es
-      ? `En ${monthName(month, true)} llevas ${$(total)} en ${monthRows.length} compras. Donde más gastaste:\n\n${lines}\n\nLa compra más grande fue ${biggest.merchant} por ${$(biggest.amount)}.`
-      : `In ${monthName(month, false)} you've spent ${$(total)} across ${monthRows.length} purchases. Where most of it went:\n\n${lines}\n\nYour biggest purchase was ${biggest.merchant} at ${$(biggest.amount)}.`;
+      ? `En ${monthName(month, true)} gastaste ${$(total)} en ${monthRows.length} compras. Donde más se fue:\n\n${lines}\n\nLa compra más grande fue ${biggest.merchant} por ${$(biggest.amount)}.`
+      : `In ${monthName(month, false)} you spent ${$(total)} across ${monthRows.length} purchases. Where most of it went:\n\n${lines}\n\nYour biggest purchase was ${biggest.merchant} at ${$(biggest.amount)}.`;
   }
 
   if (q === 'interest') {
