@@ -650,18 +650,22 @@ Deno.serve(async (req: Request) => {
     if (!question) return json({ error: "empty_message" }, 400);
     if (question.length > MAX_QUESTION_CHARS) return json({ error: "message_too_long", max: MAX_QUESTION_CHARS }, 400);
 
-    // Access and consent.
+    // Access: on for every plan with advisor_enabled (the kill switch); an
+    // advisor_access row, when present, overrides that for one user. Limits
+    // come from the plan unless that row sets its own.
+    const { data: planId } = await admin.rpc("effective_plan", { uid: user.id });
+    const { data: plan } = await admin
+      .from("plans")
+      .select("advisor_enabled, advisor_monthly_limit, advisor_daily_limit")
+      .eq("id", planId ?? "free")
+      .maybeSingle();
     const { data: access } = await admin.from("advisor_access").select("*").eq("user_id", user.id).maybeSingle();
-    if (!access?.enabled) return json({ error: "not_enabled" }, 403);
+    const enabled = access ? !!access.enabled : !!plan?.advisor_enabled;
+    if (!enabled) return json({ error: "not_enabled" }, 403);
     const { data: consent } = await admin.from("advisor_consent").select("user_id").eq("user_id", user.id).maybeSingle();
     if (!consent) return json({ error: "no_consent" }, 403);
-
-    // Limits come from the user's plan (plans table); advisor_access may
-    // override them per user when its columns are set.
-    const { data: planId } = await admin.rpc("effective_plan", { uid: user.id });
-    const { data: plan } = await admin.from("plans").select("advisor_monthly_limit, advisor_daily_limit").eq("id", planId ?? "free").maybeSingle();
-    const monthlyLimit: number = access.monthly_limit ?? plan?.advisor_monthly_limit ?? 5;
-    const dailyLimit: number = access.daily_limit ?? plan?.advisor_daily_limit ?? 5;
+    const monthlyLimit: number = access?.monthly_limit ?? plan?.advisor_monthly_limit ?? 5;
+    const dailyLimit: number = access?.daily_limit ?? plan?.advisor_daily_limit ?? 5;
 
     // Limits (one usage row per answered question).
     const t = todayIso();

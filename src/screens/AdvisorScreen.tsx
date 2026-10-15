@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -323,6 +324,23 @@ export function AdvisorScreen({ navigation }: any) {
             {es
               ? 'Puedes ver y borrar lo que el Asesor recuerda, y retirar este permiso cuando quieras desde "Memoria" dentro del Asesor.'
               : 'You can see and delete what the advisor remembers, and withdraw this permission anytime from "Memory" inside the advisor.'}
+          </Text>
+          <Text style={[styles.small, { marginTop: 10 }]}>
+            {es ? 'Al aceptar, aceptas también nuestros ' : 'By accepting you also agree to our '}
+            <Text
+              style={{ textDecorationLine: 'underline', color: colors.ink2 }}
+              onPress={() => Linking.openURL(es ? 'https://poquetapp.com/terminos/' : 'https://poquetapp.com/en/terms/').catch(() => {})}
+            >
+              {es ? 'Términos' : 'Terms'}
+            </Text>
+            {es ? ' y la ' : ' and the '}
+            <Text
+              style={{ textDecorationLine: 'underline', color: colors.ink2 }}
+              onPress={() => Linking.openURL(es ? 'https://poquetapp.com/privacidad/' : 'https://poquetapp.com/en/privacy/').catch(() => {})}
+            >
+              {es ? 'Política de privacidad' : 'Privacy policy'}
+            </Text>
+            .
           </Text>
           {!!notice && <Text style={[styles.small, { marginTop: 10, color: colors.ink }]}>{notice}</Text>}
         </ScrollView>

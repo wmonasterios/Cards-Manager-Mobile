@@ -293,10 +293,14 @@ in 1.3. Groundwork in `20261014_plans_and_ai_usage.sql`:
 
 # AI advisor (MVP, Oct 2026)
 
-The ✨ button shows for everyone on every channel (owner's call, 14 Oct
-2026 — it used to be hidden on `production`). Access is gated server-side by
-`advisor_access.enabled` (only the owner so far); everyone else gets the
-"Muy pronto" teaser (`AdvisorScreen` mode `off`), and demo users an alert. Tables: `supabase/migrations/20261012_advisor.sql`.
+**On for everyone from version 1** (owner's call, 14 Oct 2026). Access =
+`plans.advisor_enabled` for the user's effective plan (the kill switch:
+set it false to turn the advisor off for that plan at once), unless an
+`advisor_access` row exists for that user, which overrides it either way.
+Same rule in `advisor-chat` and `getAdvisorStatus`. When off, users see the
+"Muy pronto" teaser (`AdvisorScreen` mode `off`); demo users get an alert.
+The consent screen links to poquetapp.com's Terms and Privacy pages, which
+describe the advisor (14 Oct 2026). Tables: `supabase/migrations/20261012_advisor.sql`.
 Edge function `advisor-chat` is in the repo (`verify_jwt: true`) — edit it
 there and redeploy via `deploy_edge_function`. App side:
 `src/supabase/advisorApi.ts`, `AdvisorScreen` (consent → chat → limit) and
@@ -305,7 +309,4 @@ there and redeploy via `deploy_edge_function`. App side:
 fees — which must keep excluding installment principal —, installment plans,
 statement coverage, remember/forget).
 
-**TODO (owner's call):** once poquetapp.com publishes the Terms of Use and
-Privacy pages, add links to both on the consent screen (`AdvisorScreen`,
-consent mode, next to the "Puedes ver y borrar…" line). Left out on purpose
-until those pages exist, so the screen never links to a 404.
+

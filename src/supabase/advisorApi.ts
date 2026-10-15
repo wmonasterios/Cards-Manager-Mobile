@@ -60,16 +60,17 @@ export async function getAdvisorStatus(): Promise<AdvisorStatus> {
     uid().then((id) => supabase.rpc('effective_plan', { uid: id })),
   ]);
   if (access.error) throw access.error;
-  // The monthly limit comes from the plan unless advisor_access overrides it.
-  let planLimit: number | null = null;
-  if (!planId.error && planId.data) {
-    const { data } = await supabase.from('plans').select('advisor_monthly_limit').eq('id', planId.data).maybeSingle();
-    planLimit = data?.advisor_monthly_limit ?? null;
-  }
+  // On for every plan with advisor_enabled; an advisor_access row overrides
+  // that (and the monthly limit) for one user. Same rule as advisor-chat.
+  const { data: plan } = await supabase
+    .from('plans')
+    .select('advisor_enabled, advisor_monthly_limit')
+    .eq('id', (!planId.error && planId.data) || 'free')
+    .maybeSingle();
   return {
-    enabled: !!access.data?.enabled,
+    enabled: access.data ? !!access.data.enabled : !!plan?.advisor_enabled,
     consented: !!consent.data,
-    monthlyLimit: access.data?.monthly_limit ?? planLimit ?? 5,
+    monthlyLimit: access.data?.monthly_limit ?? plan?.advisor_monthly_limit ?? 5,
     usedMonth: usage.count ?? 0,
   };
 }
