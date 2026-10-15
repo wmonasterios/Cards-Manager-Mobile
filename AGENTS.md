@@ -269,6 +269,28 @@ stable order (`occurred_on`, `id`). Before this, an account with 2,017
 transactions only saw the newest 1,000 (Insights started in May). Keep new
 queries over `transactions` paginated.
 
+# Plans and AI cost (freemium groundwork, 14 Oct 2026)
+
+Owner's decision: launch free, measure 4-8 weeks, add a paid Pro (RevenueCat)
+in 1.3. Groundwork in `20261014_plans_and_ai_usage.sql`:
+- `plans` (free: 5 advisor questions/month and 5/day; pro: 100 and 20;
+  `max_cards`/`history_months` exist but are NULL = no limit). Change limits
+  by editing rows — no app build needed.
+- `profiles.plan` / `plan_until` / `plan_source`, guarded by the
+  `guard_profile_plan` trigger so only the server (service role / SQL editor)
+  can change them — the "update own profile" policy would otherwise let a
+  user make themselves Pro. `effective_plan(uid)` falls back to free when
+  `plan_until` has passed. The owner is `pro` (`plan_source = 'owner'`).
+- `advisor_access` is now only the on/off switch; its `monthly_limit` /
+  `daily_limit` are NULL and, if set, override the plan per user.
+- `ai_usage` gets one row per Claude call that reads a statement (`parse`,
+  `reread`, `email_parse`; written with the service role), `model_prices`
+  holds USD per million tokens (Sonnet 5 figure is from a third-party page —
+  verify against Anthropic's pricing page), and the owner-only
+  `user_metrics` view (no grants to anon/authenticated) shows per user:
+  cards, statements, last-30-day statements, advisor questions and cost,
+  reading cost. Merchant classification calls are not logged yet.
+
 # AI advisor (MVP, Oct 2026)
 
 The ✨ button shows for everyone on every channel (owner's call, 14 Oct

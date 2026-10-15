@@ -134,11 +134,6 @@ async function notify(
   }
 }
 
-// Downloads the PDF and reads it, with the balance self-check: previous
-// balance - payments + charges must equal the new balance. When it doesn't,
-// the reader skipped or misread a line; give it the numbers once and let it
-// look again, keeping whichever reading is closer. Costs a second call only
-// for statements that don't add up.
 // Every Claude call's tokens go to ai_usage, so we learn what each user
 // costs (statement reading is the main AI cost). Best-effort, server-only.
 async function logUsage(userId: string, kind: string, statementId: string, calls: CallUsage[]) {
@@ -161,6 +156,11 @@ async function logUsage(userId: string, kind: string, statementId: string, calls
   }
 }
 
+// Downloads the PDF and reads it, with the balance self-check: previous
+// balance - payments + charges must equal the new balance. When it doesn't,
+// the reader skipped or misread a line; give it the numbers once and let it
+// look again, keeping whichever reading is closer. Costs a second call only
+// for statements that don't add up.
 async function readStatement(supabase: ReturnType<typeof createClient>, storagePath: string, calls: CallUsage[] = []): Promise<any> {
   const { data: fileBlob, error: dlErr } = await supabase.storage.from("statements").download(storagePath);
   if (dlErr || !fileBlob) {
