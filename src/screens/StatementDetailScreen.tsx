@@ -128,6 +128,9 @@ export function StatementDetailScreen({ route, navigation }: any) {
   const isLatest = !!st?.card_id && cardStatements(rows, st.card_id).slice(-1)[0]?.id === st?.id;
   const latestCutoff = st?.card_id ? cardStatements(rows, st.card_id).slice(-1)[0]?.parsed?.cutoff_date : undefined;
   const prevCutoff = prev?.parsed?.cutoff_date;
+  // The 90-day retention job removes the original PDF; without it there is
+  // nothing to open or read again.
+  const hasPdf = !!st?.storage_path;
   const title = card?.displayName ?? st?.bank ?? (es ? 'Estado de cuenta' : 'Statement');
   const sub = `${es ? 'Corte' : 'Cutoff'} ${fmtDate(parsed?.cutoff_date, lang)} · ${
     st?.source === 'email' ? (es ? 'por correo el' : 'via email on') : es ? 'PDF subido el' : 'PDF uploaded on'
@@ -395,27 +398,42 @@ export function StatementDetailScreen({ route, navigation }: any) {
           ))}
         </View>
 
-        <Pressable onPress={openPdf} disabled={openingPdf} style={{ marginTop: 14, alignSelf: 'flex-start' }} hitSlop={8}>
-          {openingPdf ? (
-            <ActivityIndicator size="small" color={colors.ink2} />
-          ) : (
-            <Text style={styles.link}>{es ? 'Ver PDF original ↗' : 'View original PDF ↗'}</Text>
-          )}
-        </Pressable>
+        {hasPdf ? (
+          <Pressable onPress={openPdf} disabled={openingPdf} style={{ marginTop: 14, alignSelf: 'flex-start' }} hitSlop={8}>
+            {openingPdf ? (
+              <ActivityIndicator size="small" color={colors.ink2} />
+            ) : (
+              <Text style={styles.link}>{es ? 'Ver PDF original ↗' : 'View original PDF ↗'}</Text>
+            )}
+          </Pressable>
+        ) : (
+          <View style={{ marginTop: 14, flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
+            <Ionicons name="shield-checkmark-outline" size={16} color={colors.ink3} style={{ marginTop: 1 }} />
+            <Text style={[styles.small, { flex: 1 }]}>
+              {es
+                ? 'El PDF original se borró automáticamente a los 3 meses para proteger tu privacidad. Tus transacciones siguen aquí.'
+                : 'The original PDF was deleted automatically after 3 months to protect your privacy. Your transactions are still here.'}
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
       <View style={styles.actions}>
-        <Pressable style={[styles.primaryBtn, starting && { opacity: 0.85 }]} onPress={reread} disabled={starting} accessibilityRole="button">
-          <View style={styles.btnInner}>
-            {starting ? <ActivityIndicator color={colors.onTint2} size="small" /> : <Ionicons name="refresh" size={17} color={colors.onTint2} />}
-            <Text style={styles.primaryBtnText}>{es ? 'Volver a leer' : 'Read it again'}</Text>
-          </View>
-        </Pressable>
-        <Text style={[styles.small, { textAlign: 'center' }]}>
-          {es
-            ? 'Lee el mismo PDF otra vez. Antes de reemplazar nada te mostramos qué cambió.'
-            : "Reads the same PDF again. We show you what changed before replacing anything."}
-        </Text>
+        {hasPdf && (
+          <>
+            <Pressable style={[styles.primaryBtn, starting && { opacity: 0.85 }]} onPress={reread} disabled={starting} accessibilityRole="button">
+              <View style={styles.btnInner}>
+                {starting ? <ActivityIndicator color={colors.onTint2} size="small" /> : <Ionicons name="refresh" size={17} color={colors.onTint2} />}
+                <Text style={styles.primaryBtnText}>{es ? 'Volver a leer' : 'Read it again'}</Text>
+              </View>
+            </Pressable>
+            <Text style={[styles.small, { textAlign: 'center' }]}>
+              {es
+                ? 'Lee el mismo PDF otra vez. Antes de reemplazar nada te mostramos qué cambió.'
+                : "Reads the same PDF again. We show you what changed before replacing anything."}
+            </Text>
+          </>
+        )}
         <Pressable style={styles.secondaryBtn} onPress={() => setConfirmDelete(true)} accessibilityRole="button">
           <View style={styles.btnInner}>
             <Ionicons name="trash-outline" size={16} color={colors.ink2} />

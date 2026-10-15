@@ -688,6 +688,14 @@ function RealStatementsFlow({ navigation, route }: any) {
       resumeReview(s);
     } else if (s.status === 'applied') {
       navigation.navigate('StatementDetail', { statementId: s.id });
+    } else if (!s.storage_path) {
+      // Removed by the 90-day retention job: nothing left to open.
+      Alert.alert(
+        lang === 'es' ? 'El PDF ya no está' : 'The PDF is gone',
+        lang === 'es'
+          ? 'El PDF original se borró automáticamente a los 3 meses para proteger tu privacidad.'
+          : 'The original PDF was deleted automatically after 3 months to protect your privacy.',
+      );
     } else {
       openStatementPdf(s.id);
     }
