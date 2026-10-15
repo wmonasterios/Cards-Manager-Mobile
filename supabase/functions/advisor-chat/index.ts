@@ -558,52 +558,83 @@ async function runTool(ctx: Ctx, name: string, input: any): Promise<unknown> {
       const t = todayIso();
       const start = validIso(input?.start_date) ? input.start_date : addDays(t, -365);
       const end = validIso(input?.end_date) ? input.end_date : t;
+      // Charges AND credits: banks reverse late fees and their tax ("Reverse
+      // Percentage: 100%"), and a reversed fee was never a cost.
       const data = await allRows(() =>
         ctx.db
           .from("transactions")
           .select("occurred_on, merchant, amount, category, card_id, plan")
           .gte("occurred_on", start)
           .lte("occurred_on", end)
-          .lt("amount", 0)
-          .or("category.eq.fees,merchant.ilike.%interes%,merchant.ilike.%interest%,merchant.ilike.%cargo por%")
+          .neq("amount", 0)
+          .or("category.eq.fees,merchant.ilike.%interes%,merchant.ilike.%interest%,merchant.ilike.%cargo por%,merchant.ilike.%reverse%,merchant.ilike.%reverso%,merchant.ilike.%reversi%")
       );
       // Banks often file installment charges and financed balances (e.g.
       // "DAVIVIENDA 6% 48 MESES CUOTA:01/48", -17,500) under fees; those are
       // principal being repaid, not a cost, so they must never be summed here.
       const isInstallment = (m: string) => /cuota|placuota|\b\d{1,2}\s*\/\s*\d{1,2}\b|\d+\s*meses/i.test(m);
-      const isInterest = (m: string) => /inter[eé]s|interest|financiam/i.test(m);
-      const per = new Map<string, { interest: number; fees: number }>();
+      // Only lines that say interest are interest. "Financiamiento" alone can
+      // be principal of a financed purchase, so it goes to `unclear`.
+      const isInterest = (m: string) => /inter[eé]s|interest/i.test(m);
+      const isFinancing = (m: string) => /financiam/i.test(m);
+      const per = new Map<string, { interest: number; fees: number; unclear: number; reversed: number }>();
+      const interestByMonth = new Map<string, number>();
+      const unclearItems: any[] = [];
       let excludedCount = 0;
       let excludedTotal = 0;
       for (const r of data ?? []) {
         const m = String(r.merchant ?? "");
-        const v = Math.abs(Number(r.amount));
+        const amt = Number(r.amount);
+        if (amt > 0 && (r.category === "payment" || r.category === "transfer")) continue;
         if (r.plan || isInstallment(m)) {
-          excludedCount += 1;
-          excludedTotal += v;
+          if (amt < 0) {
+            excludedCount += 1;
+            excludedTotal += -amt;
+          }
           continue;
         }
-        const e = per.get(r.card_id) ?? { interest: 0, fees: 0 };
-        if (isInterest(m)) e.interest += v;
-        else e.fees += v;
+        const e = per.get(r.card_id) ?? { interest: 0, fees: 0, unclear: 0, reversed: 0 };
+        if (amt > 0) {
+          // Only credits that undo a fee or interest count against them —
+          // not cashback bonuses ("CR. BONO UBER") or a balance-transfer credit.
+          if (!/revers|comisi|itbms|anualidad|membres|cargo|inter[eé]s|interest/i.test(m) || /bono|cashback|traslado/i.test(m)) continue;
+          if (isInterest(m)) e.interest -= amt;
+          else e.fees -= amt;
+          e.reversed += amt;
+        } else if (isInterest(m)) {
+          e.interest += -amt;
+          const k = String(r.occurred_on).slice(0, 7);
+          interestByMonth.set(k, (interestByMonth.get(k) ?? 0) + -amt);
+        } else if (isFinancing(m)) {
+          e.unclear += -amt;
+          unclearItems.push({ date: r.occurred_on, merchant: m, amount: r2(-amt), card: byId.get(r.card_id)?.ref });
+        } else {
+          e.fees += -amt;
+        }
         per.set(r.card_id, e);
       }
       const rows = [...per.entries()].map(([id, e]) => ({
         card: byId.get(id)?.ref,
         name: byId.get(id)?.name,
-        interest: r2(e.interest),
-        fees: r2(e.fees),
-        total: r2(e.interest + e.fees),
+        interest: r2(Math.max(0, e.interest)),
+        fees: r2(Math.max(0, e.fees)),
+        reversed_credits: e.reversed ? r2(e.reversed) : undefined,
+        unclear_financing: e.unclear ? r2(e.unclear) : undefined,
+        total: r2(Math.max(0, e.interest) + Math.max(0, e.fees)),
       }));
+      const months = [...interestByMonth.keys()].sort();
       return {
         period: { start, end },
         interest_total: r2(rows.reduce((n, x) => n + x.interest, 0)),
         fees_total: r2(rows.reduce((n, x) => n + x.fees, 0)),
         total: r2(rows.reduce((n, x) => n + x.total, 0)),
+        interest_by_month: Object.fromEntries(months.map((k) => [k, r2(interestByMonth.get(k)!)])),
+        last_interest_month: months[months.length - 1] ?? null,
         by_card: rows.sort((a, b) => b.total - a.total),
+        unclear_financing: unclearItems.length ? unclearItems : undefined,
         excluded_installments: { count: excludedCount, total: r2(excludedTotal) },
         note:
-          "interest = lines that look like interest/financing charges; fees = other bank charges (annual fee, memberships, insurance, admin charges). Installment/financed-balance lines are excluded and are NOT a cost.",
+          "interest = lines that say interest; fees = other bank charges (annual fee, memberships, insurance, admin and late fees) net of reversals. unclear_financing = lines named 'financiamiento' without a cuota number: not counted as interest or fees; ask the user what they are instead of calling them interest. Installment/financed-balance lines are excluded and are NOT a cost. If last_interest_month is months ago, say interest stopped then instead of advising as if it were ongoing.",
       };
     }
     case "installment_plans": {

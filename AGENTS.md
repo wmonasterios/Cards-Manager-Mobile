@@ -287,11 +287,16 @@ its cuotas can be on another card and start months later).
   "Cuota n/N" badge; Transactions has "Solo cuotas"; Insights shows "incluye
   US$ x en cuotas" per category (lighter bar segment) and a "Pagos en cuotas"
   section (this month, still to pay, what frees up next, active plans).
-- `advisor-chat` (v10): category totals include cuotas, with
+- `advisor-chat` (v11): category totals include cuotas, with
   `installments_in_category` / `installments_by_category` as the fixed part;
   budgets limit the variable part and list cuotas with their end month.
   `monthly_spending` still flags incomplete months (a card whose latest
   statement cutoff is before the month's end) — never a budget baseline.
+- `interest_and_fees` (v11) nets out fee/interest reversals (not cashback
+  bonuses or balance-transfer credits), counts as interest only lines that say
+  interest (a bare "Financiamiento" goes to `unclear_financing`, for the
+  advisor to ask about), and returns `interest_by_month` / `last_interest_month`
+  so old interest isn't advised on as if ongoing.
 - The owner's two financed purchases were linked by hand (Academia →
   Intra/Extra, the US$ 17,500 balance purchase → Davibank).
 
