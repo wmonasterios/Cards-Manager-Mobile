@@ -40,6 +40,30 @@ function sameMerchant(a: string, b: string) {
   return n >= 8 && x.slice(0, n) === y.slice(0, n);
 }
 
+// Installment ("cuota") detection. The reader doesn't always fill `plan`:
+// some months the number is only in the merchant text ("DAVIBANK 6%
+// (PLACUOTA:03/48)", "SHARK NINJA (TC03) CUOTA:01/03"), and some banks drop
+// it entirely on later months ("INTRA/EXTRA Financiamient", no number). An
+// installment left unmarked is counted as ordinary spending or as a fee.
+const CUOTA_RE = /(?:T?CUOTA|PLACUOTA)\s*:?\s*(\d{1,3})\s*\/\s*(\d{1,3})/i;
+function planFromMerchant(merchant: string): string | null {
+  const m = CUOTA_RE.exec(merchant ?? "");
+  if (!m) return null;
+  const n = Number(m[1]), total = Number(m[2]);
+  return n >= 1 && total >= 2 && n <= total ? `${m[1]}/${m[2]}` : null;
+}
+function monthsBetween(a: string, b: string) {
+  return (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + (Number(b.slice(5, 7)) - Number(a.slice(5, 7)));
+}
+// "02/48" + 2 months → "04/48", keeping the original zero padding.
+function advancePlan(plan: string, months: number): string | null {
+  const m = /^(\d{1,3})\s*\/\s*(\d{1,3})$/.exec(plan.trim());
+  if (!m || months < 1) return null;
+  const n = Number(m[1]) + months, total = Number(m[2]);
+  if (n > total) return null;
+  return `${String(n).padStart(m[1].length, "0")}/${m[2]}`;
+}
+
 const MONTHS_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sept", "oct", "nov", "dic"];
 const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function shortDate(iso: string, isEs: boolean) {
@@ -489,6 +513,40 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // Fill in missing installment numbers: first from the merchant text, then
+    // by continuing a series this card already has (same amount, same
+    // merchant, an earlier line marked n/total → n + months elapsed). A line
+    // that continues a series also keeps that series' category, so one cuota
+    // doesn't jump between "Fees" and "Transport" month to month.
+    type Series = { date: string; merchant: string; amount: string; plan: string; category: string | null };
+    let series: Series[] = [];
+    if (!created && incoming.some((tx) => Number(tx.amount) < 0)) {
+      const { data: planRows } = await supabase
+        .from("transactions")
+        .select("occurred_on, merchant, amount, plan, category")
+        .eq("card_id", cardId)
+        .not("plan", "is", null)
+        .order("occurred_on", { ascending: false })
+        .limit(1000);
+      series = ((planRows ?? []) as any[]).map((r) => ({
+        date: r.occurred_on,
+        merchant: r.merchant,
+        amount: Number(r.amount).toFixed(2),
+        plan: r.plan,
+        category: r.category,
+      }));
+    }
+    const seriesCategory = new Map<number, string>();
+    incoming = incoming.map((tx, i) => {
+      if (Number(tx.amount) >= 0) return tx;
+      const amt = Number(tx.amount).toFixed(2);
+      const prev = series.find((r) => r.date < tx.date && r.amount === amt && sameMerchant(r.merchant, tx.merchant));
+      if (prev?.category) seriesCategory.set(i, prev.category);
+      if (tx.plan) return tx;
+      const plan = planFromMerchant(tx.merchant) ?? (prev ? advancePlan(prev.plan, monthsBetween(prev.date, tx.date)) : null);
+      return plan ? { ...tx, plan } : tx;
+    });
+
     // Classify each distinct merchant once, in parallel, instead of once per
     // transaction in sequence — five Uber trips on one statement used to mean
     // five separate back-to-back Claude calls for the same merchant.
@@ -505,8 +563,10 @@ Deno.serve(async (req: Request) => {
     // charges: the statement's totals only reconcile with both. The base
     // dedupKey would collapse them into one, so repeats get "#2", "#3"…
     const seen = new Map<string, number>();
-    const txRows = incoming.map((tx) => {
-      const { category, source } = classifications.get(tx.merchant)!;
+    const txRows = incoming.map((tx, i) => {
+      const cls = classifications.get(tx.merchant)!;
+      const category = cls.source !== "override" && seriesCategory.has(i) ? seriesCategory.get(i)! : cls.category;
+      const source = cls.source;
       const base = dedupKey(tx);
       const n = (seen.get(base) ?? 0) + 1;
       seen.set(base, n);

@@ -260,6 +260,22 @@ hardening a low-severity edge case, since forwarding tokens aren't
 guessable). Shown in Statements as a card with a "Confirm in Gmail" button
 (link flow) or a copyable code (older flow).
 
+# Installments and budgets (14 Oct 2026)
+
+`apply-statement` (v23) fills a missing `plan` from the merchant text
+(`CUOTA:03/48`, `PLACUOTA`, `TCUOTA`) or by continuing a series the card
+already has (same amount + `sameMerchant`, earlier n/total → n + months
+elapsed), and a continuing line keeps the series' category unless the user
+has an `override` rule. Existing rows were backfilled with
+`20261014c_backfill_installment_plans.sql` (run once via SQL, not a schema
+migration). `advisor-chat` (v9): `spending_by_category` and the new
+`monthly_spending` take installments out of the categories (`isInstallmentRow`
+= `plan` set or cuota text) and flag incomplete months — a card whose latest
+statement cutoff is before the month's end means that month is missing data
+and must never be a budget baseline. The prompt's BUDGETS section depends on
+both. The app's Insights screen still counts installments inside their
+category.
+
 # 1,000-row cap (Oct 2026)
 
 PostgREST returns at most 1,000 rows per request, and `.limit(5000)` does
