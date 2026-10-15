@@ -49,6 +49,12 @@ export type Transaction = {
   statementId?: string;
   categorySource?: string;
   excludedFromSpend?: boolean;
+  // Installments: where `plan` came from ('none' = the user said it isn't a
+  // cuota), the id shared by one plan's lines, and whether this line is the
+  // purchase that was moved to cuotas (excluded from spend).
+  planSource?: string;
+  planGroup?: string;
+  planOriginal?: boolean;
 };
 
 export type InstalmentPlan = {
@@ -140,14 +146,14 @@ const DEMO_TEMPLATE: Card[] = [
     ],
     tx: [
       tx('Riba Smith', 'Groceries · Panamá', 'Sep 12', -184.22, 'groceries'),
-      tx('Copa Airlines', 'Instalment 5/6 · Travel', 'Sep 10', -142.0, 'travel', { plan: '5 of 6' }),
+      tx('Copa Airlines', 'Travel', 'Sep 10', -142.0, 'travel', { plan: '5 of 6' }),
       tx('Cervecería La Rana', 'Dining · Panamá', 'Sep 8', -62.4, 'dining'),
-      tx('Samsung Store', 'Instalment 3/12 · Tech', 'Sep 4', -89.9, 'home', { plan: '3 of 12' }),
+      tx('Samsung Store', 'Tech', 'Sep 4', -89.9, 'home', { plan: '3 of 12' }),
       tx('Delta Fuel', 'Declined — over limit', 'Sep 2', -55.0, 'fuel', { declined: true }),
       tx('Payment received', 'Transfer · Banco General', 'Aug 31', 900.0, 'payment'),
       tx('Riba Smith', 'Groceries · Panamá', 'Aug 12', -166.9, 'groceries'),
       tx('PriceSmart', 'Groceries · Panamá', 'Jul 22', -241.15, 'groceries'),
-      tx('Copa Airlines', 'Instalment 2/6 · Travel', 'Jun 10', -142.0, 'travel', { plan: '2 of 6' }),
+      tx('Copa Airlines', 'Travel', 'Jun 10', -142.0, 'travel', { plan: '2 of 6' }),
     ],
   },
   {
@@ -171,7 +177,7 @@ const DEMO_TEMPLATE: Card[] = [
     ],
     tx: [
       tx('Super 99', 'Groceries · Panamá', 'Sep 11', -96.35, 'groceries'),
-      tx('Apple Store', 'Instalment 2/9 · Tech', 'Sep 6', -78.3, 'home', { plan: '2 of 9' }),
+      tx('Apple Store', 'Tech', 'Sep 6', -78.3, 'home', { plan: '2 of 9' }),
       tx('Farmacias Arrocha', 'Health · Panamá', 'Sep 3', -41.8, 'health'),
       tx('Netflix', 'Services · recurring', 'Sep 1', -15.99, 'utilities'),
       tx('Do it Center', 'Tech · Panamá', 'Aug 8', -128.4, 'home'),

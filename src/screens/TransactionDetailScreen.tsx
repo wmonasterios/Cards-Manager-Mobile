@@ -13,12 +13,26 @@ import { ALL_CATEGORIES, Category } from '../data';
 import { getStatementPdfUrl } from '../supabase/statementsApi';
 import { recordSuggestionFeedback } from '../supabase/cardsApi';
 import { isOfflineError, offlineMessage } from '../errors';
+import { SeriesCard, MarkCuotaSheet, MovedToCuotasSheet, MarkResult, MovedResult } from '../components/Instalments';
+import {
+  buildSeries,
+  seriesForTx,
+  isInstalment,
+  parsePlan,
+  suggestPlan,
+  similarCharges,
+  matchingSeriesFor,
+  sameAmount,
+  sameMerchant,
+  newGroupId,
+} from '../instalments';
+import type { TxPatch } from '../supabase/cardsApi';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TransactionDetail'>;
 
 export function TransactionDetailScreen({ route, navigation }: Props) {
   const { txId, cardId } = route.params;
-  const { getCard, isDemo, updateTxCategory, setTxExcluded } = useCards();
+  const { getCard, isDemo, updateTxCategory, setTxExcluded, cards, patchTxs } = useCards();
   const card = getCard(cardId);
   const tx = card?.dtx.find((t) => t.id === txId);
   const colors = useColors();
@@ -27,8 +41,98 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [openingStatement, setOpeningStatement] = useState(false);
   const [categoryQuery, setCategoryQuery] = useState('');
+  const [markOpen, setMarkOpen] = useState(false);
+  const [movedOpen, setMovedOpen] = useState(false);
+  const [savingPlan, setSavingPlan] = useState(false);
+  const allSeries = useMemo(() => buildSeries(cards), [cards]);
 
   if (!card || !tx) return null;
+
+  const es = lang === 'es';
+  const series = seriesForTx(allSeries, tx.id);
+  const cuota = isInstalment(tx) ? parsePlan(tx.plan) : null;
+  const demoBlocked = () => {
+    if (!isDemo) return false;
+    Alert.alert(es ? 'Pagos en cuotas' : 'Instalments', es ? 'Crea una cuenta para marcar cuotas.' : 'Create an account to mark instalments.');
+    return true;
+  };
+  const failed = () =>
+    Alert.alert(es ? 'No se pudo guardar' : 'Could not save', es ? 'Revisa tu conexión e intenta otra vez.' : 'Check your connection and try again.');
+
+  const run = async (patches: { id: string; patch: TxPatch }[], close: () => void) => {
+    setSavingPlan(true);
+    try {
+      await patchTxs(patches);
+      close();
+    } catch {
+      failed();
+    } finally {
+      setSavingPlan(false);
+    }
+  };
+
+  const saveMark = ({ n, total, category, alsoIds }: MarkResult) => {
+    const sibling = card.dtx.find(
+      (o) => o.id !== tx.id && o.planGroup && isInstalment(o) && sameAmount(o.amount, tx.amount) && sameMerchant(o.merchant, tx.merchant),
+    );
+    const group = tx.planGroup ?? sibling?.planGroup ?? newGroupId();
+    const catPatch: TxPatch = category !== tx.category ? { category, category_source: 'manual' } : {};
+    const patches: { id: string; patch: TxPatch }[] = [
+      { id: tx.id, patch: { plan: `${n}/${total}`, plan_source: 'manual', plan_group: group, ...catPatch } },
+      ...alsoIds.map((a) => ({ id: a.id, patch: { plan: a.plan, plan_source: 'manual' as const, plan_group: group, ...catPatch } })),
+    ];
+    // A new category applies to the whole series, not just this month.
+    if (category !== tx.category && series) {
+      for (const r of series.rows) if (!patches.some((p) => p.id === r.tx.id)) patches.push({ id: r.tx.id, patch: catPatch });
+    }
+    run(patches, () => setMarkOpen(false));
+  };
+
+  const notCuota = () => {
+    if (demoBlocked()) return;
+    const clear = (ids: string[]) =>
+      run(ids.map((id) => ({ id, patch: { plan: null, plan_source: 'none', plan_group: null } })), () => {});
+    const others = series ? series.rows.map((r) => r.tx.id) : [tx.id];
+    Alert.alert(
+      es ? '¿No es una cuota?' : 'Not an instalment?',
+      es
+        ? 'Dejará de verse en tus pagos en cuotas. Sigue contando en su categoría.'
+        : 'It will no longer show in your instalments. It still counts in its category.',
+      [
+        { text: es ? 'Cancelar' : 'Cancel', style: 'cancel' },
+        ...(others.length > 1 ? [{ text: es ? 'Toda la serie' : 'The whole series', onPress: () => clear(others) }] : []),
+        { text: es ? 'Solo esta' : 'Just this one', onPress: () => clear([tx.id]) },
+      ],
+    );
+  };
+
+  const saveMoved = ({ category, seriesKeys }: MovedResult) => {
+    const chosen = allSeries.filter((x) => seriesKeys.includes(x.key));
+    const group = chosen.find((x) => x.latest.planGroup)?.latest.planGroup ?? newGroupId();
+    const patches: { id: string; patch: TxPatch }[] = [
+      {
+        id: tx.id,
+        patch: { excluded_from_spend: true, plan_original: true, plan_group: group, category, category_source: 'manual' },
+      },
+    ];
+    for (const x of chosen) for (const r of x.rows) patches.push({ id: r.tx.id, patch: { plan_group: group, category, category_source: 'manual' } });
+    run(patches, () => setMovedOpen(false));
+  };
+
+  const undoMoved = () => {
+    if (demoBlocked()) return;
+    Alert.alert(
+      es ? '¿Deshacer?' : 'Undo?',
+      es ? 'Este cargo vuelve a contar como gasto y se separa de sus cuotas.' : 'This charge counts as spending again and is unlinked from its instalments.',
+      [
+        { text: es ? 'Cancelar' : 'Cancel', style: 'cancel' },
+        {
+          text: es ? 'Deshacer' : 'Undo',
+          onPress: () => run([{ id: tx.id, patch: { excluded_from_spend: false, plan_original: false, plan_group: null } }], () => {}),
+        },
+      ],
+    );
+  };
 
   const openStatement = async () => {
     if (!tx.statementId) {
@@ -154,6 +258,57 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
             ))}
           </View>
 
+          {series && !tx.planOriginal && (
+            <View style={{ marginTop: 12 }}>
+              <SeriesCard
+                series={series}
+                currentTxId={tx.id}
+                lang={lang}
+                onEdit={() => !demoBlocked() && setMarkOpen(true)}
+                onNotCuota={notCuota}
+              />
+            </View>
+          )}
+
+          {tx.planOriginal && (
+            <View style={{ marginTop: 12, gap: 12 }}>
+              {series ? (
+                <SeriesCard series={series} currentTxId={tx.id} lang={lang} />
+              ) : (
+                <View style={styles.sourceCard}>
+                  <Text style={styles.toggleTitle}>{es ? 'Pasada a cuotas' : 'Moved to instalments'}</Text>
+                  <Text style={[styles.sourceNote, { marginTop: 4 }]}>
+                    {es
+                      ? 'No cuenta como gasto. Cuando lleguen cuotas que sumen lo mismo, las unimos solas.'
+                      : "It doesn't count as spending. When instalments that add up to it arrive, we join them automatically."}
+                  </Text>
+                </View>
+              )}
+              <Pressable onPress={undoMoved} style={[styles.sourceBtn, { alignSelf: 'flex-start' }]}>
+                <Text style={styles.sourceBtnText}>{es ? 'Ya no está en cuotas' : 'Not in instalments anymore'}</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {!cuota && !tx.planOriginal && tx.amount < 0 && !tx.declined && (
+            <View style={styles.sourceCard}>
+              <Text style={styles.toggleTitle}>{es ? '¿Lo pagas en cuotas?' : 'Paying this in instalments?'}</Text>
+              <Text style={[styles.sourceNote, { marginTop: 4 }]}>
+                {es
+                  ? 'Márcalo como cuota, o si es la compra que pasaste a cuotas, para no contarla dos veces.'
+                  : "Mark it as an instalment, or as the purchase you moved to instalments so it isn't counted twice."}
+              </Text>
+              <View style={styles.sourceActions}>
+                <Pressable onPress={() => !demoBlocked() && setMarkOpen(true)} style={styles.sourceBtn}>
+                  <Text style={styles.sourceBtnText}>{es ? 'Es pago en cuotas' : "It's an instalment"}</Text>
+                </Pressable>
+                <Pressable onPress={() => !demoBlocked() && setMovedOpen(true)} style={styles.sourceBtn}>
+                  <Text style={styles.sourceBtnText}>{es ? 'La pasé a cuotas' : 'I moved it to instalments'}</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+
           <View style={styles.sourceCard}>
             <Text style={styles.sourceNote}>{sourceNote}</Text>
             <View style={styles.sourceActions}>
@@ -186,6 +341,32 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
           </View>
         </View>
       </ScrollView>
+
+      {markOpen && (
+        <MarkCuotaSheet
+          visible
+          onClose={() => setMarkOpen(false)}
+          onSave={saveMark}
+          tx={tx}
+          cur={card.cur}
+          lang={lang}
+          initial={cuota}
+          suggestion={cuota ? null : suggestPlan(card, tx)}
+          similar={similarCharges(card, tx)}
+          saving={savingPlan}
+        />
+      )}
+      {movedOpen && (
+        <MovedToCuotasSheet
+          visible
+          onClose={() => setMovedOpen(false)}
+          onSave={saveMoved}
+          tx={tx}
+          lang={lang}
+          matches={matchingSeriesFor(allSeries, tx)}
+          saving={savingPlan}
+        />
+      )}
 
       <Modal visible={pickerOpen} transparent animationType="fade" onRequestClose={() => setPickerOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setPickerOpen(false)}>

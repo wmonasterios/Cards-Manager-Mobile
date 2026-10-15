@@ -13,6 +13,7 @@ import { Segmented } from '../components/Segmented';
 import { DateField } from '../components/DateField';
 import { useCards } from '../context/CardsContext';
 import { money } from '../format';
+import { isInstalment } from '../instalments';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Transactions'>;
 
@@ -62,6 +63,7 @@ export function TransactionsScreen({ route, navigation }: Props) {
   const [selCategory, setSelCategory] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [hidePayments, setHidePayments] = useState(false);
+  const [onlyCuotas, setOnlyCuotas] = useState(false);
   const [cardOpen, setCardOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
 
@@ -89,6 +91,7 @@ export function TransactionsScreen({ route, navigation }: Props) {
     () =>
       allTx.filter(({ tx, card }) => {
         if (hidePayments && tx.amount > 0) return false;
+        if (onlyCuotas && !isInstalment(tx) && !tx.planOriginal) return false;
         if (tx.iso < rangeStart || tx.iso > rangeEnd) return false;
         if (selCardId && card.id !== selCardId) return false;
         if (
@@ -102,7 +105,7 @@ export function TransactionsScreen({ route, navigation }: Props) {
         }
         return true;
       }),
-    [allTx, hidePayments, rangeStart, rangeEnd, selCardId, q],
+    [allTx, hidePayments, onlyCuotas, rangeStart, rangeEnd, selCardId, q],
   );
 
   const availableCategories = useMemo(() => {
@@ -261,6 +264,11 @@ export function TransactionsScreen({ route, navigation }: Props) {
               {results.length > 0 ? ` · ${money('US$', total)}` : ''}
             </Text>
             <View style={styles.summaryActions}>
+              <Pressable onPress={() => setOnlyCuotas((v) => !v)} hitSlop={6}>
+                <Text style={[styles.summaryToggle, onlyCuotas && styles.summaryToggleActive]}>
+                  {lang === 'es' ? 'Solo cuotas' : 'Instalments only'}
+                </Text>
+              </Pressable>
               <Pressable onPress={() => setHidePayments((v) => !v)} hitSlop={6}>
                 <Text style={[styles.summaryToggle, hidePayments && styles.summaryToggleActive]}>
                   {t.hidePayments}
@@ -358,7 +366,7 @@ function makeStyles(colors: ColorTokens) {
       gap: 8,
     },
     note: { fontSize: 11.5, color: colors.ink3, lineHeight: 16, flexShrink: 1 },
-    summaryActions: { flexDirection: 'row', alignItems: 'baseline', gap: 12 },
+    summaryActions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'baseline', columnGap: 12, rowGap: 6, flexShrink: 1 },
     summaryToggle: { fontSize: 11.5, fontWeight: '500', color: colors.ink3 },
     summaryToggleActive: { color: colors.ink },
     sortLink: { fontSize: 11.5, fontWeight: '500', color: colors.ink },

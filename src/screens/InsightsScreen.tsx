@@ -9,6 +9,7 @@ import { useLocale } from '../i18n/LocaleContext';
 import { useCards } from '../context/CardsContext';
 import { TxRow } from '../components/TxRow';
 import { getAvailableMonths, analyseInsights, analyseByCard, fmtMoney } from '../insightsAnalysis';
+import { buildSeries, monthName, monthYear, addMonthsIso } from '../instalments';
 
 export function InsightsScreen({ navigation }: any) {
   const { lang, t } = useLocale();
@@ -70,6 +71,16 @@ export function InsightsScreen({ navigation }: any) {
     [cards, monthIso, selWeek],
   );
   const isolatedCardId = includedCards.length === 1 ? includedCards[0].id : null;
+
+  // Installments: the active plans (as of today) on the cards in view.
+  const activeSeries = useMemo(() => buildSeries(includedCards).filter((x) => x.active), [includedCards]);
+  const cuotaLeft = activeSeries.reduce((n, x) => n + x.left, 0);
+  const freed = useMemo(() => {
+    if (activeSeries.length === 0) return null;
+    const soonest = activeSeries.map((x) => x.endIso.slice(0, 7)).sort()[0];
+    const ending = activeSeries.filter((x) => x.endIso.slice(0, 7) === soonest);
+    return { month: addMonthsIso(`${soonest}-01`, 1), amount: ending.reduce((n, x) => n + x.monthly, 0), ending };
+  }, [activeSeries]);
   const pickCard = (cardId: string) => {
     if (isolatedCardId === cardId) {
       setExcludedCardIds(new Set());
@@ -287,10 +298,30 @@ export function InsightsScreen({ navigation }: any) {
                           <Text style={styles.catName}>{categoryLabel(c.name)}</Text>
                           <Text style={styles.catPct}>{pctText(c.share)}</Text>
                         </View>
-                        <View style={styles.catBarTrack}>
-                          <View style={[styles.catBarFill, { width: `${Math.max(c.share, 1.5)}%`, backgroundColor: c.color }]} />
+                        <View style={[styles.catBarTrack, { flexDirection: 'row' }]}>
+                          <View
+                            style={[
+                              styles.catBarFill,
+                              { width: `${Math.max(c.share * (1 - c.instAmount / c.amount), c.instAmount ? 0 : 1.5)}%`, backgroundColor: c.color },
+                            ]}
+                          />
+                          {c.instAmount > 0 && (
+                            <View
+                              style={[
+                                styles.catBarFill,
+                                { width: `${Math.max(c.share * (c.instAmount / c.amount), 1.5)}%`, backgroundColor: c.color, opacity: 0.45 },
+                              ]}
+                            />
+                          )}
                         </View>
-                        <Text style={styles.catCount}>{c.count} {txWord(c.count)}</Text>
+                        <Text style={styles.catCount}>
+                          {c.count} {txWord(c.count)}
+                          {c.instAmount > 0
+                            ? lang === 'es'
+                              ? ` · incluye ${fmtMoney(c.instAmount)} en cuotas`
+                              : ` · ${fmtMoney(c.instAmount)} in instalments`
+                            : ''}
+                        </Text>
                       </View>
                       <Text style={styles.catAmount}>{fmtMoney(c.amount)}</Text>
                     </Pressable>
@@ -326,6 +357,82 @@ export function InsightsScreen({ navigation }: any) {
                     </Pressable>
                   ))}
                 </View>
+              </View>
+            )}
+
+            {/* Installments: what's fixed this month and the plans still running. */}
+            {(activeSeries.length > 0 || analysis.instSpent > 0) && (
+              <View style={styles.section}>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionTitle}>{lang === 'es' ? 'Pagos en cuotas' : 'Instalments'}</Text>
+                  {activeSeries.length > 0 && (
+                    <Text style={styles.weekAvgNote}>
+                      {activeSeries.length} {lang === 'es' ? (activeSeries.length === 1 ? 'activa' : 'activas') : 'active'}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.cuotaCard}>
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.cuotaLabel}>
+                        {lang === 'es' ? `En ${monthName(`${monthIso}-01`, 'es')}` : `In ${monthName(`${monthIso}-01`, 'en')}`}
+                      </Text>
+                      <Text style={styles.cuotaValue}>{fmtMoney(analysis.instSpent)}</Text>
+                      {analysis.spent > 0 && (
+                        <Text style={styles.cuotaSub}>
+                          {Math.round((analysis.instSpent / analysis.spent) * 100)}% {lang === 'es' ? 'de tu gasto' : 'of your spending'}
+                        </Text>
+                      )}
+                    </View>
+                    {activeSeries.length > 0 && (
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.cuotaLabel}>{lang === 'es' ? 'Te falta pagar' : 'Still to pay'}</Text>
+                        <Text style={styles.cuotaValue}>{fmtMoney(cuotaLeft)}</Text>
+                      </View>
+                    )}
+                  </View>
+                  {freed && (
+                    <View style={styles.cuotaFreed}>
+                      <View style={[styles.cuotaDot, { backgroundColor: colors.seg6 }]} />
+                      <Text style={styles.cuotaFreedText}>
+                        {lang === 'es'
+                          ? `En ${monthName(freed.month, 'es')} se te liberan ${fmtMoney(freed.amount)} al mes: ${
+                              freed.ending.length === 1 ? `termina ${freed.ending[0].merchant}` : `terminan ${freed.ending.length} planes`
+                            }.`
+                          : `From ${monthName(freed.month, 'en')} you free up ${fmtMoney(freed.amount)} a month: ${
+                              freed.ending.length === 1 ? `${freed.ending[0].merchant} ends` : `${freed.ending.length} plans end`
+                            }.`}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                {activeSeries.length > 0 && (
+                  <View style={styles.listCard}>
+                    {activeSeries.map((x) => (
+                      <Pressable
+                        key={x.key}
+                        style={styles.cuotaRow}
+                        onPress={() => navigation.navigate('TransactionDetail', { txId: x.latest.id, cardId: x.cardId })}
+                      >
+                        <View style={styles.catRowHead}>
+                          <Text style={[styles.catName, { flex: 1 }]} numberOfLines={1}>{x.merchant}</Text>
+                          <Text style={styles.catAmount}>{fmtMoney(x.monthly)}</Text>
+                        </View>
+                        <View style={[styles.catRowHead, { marginTop: 3 }]}>
+                          <Text style={styles.catCount} numberOfLines={1}>
+                            {categoryLabel(x.category)} · {lang === 'es' ? 'cuota' : 'instalment'} {x.n}/{x.total}
+                          </Text>
+                          <Text style={styles.catCount}>
+                            {lang === 'es' ? 'termina' : 'ends'} {monthYear(x.endIso, lang)}
+                          </Text>
+                        </View>
+                        <View style={styles.catBarTrack}>
+                          <View style={[styles.catBarFill, { width: `${(x.n / x.total) * 100}%`, backgroundColor: colors.bar }]} />
+                        </View>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
               </View>
             )}
 
@@ -506,6 +613,29 @@ function makeStyles(colors: ColorTokens) {
     weekBar: { width: '100%', borderRadius: 5 },
     weekLabel: { fontSize: 10, color: colors.ink3 },
 
+    cuotaCard: {
+      marginTop: 10,
+      padding: 14,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.line,
+    },
+    cuotaLabel: { fontSize: 11, color: colors.ink3 },
+    cuotaValue: { fontSize: 17, fontWeight: '600', color: colors.ink, marginTop: 2 },
+    cuotaSub: { fontSize: 10.5, color: colors.ink3, marginTop: 2 },
+    cuotaFreed: {
+      flexDirection: 'row',
+      gap: 10,
+      alignItems: 'flex-start',
+      marginTop: 12,
+      padding: 11,
+      borderRadius: radius.md,
+      backgroundColor: colors.surface2,
+    },
+    cuotaDot: { width: 9, height: 9, borderRadius: 5, marginTop: 4 },
+    cuotaFreedText: { flex: 1, fontSize: 12, lineHeight: 17, color: colors.ink2b },
+    cuotaRow: { borderTopWidth: 1, borderTopColor: colors.hair, padding: 12 },
     emptyCard: {
       marginTop: 10,
       padding: 20,

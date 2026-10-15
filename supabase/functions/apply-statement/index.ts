@@ -55,6 +55,15 @@ function planFromMerchant(merchant: string): string | null {
 function monthsBetween(a: string, b: string) {
   return (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + (Number(b.slice(5, 7)) - Number(a.slice(5, 7)));
 }
+// The last cuota often differs by a few cents from the others (160.69 after
+// 160.40), so a series continues when the amount is within 1% (min US$ 1).
+function sameInstalmentAmount(a: number, b: number) {
+  return Math.abs(Math.abs(a) - Math.abs(b)) <= Math.max(1, Math.abs(a) * 0.01);
+}
+function planTotal(plan: string): number | null {
+  const m = /^\s*(\d{1,3})\s*\/\s*(\d{1,3})\s*$/.exec(plan ?? "");
+  return m ? Number(m[2]) : null;
+}
 // "02/48" + 2 months → "04/48", keeping the original zero padding.
 function advancePlan(plan: string, months: number): string | null {
   const m = /^(\d{1,3})\s*\/\s*(\d{1,3})$/.exec(plan.trim());
@@ -447,13 +456,18 @@ Deno.serve(async (req: Request) => {
     // Re-reading an applied statement: take its old rows out first (so the
     // dedup below doesn't match the new reading against the old one), but
     // remember what the user changed by hand on them to carry it over.
-    type Kept = { date: string; merchant: string; amount: string; category: string | null; excluded: boolean };
+    type Kept = {
+      date: string; merchant: string; amount: string; category: string | null; excluded: boolean;
+      // What the user said about cuotas on this line ("Es pago en cuotas",
+      // "No es cuota", "La pasé a cuotas") survives a re-read too.
+      plan?: { plan: string | null; plan_source: string; plan_group: string | null; plan_original: boolean };
+    };
     const kept: Kept[] = [];
     let previousLines: { date: string; merchant: string; amount: string }[] | null = null;
     if (replace && !created) {
       const { data: oldRows } = await supabase
         .from("transactions")
-        .select("occurred_on, merchant, amount, category, category_source, excluded_from_spend")
+        .select("occurred_on, merchant, amount, category, category_source, excluded_from_spend, plan, plan_source, plan_group, plan_original")
         .eq("statement_id", statementId);
       previousLines = ((oldRows ?? []) as any[]).map((t) => ({
         date: t.occurred_on,
@@ -461,13 +475,17 @@ Deno.serve(async (req: Request) => {
         amount: Number(t.amount).toFixed(2),
       }));
       for (const t of (oldRows ?? []) as any[]) {
-        if (t.category_source === "manual" || t.excluded_from_spend) {
+        const userPlan = t.plan_source === "manual" || t.plan_source === "none" || t.plan_original;
+        if (t.category_source === "manual" || t.excluded_from_spend || userPlan) {
           kept.push({
             date: t.occurred_on,
             merchant: t.merchant,
             amount: Number(t.amount).toFixed(2),
             category: t.category_source === "manual" ? t.category : null,
             excluded: !!t.excluded_from_spend,
+            plan: userPlan
+              ? { plan: t.plan, plan_source: t.plan_source ?? "manual", plan_group: t.plan_group, plan_original: !!t.plan_original }
+              : undefined,
           });
         }
       }
@@ -518,12 +536,12 @@ Deno.serve(async (req: Request) => {
     // merchant, an earlier line marked n/total → n + months elapsed). A line
     // that continues a series also keeps that series' category, so one cuota
     // doesn't jump between "Fees" and "Transport" month to month.
-    type Series = { date: string; merchant: string; amount: string; plan: string; category: string | null };
+    type Series = { date: string; merchant: string; amount: number; plan: string; category: string | null; group: string | null };
     let series: Series[] = [];
     if (!created && incoming.some((tx) => Number(tx.amount) < 0)) {
       const { data: planRows } = await supabase
         .from("transactions")
-        .select("occurred_on, merchant, amount, plan, category")
+        .select("occurred_on, merchant, amount, plan, category, plan_group")
         .eq("card_id", cardId)
         .not("plan", "is", null)
         .order("occurred_on", { ascending: false })
@@ -531,20 +549,70 @@ Deno.serve(async (req: Request) => {
       series = ((planRows ?? []) as any[]).map((r) => ({
         date: r.occurred_on,
         merchant: r.merchant,
-        amount: Number(r.amount).toFixed(2),
+        amount: Number(r.amount),
         plan: r.plan,
         category: r.category,
+        group: r.plan_group ?? null,
       }));
     }
-    const seriesCategory = new Map<number, string>();
+    // Purchases the user moved to cuotas ("La pasé a cuotas") whose cuotas
+    // haven't shown up yet: a new series whose cuotas add up to the purchase
+    // (within 2%) is joined to it and takes its category. The cuotas can be
+    // on another card and start months later (a 0% promotion).
+    const { data: originalRows } = await supabase
+      .from("transactions")
+      .select("id, occurred_on, amount, category, plan_group")
+      .eq("user_id", user.id)
+      .eq("plan_original", true)
+      .not("plan_group", "is", null);
+    let openOriginals: { date: string; amount: number; category: string | null; group: string }[] = [];
+    if (originalRows && originalRows.length > 0) {
+      const groups = (originalRows as any[]).map((r) => r.plan_group as string);
+      const { data: members } = await supabase
+        .from("transactions")
+        .select("plan_group")
+        .in("plan_group", groups)
+        .eq("plan_original", false);
+      const linked = new Set(((members ?? []) as any[]).map((m) => m.plan_group));
+      openOriginals = (originalRows as any[])
+        .filter((r) => !linked.has(r.plan_group))
+        .map((r) => ({ date: r.occurred_on, amount: Math.abs(Number(r.amount)), category: r.category, group: r.plan_group }));
+    }
+    type PlanInfo = { category?: string; group: string | null; source: string | null };
+    const planInfo = new Map<number, PlanInfo>();
+    const newGroups = new Map<string, string>(); // merchant+amount → group, for repeats within this statement
     incoming = incoming.map((tx, i) => {
       if (Number(tx.amount) >= 0) return tx;
-      const amt = Number(tx.amount).toFixed(2);
-      const prev = series.find((r) => r.date < tx.date && r.amount === amt && sameMerchant(r.merchant, tx.merchant));
-      if (prev?.category) seriesCategory.set(i, prev.category);
-      if (tx.plan) return tx;
-      const plan = planFromMerchant(tx.merchant) ?? (prev ? advancePlan(prev.plan, monthsBetween(prev.date, tx.date)) : null);
-      return plan ? { ...tx, plan } : tx;
+      const prev = series.find((r) => r.date < tx.date && sameInstalmentAmount(r.amount, Number(tx.amount)) && sameMerchant(r.merchant, tx.merchant));
+      let plan = tx.plan ?? null;
+      let source: string | null = tx.plan ? "statement" : null;
+      if (!plan) {
+        plan = planFromMerchant(tx.merchant) ?? (prev ? advancePlan(prev.plan, monthsBetween(prev.date, tx.date)) : null);
+        if (plan) source = "detected";
+      }
+      if (!plan) {
+        if (prev?.category) planInfo.set(i, { category: prev.category, group: null, source: null });
+        return tx;
+      }
+      let group = prev?.group ?? null;
+      let category = prev?.category ?? undefined;
+      if (!group) {
+        const total = planTotal(plan);
+        const orig = total
+          ? openOriginals.find((o) => o.date <= tx.date && Math.abs(o.amount - Math.abs(Number(tx.amount)) * total) <= o.amount * 0.02)
+          : undefined;
+        if (orig) {
+          group = orig.group;
+          category = orig.category ?? undefined;
+          openOriginals = openOriginals.filter((o) => o !== orig);
+        } else {
+          const k = `${normMerchant(tx.merchant).slice(0, 8)}|${Math.abs(Number(tx.amount)).toFixed(0)}`;
+          group = newGroups.get(k) ?? crypto.randomUUID();
+          newGroups.set(k, group);
+        }
+      }
+      planInfo.set(i, { category, group, source });
+      return { ...tx, plan };
     });
 
     // Classify each distinct merchant once, in parallel, instead of once per
@@ -565,7 +633,8 @@ Deno.serve(async (req: Request) => {
     const seen = new Map<string, number>();
     const txRows = incoming.map((tx, i) => {
       const cls = classifications.get(tx.merchant)!;
-      const category = cls.source !== "override" && seriesCategory.has(i) ? seriesCategory.get(i)! : cls.category;
+      const info = planInfo.get(i);
+      const category = cls.source !== "override" && info?.category ? info.category : cls.category;
       const source = cls.source;
       const base = dedupKey(tx);
       const n = (seen.get(base) ?? 0) + 1;
@@ -582,6 +651,8 @@ Deno.serve(async (req: Request) => {
         dedup_key: n === 1 ? base : `${base}#${n}`,
         plan: tx.plan ?? null,
         plan_rate: tx.plan_rate ?? null,
+        plan_source: tx.plan ? info?.source ?? "statement" : null,
+        plan_group: tx.plan ? info?.group ?? null : null,
       };
     });
 
@@ -604,6 +675,7 @@ Deno.serve(async (req: Request) => {
           patch.category_source = "manual";
         }
         if (k.excluded) patch.excluded_from_spend = true;
+        if (k.plan) Object.assign(patch, k.plan);
         await supabase.from("transactions").update(patch).eq("id", (hit as any).id);
       }
     }

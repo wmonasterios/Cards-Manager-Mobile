@@ -261,21 +261,39 @@ hardening a low-severity edge case, since forwarding tokens aren't
 guessable). Shown in Statements as a card with a "Confirm in Gmail" button
 (link flow) or a copyable code (older flow).
 
-# Installments and budgets (14 Oct 2026)
+# Installments ("cuotas", 15 Oct 2026)
 
-`apply-statement` (v23) fills a missing `plan` from the merchant text
-(`CUOTA:03/48`, `PLACUOTA`, `TCUOTA`) or by continuing a series the card
-already has (same amount + `sameMerchant`, earlier n/total → n + months
-elapsed), and a continuing line keeps the series' category unless the user
-has an `override` rule. Existing rows were backfilled with
-`20261014c_backfill_installment_plans.sql` (run once via SQL, not a schema
-migration). `advisor-chat` (v9): `spending_by_category` and the new
-`monthly_spending` take installments out of the categories (`isInstallmentRow`
-= `plan` set or cuota text) and flag incomplete months — a card whose latest
-statement cutoff is before the month's end means that month is missing data
-and must never be a budget baseline. The prompt's BUDGETS section depends on
-both. The app's Insights screen still counts installments inside their
-category.
+A cuota is a **mark on a transaction, not a category**: the club paid in 24
+cuotas stays Entertainment and counts once a month, in the month it's
+charged. Columns (`20261015_installment_series.sql`): `plan` ("3/12"),
+`plan_source` ('statement' | 'detected' | 'manual' | 'none' = the user said
+"no es cuota"), `plan_group` (one uuid per series, shared with the original
+purchase), `plan_original` (the purchase the user moved to cuotas — "La pasé
+a cuotas" — kept with `excluded_from_spend = true` so it isn't counted twice;
+its cuotas can be on another card and start months later).
+
+- `apply-statement` (v24): fills a missing `plan` from the merchant text
+  (`CUOTA:03/48`, `PLACUOTA`, `TCUOTA`) or by continuing a series on the card
+  (same merchant, amount within 1% — the last cuota is often a few cents
+  off), copies the series' `plan_group` and category (unless the user has an
+  `override` rule), starts a new group otherwise, and joins a new series to an
+  unlinked `plan_original` whose amount it adds up to (within 2%). On a
+  re-read, `manual`/`none`/original marks are carried over like manual
+  categories.
+- App: `src/instalments.ts` (series building, suggestions, matching),
+  `src/components/Instalments.tsx` (series card, "Es pago en cuotas" and "La
+  pasé a cuotas" sheets), wired in `TransactionDetailScreen` through
+  `patchTxs` (CardsContext → `patchTransactionRows`). `TxRow` shows a neutral
+  "Cuota n/N" badge; Transactions has "Solo cuotas"; Insights shows "incluye
+  US$ x en cuotas" per category (lighter bar segment) and a "Pagos en cuotas"
+  section (this month, still to pay, what frees up next, active plans).
+- `advisor-chat` (v10): category totals include cuotas, with
+  `installments_in_category` / `installments_by_category` as the fixed part;
+  budgets limit the variable part and list cuotas with their end month.
+  `monthly_spending` still flags incomplete months (a card whose latest
+  statement cutoff is before the month's end) — never a budget baseline.
+- The owner's two financed purchases were linked by hand (Academia →
+  Intra/Extra, the US$ 17,500 balance purchase → Davibank).
 
 # 1,000-row cap (Oct 2026)
 

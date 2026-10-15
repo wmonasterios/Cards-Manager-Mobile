@@ -1,6 +1,7 @@
 import { DecoratedCard, DecoratedTransaction } from './decorate';
 import { ColorTokens, chartSeriesColors } from './theme';
 import { money } from './format';
+import { isInstalment } from './instalments';
 
 const R = 54;
 const CIRCUMFERENCE = 2 * Math.PI * R;
@@ -16,6 +17,8 @@ export type InsightsMonth = { iso: string; label: string };
 export type CategorySlice = {
   name: string;
   amount: number;
+  // Part of `amount` that is cuotas (fixed monthly commitments).
+  instAmount: number;
   count: number;
   share: number;
   color: string;
@@ -38,6 +41,7 @@ export type FlatTx = { tx: DecoratedTransaction; cardId: string };
 export type InsightsAnalysis = {
   txCount: number;
   spent: number;
+  instSpent: number;
   categories: CategorySlice[];
   arcs: DonutArc[];
   filteredTx: FlatTx[];
@@ -105,14 +109,15 @@ export function analyseInsights(
   const spent = spendTx.reduce((n, t) => n - t.amount, 0);
 
   const seg = chartSeriesColors(colors);
-  const byCat: Record<string, { amount: number; count: number; bg: string; ink: string; icon: string }> = {};
+  const byCat: Record<string, { amount: number; inst: number; count: number; bg: string; ink: string; icon: string }> = {};
   for (const t of spendTx) {
-    const entry = byCat[t.category] ?? (byCat[t.category] = { amount: 0, count: 0, bg: t.catBg, ink: t.catInk, icon: t.catIcon });
+    const entry = byCat[t.category] ?? (byCat[t.category] = { amount: 0, inst: 0, count: 0, bg: t.catBg, ink: t.catInk, icon: t.catIcon });
     entry.amount += -t.amount;
+    if (isInstalment(t)) entry.inst += -t.amount;
     entry.count += 1;
   }
   const categories: CategorySlice[] = Object.entries(byCat)
-    .map(([name, v]) => ({ name, amount: v.amount, count: v.count, bg: v.bg, ink: v.ink, icon: v.icon, share: spent ? (v.amount / spent) * 100 : 0 }))
+    .map(([name, v]) => ({ name, amount: v.amount, instAmount: v.inst, count: v.count, bg: v.bg, ink: v.ink, icon: v.icon, share: spent ? (v.amount / spent) * 100 : 0 }))
     .sort((a, b) => b.amount - a.amount)
     .map((c, i) => ({ ...c, color: seg[i % seg.length] }));
 
@@ -163,7 +168,9 @@ export function analyseInsights(
 
   const sel = categories.find((c) => c.name === selCat) ?? null;
 
-  return { txCount: monthSpendTx.length, spent, categories, arcs, filteredTx, weekSums, weekMax, avgWeek, delta, sel };
+  const instSpent = spendTx.filter(isInstalment).reduce((n, t) => n - t.amount, 0);
+
+  return { txCount: monthSpendTx.length, spent, instSpent, categories, arcs, filteredTx, weekSums, weekMax, avgWeek, delta, sel };
 }
 
 export type CardSlice = { cardId: string; name: string; amount: number; count: number; share: number };

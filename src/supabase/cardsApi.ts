@@ -26,6 +26,9 @@ function dbTransactionToTransaction(row: DbTransaction): Transaction {
     statementId: row.statement_id ?? undefined,
     categorySource: row.category_source ?? undefined,
     excludedFromSpend: row.excluded_from_spend,
+    planSource: row.plan_source ?? undefined,
+    planGroup: row.plan_group ?? undefined,
+    planOriginal: !!row.plan_original,
   };
 }
 
@@ -41,13 +44,18 @@ function parsePlanProgress(planLabel: string): { current: number; total: number 
 
 function buildInstalmentPlans(transactions: DbTransaction[]): InstalmentPlan[] {
   const latestByMerchant = new Map<string, DbTransaction>();
+  const staleBefore = new Date(Date.now() - 75 * 864e5).toISOString().slice(0, 10);
   for (const row of transactions) {
-    if (!row.plan) continue;
-    const key = row.merchant.trim().toLowerCase();
+    if (!row.plan || row.plan_source === 'none' || Number(row.amount) >= 0) continue;
+    const key = row.plan_group ?? row.merchant.trim().toLowerCase();
     const existing = latestByMerchant.get(key);
     if (!existing || row.occurred_on > existing.occurred_on) latestByMerchant.set(key, row);
   }
-  return Array.from(latestByMerchant.values()).map((row) => {
+  // Only plans still running: cuotas left and a line seen recently.
+  return Array.from(latestByMerchant.values()).filter((row) => {
+    const p = parsePlanProgress(row.plan!);
+    return (!p || p.current < p.total) && row.occurred_on >= staleBefore;
+  }).map((row) => {
     const progress = parsePlanProgress(row.plan!);
     const monthly = Math.abs(Number(row.amount));
     const remainingInstalments = progress ? Math.max(0, progress.total - progress.current) : 0;
@@ -216,6 +224,20 @@ export async function listTransactions(userId: string): Promise<DbTransaction[]>
     if (!data || data.length < PAGE) break;
   }
   return all;
+}
+
+export type TxPatch = Partial<
+  Pick<DbTransaction, 'plan' | 'plan_source' | 'plan_group' | 'plan_original' | 'category' | 'category_source' | 'excluded_from_spend'>
+>;
+
+// Installment edits touch a few rows at once (a series, or a purchase and its
+// cuotas); each row gets its own small update.
+export async function patchTransactionRows(patches: { id: string; patch: TxPatch }[]): Promise<void> {
+  const results = await Promise.all(
+    patches.map(({ id, patch }) => supabase.from('transactions').update(patch).eq('id', id)),
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw failed.error;
 }
 
 export async function setTransactionExcluded(txId: string, excluded: boolean): Promise<void> {

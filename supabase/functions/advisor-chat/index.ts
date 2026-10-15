@@ -186,7 +186,7 @@ async function spendRows(ctx: Ctx, start: string, end: string, cardId: string | 
   const rows = await allRows(() => {
     let q = ctx.db
       .from("transactions")
-      .select("occurred_on, merchant, amount, category, card_id, plan")
+      .select("occurred_on, merchant, amount, category, card_id, plan, plan_source")
       .gte("occurred_on", start)
       .lte("occurred_on", end)
       .lt("amount", 0)
@@ -198,11 +198,13 @@ async function spendRows(ctx: Ctx, start: string, end: string, cardId: string | 
   return rows.filter((t: any) => !["payment", "transfer"].includes(t.category));
 }
 
-// Installments (cuotas) are principal being repaid on a fixed schedule, not
-// spending in a category: a budget that leaves them inside "Transport" or
-// "Fees" counts them twice and calls them avoidable.
+// Installments (cuotas) stay in their real category (a club membership paid
+// in 24 cuotas is Entertainment), counted once a month, but they are fixed
+// commitments: tools report how much of each category is cuotas so a budget
+// limits only the variable part. The user can say a line is not a cuota.
 const CUOTA_TEXT = /(?:T?CUOTA|PLACUOTA)\s*:?\s*\d{1,3}\s*\/\s*\d{1,3}/i;
 function isInstallmentRow(t: any) {
+  if (t.plan_source === "none") return false;
   return !!t.plan || CUOTA_TEXT.test(String(t.merchant ?? ""));
 }
 
@@ -262,7 +264,7 @@ const TOOLS: any[] = [
   {
     name: "spending_by_category",
     description:
-      "Total spending per category in a period (charges only, excluding card payments and transfers), with the change vs. the previous period of the same length. Installments (cuotas) are not in the categories; they come separately under installments. missing_data lists cards whose statements end before the period does (incomplete period). Dates default to the current month to date. For budgets or monthly averages use monthly_spending instead.",
+      "Total spending per category in a period (charges only, excluding card payments and transfers), with the change vs. the previous period of the same length. Category totals include installments (cuotas); installments_in_category says how much of each is fixed cuotas, and installments lists them. missing_data lists cards whose statements end before the period does (incomplete period). Dates default to the current month to date. For budgets or monthly averages use monthly_spending instead.",
     input_schema: {
       type: "object",
       properties: {
@@ -275,7 +277,7 @@ const TOOLS: any[] = [
   {
     name: "monthly_spending",
     description:
-      "Spending per calendar month for the last N months (default 6, current month included), by category, with installments (cuotas) taken out of the categories and totalled separately. Each month says whether it is complete: a month is incomplete when some card's latest statement ends before the month does (purchases after that aren't in Poquet yet), and lists those cards. Also returns per-category averages over the complete months only. Use it for budgets, typical monthly spending and month-to-month comparisons.",
+      "Spending per calendar month for the last N months (default 6, current month included), by category. Category totals include installments (cuotas); installments_by_category says how much of each is fixed cuotas. Each month says whether it is complete: a month is incomplete when some card's latest statement ends before the month does (purchases after that aren't in Poquet yet), and lists those cards. Also returns per-category averages over the complete months only. Use it for budgets, typical monthly spending and month-to-month comparisons.",
     input_schema: {
       type: "object",
       properties: {
@@ -320,7 +322,7 @@ const TOOLS: any[] = [
   },
   {
     name: "installment_plans",
-    description: "Active installment purchases (cuotas): merchant, current installment like '5/6', monthly amount and rate if known.",
+    description: "Active installment purchases (cuotas): merchant, category, current installment like '5/6', monthly amount, cuotas and amount left, the month of the last cuota, and rate if known.",
     input_schema: { type: "object", properties: {} },
   },
   {
@@ -400,15 +402,14 @@ async function runTool(ctx: Ctx, name: string, input: any): Promise<unknown> {
       ]);
       const sum = (rows: any[]) => {
         const m = new Map<string, number>();
-        for (const t of rows) {
-          if (isInstallmentRow(t)) continue;
-          m.set(t.category ?? "other", (m.get(t.category ?? "other") ?? 0) + Math.abs(Number(t.amount)));
-        }
+        for (const t of rows) m.set(t.category ?? "other", (m.get(t.category ?? "other") ?? 0) + Math.abs(Number(t.amount)));
         return m;
       };
       const a = sum(cur), b = sum(prev);
       const total = [...a.values()].reduce((n, v) => n + v, 0);
       const inst = cur.filter(isInstallmentRow);
+      const instByCat = new Map<string, number>();
+      for (const t of inst) instByCat.set(t.category ?? "other", (instByCat.get(t.category ?? "other") ?? 0) + Math.abs(Number(t.amount)));
       const cov = await cardCoverage(ctx, cards);
       const categories = [...a.entries()]
         .sort((x, y) => y[1] - x[1])
@@ -419,6 +420,7 @@ async function runTool(ctx: Ctx, name: string, input: any): Promise<unknown> {
           share_pct: total > 0 ? Math.round((v / total) * 100) : 0,
           previous_total: r2(b.get(id) ?? 0),
           change_pct: b.get(id) ? Math.round(((v - b.get(id)!) / b.get(id)!) * 100) : null,
+          installments_in_category: instByCat.get(id) ? r2(instByCat.get(id)!) : undefined,
         }));
       return {
         period: { start, end },
@@ -427,7 +429,7 @@ async function runTool(ctx: Ctx, name: string, input: any): Promise<unknown> {
         categories,
         installments: {
           total: r2(inst.reduce((n: number, t: any) => n + Math.abs(Number(t.amount)), 0)),
-          items: inst.map((t: any) => ({ merchant: t.merchant, installment: t.plan ?? undefined, amount: r2(Math.abs(Number(t.amount))), date: t.occurred_on })),
+          items: inst.map((t: any) => ({ merchant: t.merchant, category: t.category, installment: t.plan ?? undefined, amount: r2(Math.abs(Number(t.amount))), date: t.occurred_on })),
         },
         missing_data: missingData(cards, cov, start, end, cardId),
         previous_missing_data: missingData(cards, cov, prevStart, prevEnd, cardId),
@@ -453,25 +455,35 @@ async function runTool(ctx: Ctx, name: string, input: any): Promise<unknown> {
         const end = month === t.slice(0, 7) ? t : monthEnd(month);
         const inMonth = rows.filter((r: any) => r.occurred_on.slice(0, 7) === month);
         const cats = new Map<string, number>();
+        const instCats = new Map<string, number>();
         let inst = 0;
         for (const r of inMonth) {
           const v = Math.abs(Number(r.amount));
-          if (isInstallmentRow(r)) inst += v;
-          else cats.set(r.category ?? "other", (cats.get(r.category ?? "other") ?? 0) + v);
+          const c = r.category ?? "other";
+          cats.set(c, (cats.get(c) ?? 0) + v);
+          if (isInstallmentRow(r)) {
+            inst += v;
+            instCats.set(c, (instCats.get(c) ?? 0) + v);
+          }
         }
         const missing = missingData(cards, cov, `${month}-01`, monthEnd(month), cardId);
         return {
           month,
           complete: missing.length === 0 && end === monthEnd(month),
           missing_data: missing,
-          total_without_installments: r2([...cats.values()].reduce((a, b) => a + b, 0)),
+          total: r2([...cats.values()].reduce((a, b) => a + b, 0)),
           installments_total: r2(inst),
           categories: Object.fromEntries([...cats.entries()].sort((x, y) => y[1] - x[1]).map(([id, v]) => [id, r2(v)])),
+          installments_by_category: Object.fromEntries([...instCats.entries()].map(([id, v]) => [id, r2(v)])),
         };
       });
       const complete = out.filter((m) => m.complete);
       const avg = new Map<string, number>();
-      for (const m of complete) for (const [id, v] of Object.entries(m.categories)) avg.set(id, (avg.get(id) ?? 0) + (v as number));
+      const avgInst = new Map<string, number>();
+      for (const m of complete) {
+        for (const [id, v] of Object.entries(m.categories)) avg.set(id, (avg.get(id) ?? 0) + (v as number));
+        for (const [id, v] of Object.entries(m.installments_by_category)) avgInst.set(id, (avgInst.get(id) ?? 0) + (v as number));
+      }
       return {
         today: t,
         category_labels: Object.fromEntries([...new Set(out.flatMap((m) => Object.keys(m.categories)))].map((id) => [id, labels.get(id) ?? id])),
@@ -479,12 +491,13 @@ async function runTool(ctx: Ctx, name: string, input: any): Promise<unknown> {
         complete_months: complete.map((m) => m.month),
         average_of_complete_months: complete.length
           ? {
-              total_without_installments: r2(complete.reduce((a, m) => a + m.total_without_installments, 0) / complete.length),
+              total: r2(complete.reduce((a, m) => a + m.total, 0) / complete.length),
               installments: r2(complete.reduce((a, m) => a + m.installments_total, 0) / complete.length),
               categories: Object.fromEntries([...avg.entries()].sort((x, y) => y[1] - x[1]).map(([id, v]) => [id, r2(v / complete.length)])),
+              installments_by_category: Object.fromEntries([...avgInst.entries()].map(([id, v]) => [id, r2(v / complete.length)])),
             }
           : null,
-        note: "Incomplete months understate spending; never use them as a budget baseline. Installments are fixed repayments of principal, already excluded from the categories.",
+        note: "Incomplete months understate spending; never use them as a budget baseline. Category totals include installments (fixed cuotas, counted once a month); installments_by_category is the fixed part of each.",
       };
     }
     case "top_merchants": {
@@ -598,7 +611,7 @@ async function runTool(ctx: Ctx, name: string, input: any): Promise<unknown> {
       const byId = new Map(cards.map((c) => [c.id, c]));
       const { data, error } = await ctx.db
         .from("transactions")
-        .select("occurred_on, merchant, amount, plan, plan_rate, card_id")
+        .select("occurred_on, merchant, amount, plan, plan_rate, card_id, category, plan_group")
         .not("plan", "is", null)
         .gte("occurred_on", addDays(todayIso(), -62))
         .order("occurred_on", { ascending: false })
@@ -606,18 +619,31 @@ async function runTool(ctx: Ctx, name: string, input: any): Promise<unknown> {
       if (error) throw new Error(error.message);
       const latest = new Map<string, any>();
       for (const r of data ?? []) {
-        const k = `${r.card_id}|${r.merchant.trim().toLowerCase()}`;
+        const k = r.plan_group ?? `${r.card_id}|${r.merchant.trim().toLowerCase()}`;
         if (!latest.has(k)) latest.set(k, r);
       }
       return {
-        plans: [...latest.values()].map((r: any) => ({
-          merchant: r.merchant,
-          installment: r.plan,
-          monthly_amount: r2(Math.abs(Number(r.amount))),
-          rate: r.plan_rate ?? undefined,
-          last_charged: r.occurred_on,
-          card: byId.get(r.card_id)?.ref,
-        })),
+        plans: [...latest.values()]
+          .map((r: any) => {
+            const m = /^\s*(\d{1,3})\s*\/\s*(\d{1,3})\s*$/.exec(r.plan ?? "");
+            const n = m ? Number(m[1]) : null, total = m ? Number(m[2]) : null;
+            const left = n !== null && total !== null ? Math.max(0, total - n) : null;
+            const d = new Date(r.occurred_on + "T00:00:00Z");
+            if (left !== null) d.setUTCMonth(d.getUTCMonth() + left);
+            return {
+              merchant: r.merchant,
+              category: r.category,
+              installment: r.plan,
+              monthly_amount: r2(Math.abs(Number(r.amount))),
+              remaining_cuotas: left ?? undefined,
+              remaining_amount: left !== null ? r2(left * Math.abs(Number(r.amount))) : undefined,
+              last_cuota_month: left !== null ? d.toISOString().slice(0, 7) : undefined,
+              rate: r.plan_rate ?? undefined,
+              last_charged: r.occurred_on,
+              card: byId.get(r.card_id)?.ref,
+            };
+          })
+          .filter((p: any) => p.remaining_cuotas === undefined || p.remaining_cuotas > 0),
       };
     }
     case "statement_coverage": {
@@ -712,7 +738,7 @@ NUMBERS
 
 BUDGETS AND TYPICAL SPENDING
 - For a budget, "how much do I spend a month" or month comparisons, call monthly_spending. Build limits only from complete months (average_of_complete_months) and say which months you used. Never use an incomplete month as a baseline or call it the "lowest" month: name the cards whose data ends early and say that month will rise when their next statements arrive. If there are fewer than two complete months, say the budget is provisional.
-- Installments (cuotas) go on their own line as fixed commitments (use installment_plans for the list). They are already out of the category totals: never add them on top, never put them inside a category, and never describe them as fees to cut.
+- Installments (cuotas) belong to their category (a club paid in cuotas is Entertainment) and are already inside the category totals, once a month: never add them on top. They are fixed commitments, so for each category say how much is cuotas (installments_by_category) and set the limit on the variable part only. List active cuotas with installment_plans, with when each ends, and mention money that frees up when one finishes. Never describe cuotas as fees to cut.
 - "Fees" means real bank charges: use interest_and_fees for them, which excludes installments.
 - Irregular categories (education, health, travel) get a monthly reserve equal to their average over the complete months.
 

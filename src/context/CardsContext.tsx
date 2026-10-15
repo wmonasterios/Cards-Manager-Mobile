@@ -20,6 +20,8 @@ import {
   updateTransactionCategory,
   setTransactionExcluded as setTransactionExcludedApi,
   reorderCards as reorderCardsApi,
+  patchTransactionRows,
+  TxPatch,
 } from '../supabase/cardsApi';
 import { listNeedsReviewStatements } from '../supabase/statementsApi';
 import { DbCard, DbTransaction, DbStatement, NewDbCard } from '../supabase/types';
@@ -68,6 +70,7 @@ type CardsContextValue = {
   updateCardDisplay: (id: string, patch: { nickname: string | null; colorKey: string | null; bank: string }) => void;
   updateTxCategory: (txId: string, merchant: string, category: Category, applyToAllWithMerchant: boolean) => Promise<void>;
   setTxExcluded: (txId: string, excluded: boolean) => void;
+  patchTxs: (patches: { id: string; patch: TxPatch }[]) => Promise<void>;
   reorderCards: (orderedIds: string[]) => void;
   refresh: () => Promise<void>;
 };
@@ -339,6 +342,21 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
     [isDemo, loadReal],
   );
 
+  const patchTxs = useCallback(
+    async (patches: { id: string; patch: TxPatch }[]) => {
+      if (isDemo || patches.length === 0) return;
+      const byId = new Map(patches.map((p) => [p.id, p.patch]));
+      setDbTransactions((prev) => prev.map((t) => (byId.has(t.id) ? { ...t, ...byId.get(t.id)! } : t)));
+      try {
+        await patchTransactionRows(patches);
+      } catch (e) {
+        await loadReal();
+        throw e;
+      }
+    },
+    [isDemo, loadReal],
+  );
+
   const reorderCards = useCallback(
     (orderedIds: string[]) => {
       if (isDemo) {
@@ -374,6 +392,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       updateCardDisplay,
       updateTxCategory,
       setTxExcluded,
+      patchTxs,
       reorderCards,
       refresh: loadReal,
     }),
@@ -396,6 +415,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       updateCardDisplay,
       updateTxCategory,
       setTxExcluded,
+      patchTxs,
       reorderCards,
       loadReal,
     ],
