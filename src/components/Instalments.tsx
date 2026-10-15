@@ -144,7 +144,7 @@ function CategoryField({ value, onChange, lang }: { value: Category; onChange: (
         <Text style={s.fieldLabel}>{lang === 'es' ? 'Categoría' : 'Category'}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <View style={[s.dot, { backgroundColor: catColors[value]?.bg ?? colors.line }]} />
-          <Text style={s.fieldValue}>{categoryLabel(value)}</Text>
+          <Text style={s.fieldValue}>{categoryLabel(value, lang)}</Text>
           <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={15} color={colors.ink3} />
         </View>
       </Pressable>
@@ -161,7 +161,7 @@ function CategoryField({ value, onChange, lang }: { value: Category; onChange: (
                 }}
                 style={[s.chip, active && s.chipActive]}
               >
-                <Text style={[s.chipText, active && s.chipTextActive]}>{categoryLabel(c)}</Text>
+                <Text style={[s.chipText, active && s.chipTextActive]}>{categoryLabel(c, lang)}</Text>
               </Pressable>
             );
           })}
@@ -245,8 +245,8 @@ export function MarkCuotaSheet({
                 <Text style={s.sheetTitle}>{es ? 'Es pago en cuotas' : 'This is an instalment'}</Text>
                 <Text style={s.sheetBody}>
                   {es
-                    ? `Sigue contando en ${categoryLabel(category)}, una vez al mes. Además lo verás en tus pagos en cuotas.`
-                    : `It still counts under ${categoryLabel(category)}, once a month, and also shows in your instalments.`}
+                    ? `Sigue contando en ${categoryLabel(category, lang)}, una vez al mes. Además lo verás en tus pagos en cuotas.`
+                    : `It still counts under ${categoryLabel(category, lang)}, once a month, and also shows in your instalments.`}
                 </Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 10 }}>

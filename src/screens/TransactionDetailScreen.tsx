@@ -205,7 +205,7 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
   };
 
   const filteredCategories = ALL_CATEGORIES.filter((cat) =>
-    categoryLabel(cat).toLowerCase().includes(categoryQuery.trim().toLowerCase()),
+    categoryLabel(cat, lang).toLowerCase().includes(categoryQuery.trim().toLowerCase()),
   );
 
   const statusNote = tx.declined
@@ -216,7 +216,7 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
 
   const rows = [
     { label: t.card, value: `${card.displayName} ${card.product}` },
-    { label: t.category, value: categoryLabel(tx.category) },
+    { label: t.category, value: categoryLabel(tx.category, lang) },
     { label: t.dateLabel, value: `${tx.date}, ${tx.iso.slice(0, 4)}` },
     { label: t.plan, value: tx.plan ? `${tx.plan}${tx.rate ? ` · ${tx.rate}` : ''}` : t.single },
     { label: t.originalDesc, value: tx.merchant.toUpperCase() },
@@ -396,7 +396,7 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
                     <View style={[styles.modalBadge, { backgroundColor: catColors.bg }]}>
                       <Ionicons name={catColors.icon as any} size={16} color={catColors.ink} />
                     </View>
-                    <Text style={styles.modalRowText}>{categoryLabel(cat)}</Text>
+                    <Text style={styles.modalRowText}>{categoryLabel(cat, lang)}</Text>
                     {active && <Text style={styles.modalCheck}>{'✓'}</Text>}
                   </Pressable>
                 );

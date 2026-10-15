@@ -1,6 +1,6 @@
 import { Card, Transaction } from './data';
 import { ColorTokens, getCategoryColors } from './theme';
-import { money } from './format';
+import { money, shortDay } from './format';
 import { Dict } from './i18n/dict';
 
 export type DecoratedTransaction = Transaction & {
@@ -109,11 +109,11 @@ export function decorateCard(
   if (c.dueIso && c.fullDueIso && c.fullDueIso !== c.dueIso) {
     const minLeft = Math.max(0, c.min - paidAmt);
     payEvents.push(
-      { kind: 'min', iso: c.dueIso, label: c.due, amount: minLeft, amountText: fmtC(minLeft), settled: minCovered },
+      { kind: 'min', iso: c.dueIso, label: shortDay(c.dueIso, t, c.due), amount: minLeft, amountText: fmtC(minLeft), settled: minCovered },
       {
         kind: 'full',
         iso: c.fullDueIso,
-        label: c.fullDue ?? c.due,
+        label: shortDay(c.fullDueIso, t, c.fullDue ?? c.due),
         amount: fullLeft,
         amountText: fmtC(fullLeft),
         settled: paid,
@@ -121,7 +121,7 @@ export function decorateCard(
     );
     payEvents.sort((a, b) => a.iso.localeCompare(b.iso));
   } else if (c.dueIso) {
-    payEvents.push({ kind: 'both', iso: c.dueIso, label: c.due, amount: remaining, amountText: fmtC(remaining), settled: paid });
+    payEvents.push({ kind: 'both', iso: c.dueIso, label: shortDay(c.dueIso, t, c.due), amount: remaining, amountText: fmtC(remaining), settled: paid });
   }
   const next = payEvents.find((e) => !e.settled);
 
@@ -141,7 +141,7 @@ export function decorateCard(
     limitText: fmtC(c.limit),
     usedText: fmtC(remaining),
     availableText: fmtC(c.limit - remaining),
-    dueShort: paid ? t.paidWord : `${t.dueWord} ${next?.label ?? c.due}`,
+    dueShort: paid ? t.paidWord : `${t.dueWord} ${next?.label ?? shortDay(c.dueIso, t, c.due)}`,
     stateText: paid
       ? t.nothing
       : paidAmt > 0
@@ -154,7 +154,7 @@ export function decorateCard(
     displayName: c.nickname || c.bank,
     displaySub: c.nickname ? [c.bank, c.product].filter(Boolean).join(' ') : c.product,
     reviewCount,
-    dtx: c.tx.map((tr) => decorateTransaction(tr, c, colors)),
+    dtx: c.tx.map((tr) => decorateTransaction({ ...tr, date: shortDay(tr.iso, t, tr.date) }, c, colors)),
     minCovered,
     coveredByPayments,
     payEvents,

@@ -221,7 +221,7 @@ export function InsightsScreen({ navigation }: any) {
                             ]}
                           />
                         </View>
-                        <Text style={styles.weekLabel}>{`W${i + 1}`}</Text>
+                        <Text style={styles.weekLabel}>{`${lang === 'es' ? 'S' : 'W'}${i + 1}`}</Text>
                       </Pressable>
                     );
                   })}
@@ -258,7 +258,7 @@ export function InsightsScreen({ navigation }: any) {
                     </Text>
                     <Text style={styles.donutLabel} numberOfLines={1}>
                       {analysis.sel
-                        ? categoryLabel(analysis.sel.name)
+                        ? categoryLabel(analysis.sel.name, lang)
                         : selWeek === null
                           ? t.spentThisMonth
                           : lang === 'es' ? `Gastado semana ${selWeek + 1}` : `Spent week ${selWeek + 1}`}
@@ -295,7 +295,7 @@ export function InsightsScreen({ navigation }: any) {
                       </View>
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <View style={styles.catRowHead}>
-                          <Text style={styles.catName}>{categoryLabel(c.name)}</Text>
+                          <Text style={styles.catName}>{categoryLabel(c.name, lang)}</Text>
                           <Text style={styles.catPct}>{pctText(c.share)}</Text>
                         </View>
                         <View style={[styles.catBarTrack, { flexDirection: 'row' }]}>
@@ -420,7 +420,7 @@ export function InsightsScreen({ navigation }: any) {
                         </View>
                         <View style={[styles.catRowHead, { marginTop: 3 }]}>
                           <Text style={styles.catCount} numberOfLines={1}>
-                            {categoryLabel(x.category)} · {lang === 'es' ? 'cuota' : 'instalment'} {x.n}/{x.total}
+                            {categoryLabel(x.category, lang)} · {lang === 'es' ? 'cuota' : 'instalment'} {x.n}/{x.total}
                           </Text>
                           <Text style={styles.catCount}>
                             {lang === 'es' ? 'termina' : 'ends'} {monthYear(x.endIso, lang)}
@@ -443,7 +443,7 @@ export function InsightsScreen({ navigation }: any) {
                 <Text style={styles.sectionTitle}>
                   {t.transactions}
                   {selWeek !== null ? ` · W${selWeek + 1}` : ''}
-                  {selCat !== null ? ` · ${categoryLabel(selCat)}` : ''}
+                  {selCat !== null ? ` · ${categoryLabel(selCat, lang)}` : ''}
                 </Text>
                 <Pressable onPress={() => navigation.navigate('Transactions', {})} hitSlop={6}>
                   <Text style={styles.seeAll}>{t.seeAll}</Text>

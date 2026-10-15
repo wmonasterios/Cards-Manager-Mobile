@@ -143,10 +143,19 @@ export function getCategoryColors(
   return result;
 }
 
-// A category id is a single lowercase word (e.g. "dining"); the display label is
-// just that capitalized, so no separate translation table is needed.
-export function categoryLabel(id: string): string {
+// A category id is a single lowercase word (e.g. "dining"). English shows it
+// capitalized; Spanish uses the names below.
+const CATEGORY_ES: Record<string, string> = {
+  dining: 'Restaurantes', groceries: 'Supermercado', transport: 'Transporte', fuel: 'Gasolina',
+  shopping: 'Compras', home: 'Hogar', beauty: 'Belleza', pharmacy: 'Farmacia', health: 'Salud',
+  entertainment: 'Entretenimiento', subscriptions: 'Suscripciones', kids: 'Niños', education: 'Educación',
+  travel: 'Viajes', hotels: 'Hoteles', insurance: 'Seguros', utilities: 'Servicios', government: 'Gobierno',
+  housing: 'Vivienda', fees: 'Cargos e intereses', payment: 'Pagos', transfer: 'Transferencias',
+  cash: 'Efectivo', topup: 'Recargas', taxes: 'Impuestos', other: 'Otros',
+};
+export function categoryLabel(id: string, lang: 'en' | 'es' = 'en'): string {
   if (!id) return id;
+  if (lang === 'es' && CATEGORY_ES[id]) return CATEGORY_ES[id];
   return id.charAt(0).toUpperCase() + id.slice(1);
 }
 

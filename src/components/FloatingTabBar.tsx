@@ -1,12 +1,11 @@
 import React, { useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ColorTokens } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
-import { useCards } from '../context/CardsContext';
 
 // The tabs shown in the floating bar. Statements and Settings are still tab
 // routes (so every existing navigate('Statements') keeps working) but live
@@ -23,8 +22,8 @@ const ICONS: Record<Visible, keyof typeof Ionicons.glyphMap> = {
 };
 
 // The advisor button shows for everyone (owner's call, Oct 2026). Who can
-// actually chat is decided server-side by advisor_access; everyone else gets
-// the "Muy pronto" teaser in AdvisorScreen.
+// actually chat is decided server-side (plans / advisor_access); the demo gets
+// sample answers from advisorDemo.ts.
 
 export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const colors = useColors();
@@ -32,7 +31,6 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { lang, t } = useLocale();
   const es = lang === 'es';
-  const { isDemo } = useCards();
 
   const current = state.routes[state.index]?.name;
   const activeTab: Visible = UNDER_MORE.has(current) ? 'More' : (current as Visible);
@@ -50,19 +48,9 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
     if (!event.defaultPrevented) navigation.navigate(name as never);
   };
 
-  // The advisor reads real card data, so the demo (no account) can't use it.
-  const openAdvisor = () => {
-    if (isDemo) {
-      Alert.alert(
-        es ? 'Asesor Poquet' : 'Poquet Advisor',
-        es
-          ? 'Muy pronto: un asistente con IA que te responde con los números de tus propias tarjetas. Crea una cuenta para estar entre los primeros.'
-          : 'Coming soon: an AI assistant that answers with your own cards\' numbers. Create an account to be among the first.',
-      );
-      return;
-    }
-    navigation.navigate('Advisor' as never);
-  };
+  // In the demo the advisor answers its suggested questions from the sample
+  // cards (see advisorDemo.ts), so it opens the same screen either way.
+  const openAdvisor = () => navigation.navigate('Advisor' as never);
 
   return (
     <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>

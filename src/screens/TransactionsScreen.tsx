@@ -97,7 +97,7 @@ export function TransactionsScreen({ route, navigation }: Props) {
         if (
           q &&
           !matchesSearch(
-            `${tx.merchant} ${tx.sub} ${categoryLabel(tx.category)} ${card.displayName} ${card.bank} ${card.product} ${card.last4} ${Math.abs(tx.amount).toFixed(2)}`,
+            `${tx.merchant} ${tx.sub} ${categoryLabel(tx.category, lang)} ${card.displayName} ${card.bank} ${card.product} ${card.last4} ${Math.abs(tx.amount).toFixed(2)}`,
             q,
           )
         ) {
@@ -105,14 +105,14 @@ export function TransactionsScreen({ route, navigation }: Props) {
         }
         return true;
       }),
-    [allTx, hidePayments, onlyCuotas, rangeStart, rangeEnd, selCardId, q],
+    [allTx, hidePayments, onlyCuotas, rangeStart, rangeEnd, selCardId, q, lang],
   );
 
   const availableCategories = useMemo(() => {
     const set = new Set<string>();
     scoped.forEach(({ tx }) => set.add(tx.category));
-    return Array.from(set).sort((a, b) => categoryLabel(a).localeCompare(categoryLabel(b)));
-  }, [scoped]);
+    return Array.from(set).sort((a, b) => categoryLabel(a, lang).localeCompare(categoryLabel(b, lang)));
+  }, [scoped, lang]);
 
   // A category chip can go stale if the date/card/search scope no longer
   // contains it — drop the filter instead of silently showing zero results.
@@ -229,7 +229,7 @@ export function TransactionsScreen({ route, navigation }: Props) {
                 <View style={styles.filterHeaderRight}>
                   {!categoryOpen && selCategory && (
                     <Text style={styles.filterSummary} numberOfLines={1}>
-                      {categoryLabel(selCategory)}
+                      {categoryLabel(selCategory, lang)}
                     </Text>
                   )}
                   <Ionicons
@@ -249,7 +249,7 @@ export function TransactionsScreen({ route, navigation }: Props) {
                         onPress={() => chooseCategory(cat)}
                         style={[styles.chip, active && styles.chipActive]}
                       >
-                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{categoryLabel(cat)}</Text>
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{categoryLabel(cat, lang)}</Text>
                       </Pressable>
                     );
                   })}
