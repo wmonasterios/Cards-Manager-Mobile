@@ -30,6 +30,7 @@ import {
   loadLatestConversation,
   rateMessage,
 } from '../supabase/advisorApi';
+import { DEMO_QUESTIONS, demoAnswer, demoFreeTextReply } from '../advisorDemo';
 
 type Mode = 'loading' | 'error' | 'off' | 'consent' | 'chat' | 'limit';
 
@@ -54,7 +55,9 @@ export function AdvisorScreen({ navigation }: any) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { lang } = useLocale();
   const es = lang === 'es';
-  const { cards } = useCards();
+  // The demo has no account: answers come from advisorDemo, computed from the
+  // same sample cards the rest of the demo shows (no server call, no consent).
+  const { cards, isDemo } = useCards();
 
   const [mode, setMode] = useState<Mode>('loading');
   const [status, setStatus] = useState<AdvisorStatus | null>(null);
@@ -67,6 +70,7 @@ export function AdvisorScreen({ navigation }: any) {
   const scrollRef = useRef<ScrollView>(null);
 
   const load = useCallback(async () => {
+    if (isDemo) return setMode('chat');
     try {
       const s = await getAdvisorStatus();
       setStatus(s);
@@ -81,7 +85,7 @@ export function AdvisorScreen({ navigation }: any) {
     } catch {
       setMode('error');
     }
-  }, []);
+  }, [isDemo]);
 
   // Re-check on focus: consent can be revoked from the memory screen.
   useFocusEffect(
@@ -119,9 +123,8 @@ export function AdvisorScreen({ navigation }: any) {
     };
   }, [cards, es]);
 
-  const suggestions = es
-    ? ['¿Qué tarjeta pago primero?', '¿En qué gasté más este mes?', '¿Cuánto he pagado en intereses?', 'Arma mi presupuesto']
-    : ['Which card should I pay first?', 'What did I spend the most on this month?', 'How much have I paid in interest?', 'Build my budget'];
+  // Same list the demo answers (advisorDemo matches on this exact text).
+  const suggestions = DEMO_QUESTIONS[lang].map((x) => x.text);
 
   const errorText = (e: unknown): string => {
     const code = e instanceof AdvisorError ? e.code : 'network';
@@ -145,6 +148,15 @@ export function AdvisorScreen({ navigation }: any) {
     const tempId = `tmp-${Date.now()}`;
     setMessages((m) => [...m, { id: tempId, role: 'user', content: q, rating: null, created_at: new Date().toISOString() }]);
     setSending(true);
+    if (isDemo) {
+      const key = DEMO_QUESTIONS[lang].find((x) => x.text === q)?.key;
+      const answer = key ? demoAnswer(key, cards, lang) : demoFreeTextReply(lang);
+      setTimeout(() => {
+        setMessages((m) => [...m, { id: `demo-${Date.now()}`, role: 'assistant', content: answer, rating: null, created_at: new Date().toISOString() }]);
+        setSending(false);
+      }, 900);
+      return;
+    }
     try {
       const r = await askAdvisor(q, conversationId, lang);
       setConversationId(r.conversationId);
@@ -174,7 +186,7 @@ export function AdvisorScreen({ navigation }: any) {
     const msg = messages.find((m) => m.id === id);
     const next = msg?.rating === value ? null : value;
     setMessages((m) => m.map((x) => (x.id === id ? { ...x, rating: next } : x)));
-    rateMessage(id, next).catch(() => {});
+    if (!isDemo) rateMessage(id, next).catch(() => {});
   };
 
   const accept = async () => {
@@ -197,7 +209,9 @@ export function AdvisorScreen({ navigation }: any) {
       <BackButton onPress={goBack} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={styles.hTitle}>{es ? 'Asesor Poquet' : 'Poquet Advisor'}</Text>
-        {status && (
+        {isDemo ? (
+          <Text style={styles.hSub}>{es ? 'Modo demo · respuestas de ejemplo' : 'Demo mode · sample answers'}</Text>
+        ) : status && (
           <Text style={styles.hSub}>
             {es
               ? `${status.usedMonth} de ${status.monthlyLimit} preguntas este mes`
@@ -205,10 +219,12 @@ export function AdvisorScreen({ navigation }: any) {
           </Text>
         )}
       </View>
-      <Pressable style={styles.memoryPill} onPress={() => navigation.navigate('AdvisorMemory')} accessibilityRole="button">
-        <Ionicons name="bookmark-outline" size={14} color={colors.ink2} />
-        <Text style={styles.memoryPillText}>{es ? 'Memoria' : 'Memory'}</Text>
-      </Pressable>
+      {!isDemo && (
+        <Pressable style={styles.memoryPill} onPress={() => navigation.navigate('AdvisorMemory')} accessibilityRole="button">
+          <Ionicons name="bookmark-outline" size={14} color={colors.ink2} />
+          <Text style={styles.memoryPillText}>{es ? 'Memoria' : 'Memory'}</Text>
+        </Pressable>
+      )}
     </View>
   );
 
