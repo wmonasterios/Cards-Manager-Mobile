@@ -70,6 +70,9 @@ export type DbStatement = {
   reread_status?: 'reading' | 'ready' | 'failed' | null;
   reread_started_at?: string | null;
   reread_error?: string | null;
+  // Set when the 90-day retention job deleted the original PDF
+  // (storage_path is then null; the extracted data stays).
+  pdf_purged_at?: string | null;
 };
 
 export type DbTransaction = {

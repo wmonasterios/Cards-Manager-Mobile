@@ -327,3 +327,35 @@ fees — which must keep excluding installment principal —, installment plans,
 statement coverage, remember/forget).
 
 
+
+# Statement PDF retention: 90 days (owner's call, 14 Oct 2026)
+
+Original statement PDFs are deleted 90 days after `statements.received_at`;
+the statement row, its transactions and `file_hash` (duplicate detection)
+stay. The edge function `purge-old-statement-pdfs` (in the repo,
+`verify_jwt: false`) does the deleting through the Storage API — Supabase
+blocks deleting `storage.objects` with plain SQL — then sets `storage_path`
+to NULL and `pdf_purged_at` to now. It skips statements being re-read
+(`reread_status = 'reading'`) and accepts `{ "dryRun": true }`.
+
+Auth: the `x-cron-secret` header must match Vault's `cron_secret`, checked by
+the service-role-only RPC `check_cron_secret`. pg_cron calls it through
+`private.invoke_purge_old_statement_pdfs(dry_run)` (pg_net). Migration:
+`20261014_purge_old_statement_pdfs.sql`. Dry run from SQL:
+`select private.invoke_purge_old_statement_pdfs(true);` then read the reply
+in `net._http_response`.
+
+App side: with no `storage_path`, `StatementDetailScreen` hides "Ver PDF
+original" and "Volver a leer" and shows a privacy note; the statements list
+shows an alert instead of trying to open a missing file.
+
+**The daily job is NOT scheduled yet.** Schedule it only after the app
+change above is live on the `production` channel (otherwise testers on an
+older JS bundle would hit errors on purged statements):
+
+    select cron.schedule('purge-old-statement-pdfs', '15 8 * * *',
+      $$select private.invoke_purge_old_statement_pdfs()$$);
+
+The first real deletions happen ~17 Dec 2026 (oldest PDF: 17 Sep 2026).
+poquetapp.com's privacy page states the 90-day rule — keep both in sync if
+the period changes (`RETENTION_DAYS` in the edge function).
