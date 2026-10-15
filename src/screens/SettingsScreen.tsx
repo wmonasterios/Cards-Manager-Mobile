@@ -20,7 +20,7 @@ import { hasPin, clearPin } from '../pin';
 import { buildTransactionsCsv } from '../csv';
 import { cancelPaymentReminders, cancelWeeklySummary, requestNotificationPermission } from '../notifications';
 
-const DEMO_INBOX = 'demo.user.7f3a@in.cardsmanager.app';
+const DEMO_INBOX = 'u-demo7f3a@stmts.poquetapp.com';
 
 export function SettingsScreen({ navigation }: any) {
   const { lang, t, setLang } = useLocale();

@@ -4,6 +4,7 @@
 import { DecoratedCard } from './decorate';
 import { ColorTokens } from './theme';
 import { Dict } from './i18n/dict';
+import { shortDay } from './format';
 
 const RING_R = 15;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R;
@@ -80,7 +81,7 @@ export function deriveStatus(cards: DecoratedCard[], todayIso: string, t: Dict, 
     const chips: StatusChip[] = [];
     if (stmtLate) {
       chips.push({
-        text: hasStatement ? `${t.statementWord} ${daysLate} ${t.daysLateWord}` : t.noStatementYet,
+        text: hasStatement ? `${t.statementWord} ${daysLate} ${daysLate === 1 ? t.dayLateWord : t.daysLateWord}` : t.noStatementYet,
         bg: colors.tint2,
         ink: colors.onTint2,
       });
@@ -100,7 +101,7 @@ export function deriveStatus(cards: DecoratedCard[], todayIso: string, t: Dict, 
     }
     if (c.paid && !stmtLate) {
       chips.push({
-        text: urgent || soon ? `${t.cutoffInWord} ${days} ${t.daysWord}` : t.upToDate,
+        text: urgent || soon ? `${t.cutoffInWord} ${days} ${days === 1 ? t.dayWord : t.daysWord}` : t.upToDate,
         bg: urgent ? colors.tint : 'transparent',
         ink: urgent ? colors.accentInk : colors.ink3,
       });
@@ -111,11 +112,11 @@ export function deriveStatus(cards: DecoratedCard[], todayIso: string, t: Dict, 
 
     const sub = stmtLate
       ? hasStatement
-        ? `${t.cutoffLabel} ${c.cutoff} · ${t.nothingReceived}`
+        ? `${t.cutoffLabel} ${shortDay(c.cutoffIso, t, c.cutoff)} · ${t.nothingReceived}`
         : t.noStatementYet
       : c.paid
-        ? `${t.paidWord} · ${t.nextCutoffWord} ${c.cutoff}`
-        : `${t.dueWord} ${c.nextDueLabel ?? c.due} · ${c.balanceText}`;
+        ? `${t.paidWord} · ${t.nextCutoffWord} ${shortDay(nextCutoffIso, t, c.cutoff)}`
+        : `${t.dueWord} ${c.nextDueLabel ?? shortDay(c.dueIso, t, c.due)} · ${c.balanceText}`;
 
     const action: StatusAction = stmtLate ? 'upload' : c.reviewCount > 0 ? 'review' : !c.paid ? 'pay' : 'open';
     const actionLabel = { upload: t.actionUpload, review: t.actionReview, pay: t.actionPay, open: t.actionOpen }[
