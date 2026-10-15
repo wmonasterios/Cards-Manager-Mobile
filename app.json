@@ -11,7 +11,7 @@
       "policy": "appVersion"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.poquet",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
