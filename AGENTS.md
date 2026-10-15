@@ -115,8 +115,9 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
   OTA reaches TestFlight and Play at once. The `production` workflow can be
   triggered by a `vX.Y.Z` tag or by `workflow_dispatch`; last run 14 Oct
   (3e51701, workflow_dispatch: advisor on for everyone + password eye)
-  caught Play and TestFlight up with `main`;
-  no native changes since a270c47, so no new build was needed.
+  caught Play and TestFlight up with `main`; then again 14 Oct (f353bc9,
+  workflow_dispatch: 90-day PDF retention + definer-function lockdown).
+  No native changes since a270c47, so no new build was needed.
 
 # Security: PIN + Face ID (Oct 2026)
 
@@ -349,12 +350,10 @@ App side: with no `storage_path`, `StatementDetailScreen` hides "Ver PDF
 original" and "Volver a leer" and shows a privacy note; the statements list
 shows an alert instead of trying to open a missing file.
 
-**The daily job is NOT scheduled yet.** Schedule it only after the app
-change above is live on the `production` channel (otherwise testers on an
-older JS bundle would hit errors on purged statements):
-
-    select cron.schedule('purge-old-statement-pdfs', '15 8 * * *',
-      $$select private.invoke_purge_old_statement_pdfs()$$);
+**Daily job scheduled 14 Oct 2026** (pg_cron job `purge-old-statement-pdfs`,
+`15 8 * * *` = 03:15 Panama), right after the production OTA (run
+38675000994, f353bc9) that ships the purged-PDF handling. To pause it:
+`select cron.unschedule('purge-old-statement-pdfs');`
 
 The first real deletions happen ~17 Dec 2026 (oldest PDF: 17 Sep 2026).
 poquetapp.com's privacy page states the 90-day rule — keep both in sync if
