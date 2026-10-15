@@ -4,6 +4,7 @@ import { encodeBase64 } from "jsr:@std/encoding/base64";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 
 const corsHeaders = {
@@ -68,7 +69,9 @@ function balanceGap(p: any): number | null {
   return Math.round((bal - (prev - net)) * 100) / 100;
 }
 
-async function extract(messages: unknown[]): Promise<{ input: any; content: unknown; toolUseId: string }> {
+type CallUsage = { model: string; input: number; output: number; cacheRead: number; cacheWrite: number };
+
+async function extract(messages: unknown[]): Promise<{ input: any; content: unknown; toolUseId: string; usage: CallUsage }> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -92,7 +95,19 @@ async function extract(messages: unknown[]): Promise<{ input: any; content: unkn
   const json = await res.json();
   const toolUse = json.content?.find((b: any) => b.type === "tool_use");
   if (!toolUse) throw new Error("The model did not return structured data.");
-  return { input: toolUse.input, content: json.content, toolUseId: toolUse.id };
+  const u = json.usage ?? {};
+  return {
+    input: toolUse.input,
+    content: json.content,
+    toolUseId: toolUse.id,
+    usage: {
+      model: "claude-sonnet-5", // the requested id, so it joins model_prices
+      input: u.input_tokens ?? 0,
+      output: u.output_tokens ?? 0,
+      cacheRead: u.cache_read_input_tokens ?? 0,
+      cacheWrite: u.cache_creation_input_tokens ?? 0,
+    },
+  };
 }
 
 // Parsing regularly takes 30-45+ seconds, long enough that someone waiting on
@@ -124,7 +139,29 @@ async function notify(
 // the reader skipped or misread a line; give it the numbers once and let it
 // look again, keeping whichever reading is closer. Costs a second call only
 // for statements that don't add up.
-async function readStatement(supabase: ReturnType<typeof createClient>, storagePath: string): Promise<any> {
+// Every Claude call's tokens go to ai_usage, so we learn what each user
+// costs (statement reading is the main AI cost). Best-effort, server-only.
+async function logUsage(userId: string, kind: string, statementId: string, calls: CallUsage[]) {
+  try {
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+    await admin.from("ai_usage").insert(
+      calls.map((c) => ({
+        user_id: userId,
+        kind,
+        model: c.model,
+        input_tokens: c.input,
+        output_tokens: c.output,
+        cache_read_tokens: c.cacheRead,
+        cache_write_tokens: c.cacheWrite,
+        statement_id: statementId,
+      })),
+    );
+  } catch {
+    // Never fail a reading over bookkeeping.
+  }
+}
+
+async function readStatement(supabase: ReturnType<typeof createClient>, storagePath: string, calls: CallUsage[] = []): Promise<any> {
   const { data: fileBlob, error: dlErr } = await supabase.storage.from("statements").download(storagePath);
   if (dlErr || !fileBlob) {
     throw new Error(`Could not download the PDF: ${dlErr?.message ?? "unknown error"}`);
@@ -135,6 +172,7 @@ async function readStatement(supabase: ReturnType<typeof createClient>, storageP
     { type: "text", text: EXTRACT_PROMPT_TEXT },
   ];
   const first = await extract([{ role: "user", content: userContent }]);
+  calls.push(first.usage);
   let parsed = first.input;
 
   const firstGap = balanceGap(parsed);
@@ -158,6 +196,7 @@ async function readStatement(supabase: ReturnType<typeof createClient>, storageP
           ],
         },
       ]);
+      calls.push(second.usage);
       const secondGap = balanceGap(second.input);
       if (secondGap !== null && Math.abs(secondGap) < Math.abs(firstGap)) parsed = second.input;
     } catch {
@@ -223,7 +262,10 @@ Deno.serve(async (req: Request) => {
 
       const work = (async () => {
         try {
-          const parsed = await readStatement(supabase, statement.storage_path);
+          const calls: CallUsage[] = [];
+          const parsed = await readStatement(supabase, statement.storage_path, calls).finally(() =>
+            logUsage(statement.user_id, "reread", statementId!, calls),
+          );
           await supabase
             .from("statements")
             .update({ reread_parsed: parsed, reread_status: "ready", reread_error: null })
@@ -261,7 +303,10 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const parsed = await readStatement(supabase, statement.storage_path);
+    const calls: CallUsage[] = [];
+    const parsed = await readStatement(supabase, statement.storage_path, calls).finally(() =>
+      logUsage(statement.user_id, "parse", statementId!, calls),
+    );
 
     await supabase
       .from("statements")

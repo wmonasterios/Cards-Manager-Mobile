@@ -276,7 +276,9 @@ function balanceGap(p: any): number | null {
   return Math.round((bal - (prev - net)) * 100) / 100;
 }
 
-async function extract(messages: unknown[]): Promise<{ input: any; content: unknown; toolUseId: string }> {
+type CallUsage = { model: string; input: number; output: number; cacheRead: number; cacheWrite: number };
+
+async function extract(messages: unknown[]): Promise<{ input: any; content: unknown; toolUseId: string; usage: CallUsage }> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -300,7 +302,19 @@ async function extract(messages: unknown[]): Promise<{ input: any; content: unkn
   const json = await res.json();
   const toolUse = json.content?.find((b: any) => b.type === "tool_use");
   if (!toolUse) throw new Error("The model did not return structured data.");
-  return { input: toolUse.input, content: json.content, toolUseId: toolUse.id };
+  const u = json.usage ?? {};
+  return {
+    input: toolUse.input,
+    content: json.content,
+    toolUseId: toolUse.id,
+    usage: {
+      model: "claude-sonnet-5", // the requested id, so it joins model_prices
+      input: u.input_tokens ?? 0,
+      output: u.output_tokens ?? 0,
+      cacheRead: u.cache_read_input_tokens ?? 0,
+      cacheWrite: u.cache_creation_input_tokens ?? 0,
+    },
+  };
 }
 
 // Runs entirely in-process instead of calling the separate parse-statement
@@ -329,7 +343,9 @@ async function parseAndSaveStatement(
       { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } },
       { type: "text", text: EXTRACT_PROMPT_TEXT },
     ];
+    const calls: CallUsage[] = [];
     const first = await extract([{ role: "user", content: userContent }]);
+    calls.push(first.usage);
     let parsed = first.input;
 
     // Same self-check as parse-statement: if the lines don't reconcile with
@@ -355,6 +371,7 @@ async function parseAndSaveStatement(
             ],
           },
         ]);
+        calls.push(second.usage);
         const secondGap = balanceGap(second.input);
         if (secondGap !== null && Math.abs(secondGap) < Math.abs(firstGap)) parsed = second.input;
       } catch {
@@ -366,6 +383,23 @@ async function parseAndSaveStatement(
       .from("statements")
       .update({ parsed, status: "needs_review", error_message: null, bank: parsed.bank ?? null })
       .eq("id", statementId);
+
+    // AI cost of this reading, for per-user cost tracking (ai_usage). Best-effort.
+    const { data: owner } = await admin.from("statements").select("user_id").eq("id", statementId).maybeSingle();
+    if (owner?.user_id) {
+      await admin.from("ai_usage").insert(
+        calls.map((c) => ({
+          user_id: owner.user_id,
+          kind: "email_parse",
+          model: c.model,
+          input_tokens: c.input,
+          output_tokens: c.output,
+          cache_read_tokens: c.cacheRead,
+          cache_write_tokens: c.cacheWrite,
+          statement_id: statementId,
+        })),
+      ).then(() => {}, () => {});
+    }
 
     const bank = parsed.bank ?? (isEs ? "Tu tarjeta" : "Your card");
     const txCount = parsed.transactions?.length ?? 0;

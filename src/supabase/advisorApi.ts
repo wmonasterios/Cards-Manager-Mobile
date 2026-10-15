@@ -53,16 +53,23 @@ async function uid(): Promise<string> {
 }
 
 export async function getAdvisorStatus(): Promise<AdvisorStatus> {
-  const [access, consent, usage] = await Promise.all([
+  const [access, consent, usage, planId] = await Promise.all([
     supabase.from('advisor_access').select('enabled, monthly_limit').maybeSingle(),
     supabase.from('advisor_consent').select('user_id').maybeSingle(),
     supabase.from('advisor_usage').select('id', { count: 'exact', head: true }).gte('created_at', monthStartIso()),
+    uid().then((id) => supabase.rpc('effective_plan', { uid: id })),
   ]);
   if (access.error) throw access.error;
+  // The monthly limit comes from the plan unless advisor_access overrides it.
+  let planLimit: number | null = null;
+  if (!planId.error && planId.data) {
+    const { data } = await supabase.from('plans').select('advisor_monthly_limit').eq('id', planId.data).maybeSingle();
+    planLimit = data?.advisor_monthly_limit ?? null;
+  }
   return {
     enabled: !!access.data?.enabled,
     consented: !!consent.data,
-    monthlyLimit: access.data?.monthly_limit ?? 100,
+    monthlyLimit: access.data?.monthly_limit ?? planLimit ?? 5,
     usedMonth: usage.count ?? 0,
   };
 }

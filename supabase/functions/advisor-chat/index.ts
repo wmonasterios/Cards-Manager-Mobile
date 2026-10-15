@@ -656,6 +656,13 @@ Deno.serve(async (req: Request) => {
     const { data: consent } = await admin.from("advisor_consent").select("user_id").eq("user_id", user.id).maybeSingle();
     if (!consent) return json({ error: "no_consent" }, 403);
 
+    // Limits come from the user's plan (plans table); advisor_access may
+    // override them per user when its columns are set.
+    const { data: planId } = await admin.rpc("effective_plan", { uid: user.id });
+    const { data: plan } = await admin.from("plans").select("advisor_monthly_limit, advisor_daily_limit").eq("id", planId ?? "free").maybeSingle();
+    const monthlyLimit: number = access.monthly_limit ?? plan?.advisor_monthly_limit ?? 5;
+    const dailyLimit: number = access.daily_limit ?? plan?.advisor_daily_limit ?? 5;
+
     // Limits (one usage row per answered question).
     const t = todayIso();
     const monthStart = `${t.slice(0, 8)}01T05:00:00Z`;
@@ -665,8 +672,8 @@ Deno.serve(async (req: Request) => {
       admin.from("advisor_usage").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", dayStart),
     ]);
     const nextMonth = new Date(Date.UTC(Number(t.slice(0, 4)), Number(t.slice(5, 7)), 1)).toISOString().slice(0, 10);
-    if ((usedMonth ?? 0) >= access.monthly_limit) return json({ error: "monthly_limit", resetsOn: nextMonth, limit: access.monthly_limit }, 429);
-    if ((usedDay ?? 0) >= access.daily_limit) return json({ error: "daily_limit", limit: access.daily_limit }, 429);
+    if ((usedMonth ?? 0) >= monthlyLimit) return json({ error: "monthly_limit", resetsOn: nextMonth, limit: monthlyLimit }, 429);
+    if ((usedDay ?? 0) >= dailyLimit) return json({ error: "daily_limit", limit: dailyLimit }, 429);
 
     // Conversation.
     let conversationId: string | null = typeof body?.conversationId === "string" ? body.conversationId : null;
@@ -772,8 +779,8 @@ Deno.serve(async (req: Request) => {
       answer,
       model,
       remaining: {
-        month: Math.max(0, access.monthly_limit - (usedMonth ?? 0) - 1),
-        day: Math.max(0, access.daily_limit - (usedDay ?? 0) - 1),
+        month: Math.max(0, monthlyLimit - (usedMonth ?? 0) - 1),
+        day: Math.max(0, dailyLimit - (usedDay ?? 0) - 1),
       },
     });
   } catch (e) {
