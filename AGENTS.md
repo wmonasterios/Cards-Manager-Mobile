@@ -116,8 +116,11 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
   triggered by a `vX.Y.Z` tag or by `workflow_dispatch`; last run 14 Oct
   (3e51701, workflow_dispatch: advisor on for everyone + password eye)
   caught Play and TestFlight up with `main`; then again 14 Oct (f353bc9,
-  workflow_dispatch: 90-day PDF retention + definer-function lockdown).
-  No native changes since a270c47, so no new build was needed.
+  workflow_dispatch: 90-day PDF retention + definer-function lockdown); then
+  15 Oct (7aef979, run 38832284232: demo advisor + richer demo, Spanish
+  dates/categories, Insights redesign). No native module changes since
+  a270c47. `ios.supportsTablet` is now false (iPhone only, 15 Oct): native,
+  takes effect with the next `eas build` for the App Store submission.
 
 # Security: PIN + Face ID (Oct 2026)
 
