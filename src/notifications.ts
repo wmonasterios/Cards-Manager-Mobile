@@ -49,12 +49,65 @@ async function cancelAndClear(key: string) {
   await AsyncStorage.removeItem(key);
 }
 
-export async function cancelPaymentReminders() {
+// Cancels every payment reminder the OS has queued for this app, found by its
+// data.type — not just the ids we last stored. Overlapping schedule runs used
+// to orphan reminders whose ids were never saved, so they piled up and all
+// fired together (Oct 2026). Scanning by type also cleans up those leftovers.
+async function cancelAllPaymentReminders() {
   await cancelAndClear(REMINDER_IDS_KEY);
+  try {
+    const queued = await Notifications.getAllScheduledNotificationsAsync();
+    await Promise.all(
+      queued
+        .filter((n) => n.content.data?.type === 'payment_reminder')
+        .map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier).catch(() => {})),
+    );
+  } catch {
+    // Best-effort — the stored-id cancel above already ran.
+  }
 }
 
-export async function schedulePaymentReminders(cards: DecoratedCard[]) {
-  await cancelAndClear(REMINDER_IDS_KEY);
+// Every schedule/cancel goes through this queue, so a run never starts while
+// another is still between its cancel and its new schedules.
+let reminderQueue: Promise<void> = Promise.resolve();
+function enqueue(task: () => Promise<void>): Promise<void> {
+  reminderQueue = reminderQueue.then(task, task).catch(() => {});
+  return reminderQueue;
+}
+
+export function cancelPaymentReminders(): Promise<void> {
+  return enqueue(cancelAllPaymentReminders);
+}
+
+export function schedulePaymentReminders(cards: DecoratedCard[], lang: Lang = 'en'): Promise<void> {
+  return enqueue(() => doSchedulePaymentReminders(cards, lang));
+}
+
+function reminderText(lang: Lang, name: string, kind: string, amount: string, balance: string, min: string) {
+  if (lang === 'es') {
+    return {
+      title:
+        kind === 'full'
+          ? `${name}: pago total vence en 3 días`
+          : kind === 'min'
+            ? `${name}: pago mínimo vence en 3 días`
+            : `${name} vence en 3 días`,
+      body: kind === 'full' ? `Pago total ${amount}` : `${balance} · mínimo ${min}`,
+    };
+  }
+  return {
+    title:
+      kind === 'full'
+        ? `${name} full payment due in 3 days`
+        : kind === 'min'
+          ? `${name} minimum due in 3 days`
+          : `${name} due in 3 days`,
+    body: kind === 'full' ? `Full payment ${amount}` : `${balance} · minimum ${min}`,
+  };
+}
+
+async function doSchedulePaymentReminders(cards: DecoratedCard[], lang: Lang) {
+  await cancelAllPaymentReminders();
   const granted = await hasNotificationPermission();
   if (!granted) return;
 
@@ -68,15 +121,10 @@ export async function schedulePaymentReminders(cards: DecoratedCard[]) {
       const due = new Date(ev.iso + 'T09:00:00');
       const fireAt = new Date(due.getTime() - 3 * 24 * 60 * 60 * 1000);
       if (fireAt.getTime() <= Date.now()) continue;
+      const text = reminderText(lang, card.displayName, ev.kind, ev.amountText, card.balanceText, card.minText);
       const id = await Notifications.scheduleNotificationAsync({
         content: {
-          title:
-            ev.kind === 'full'
-              ? `${card.displayName} full payment due in 3 days`
-              : ev.kind === 'min'
-                ? `${card.displayName} minimum due in 3 days`
-                : `${card.displayName} due in 3 days`,
-          body: ev.kind === 'full' ? `Full payment ${ev.amountText}` : `${card.balanceText} · minimum ${card.minText}`,
+          ...text,
           data: { cardId: card.id, type: 'payment_reminder' },
         },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fireAt },
@@ -91,16 +139,22 @@ export async function cancelWeeklySummary() {
   await cancelAndClear(WEEKLY_ID_KEY);
 }
 
-export async function scheduleWeeklySummary() {
+export async function scheduleWeeklySummary(lang: Lang = 'en') {
   await cancelAndClear(WEEKLY_ID_KEY);
   const granted = await hasNotificationPermission();
   if (!granted) return;
 
   const id = await Notifications.scheduleNotificationAsync({
-    content: {
-      title: 'Your weekly summary is ready',
-      body: 'Open Cards Manager to see this week’s spending and upcoming due dates.',
-    },
+    content:
+      lang === 'es'
+        ? {
+            title: 'Tu resumen semanal está listo',
+            body: 'Abre Poquet para ver tus gastos de la semana y tus próximos pagos.',
+          }
+        : {
+            title: 'Your weekly summary is ready',
+            body: 'Open Poquet to see this week’s spending and upcoming due dates.',
+          },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
       weekday: 1, // Sunday
