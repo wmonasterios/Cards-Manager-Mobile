@@ -21,6 +21,10 @@ export function InsightsScreen({ navigation }: any) {
   const [selCat, setSelCat] = useState<string | null>(null);
   const [selWeek, setSelWeek] = useState<number | null>(null);
   const [showAllTx, setShowAllTx] = useState(false);
+  // Card filter folds into one row under the month; opening it shows the chips.
+  const [cardsOpen, setCardsOpen] = useState(false);
+  // With a category picked, the other categories fold away until asked for.
+  const [showOtherCats, setShowOtherCats] = useState(false);
 
   const toggleCard = (id: string) => {
     setExcludedCardIds((prev) => {
@@ -56,6 +60,7 @@ export function InsightsScreen({ navigation }: any) {
     setSelCat(null);
     setSelWeek(null);
     setShowAllTx(false);
+    setShowOtherCats(false);
   };
 
   const analysis = useMemo(
@@ -92,6 +97,7 @@ export function InsightsScreen({ navigation }: any) {
   const pickCategory = (name: string) => {
     setSelCat((prev) => (prev === name ? null : name));
     setShowAllTx(false);
+    setShowOtherCats(false);
   };
   const pickWeek = (idx: number) => {
     setSelWeek((prev) => (prev === idx ? null : idx));
@@ -100,7 +106,56 @@ export function InsightsScreen({ navigation }: any) {
 
   const txWord = (n: number) => (lang === 'es' ? (n === 1 ? 'transacción' : 'transacciones') : n === 1 ? 'transaction' : 'transactions');
   const pctText = (share: number) => `${share < 10 ? share.toFixed(1) : Math.round(share)}%`;
-  const sectionTitle = (base: string) => (selWeek === null ? base : `${base} · W${selWeek + 1}`);
+  const weekTag = (i: number) => `${lang === 'es' ? 'S' : 'W'}${i + 1}`;
+  const sectionTitle = (base: string) => (selWeek === null ? base : `${base} · ${weekTag(selWeek)}`);
+
+  const showCardFilter = !isDemo && cards.length > 1;
+  const cardFilter = showCardFilter ? (
+    <View style={styles.section}>
+      <View style={styles.filterCard}>
+        <Pressable
+          onPress={() => setCardsOpen((v) => !v)}
+          style={styles.filterHead}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: cardsOpen }}
+        >
+          <Text style={styles.filterLabel}>{lang === 'es' ? 'TARJETAS' : 'CARDS'}</Text>
+          <Text style={styles.filterValue}>
+            {excludedCardIds.size === 0
+              ? `${lang === 'es' ? 'Todas' : 'All'} · ${cards.length}`
+              : `${includedCards.length} ${lang === 'es' ? 'de' : 'of'} ${cards.length}`}
+          </Text>
+          <Ionicons name={cardsOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.ink3} />
+        </Pressable>
+        {cardsOpen && (
+          <View style={[styles.chipRow, { marginTop: 12 }]}>
+            <Pressable
+              onPress={() => setExcludedCardIds(new Set())}
+              style={[styles.chip, excludedCardIds.size === 0 && styles.chipActive]}
+            >
+              <Text style={[styles.chipText, excludedCardIds.size === 0 && styles.chipTextActive]}>
+                {lang === 'es' ? 'Todas' : 'All'}
+              </Text>
+            </Pressable>
+            {cards.map((c) => {
+              const active = excludedCardIds.size > 0 && !excludedCardIds.has(c.id);
+              return (
+                <Pressable
+                  key={c.id}
+                  onPress={() => (excludedCardIds.size === 0 ? pickCard(c.id) : toggleCard(c.id))}
+                  style={[styles.chip, active && styles.chipActive]}
+                >
+                  <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>
+                    {c.displayName} {c.last4}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+      </View>
+    </View>
+  ) : null;
 
   if (cards.length === 0) {
     return (
@@ -121,36 +176,9 @@ export function InsightsScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {!isDemo && cards.length > 1 && (
-          <View style={styles.section}>
-            <View style={styles.chipRow}>
-              <Pressable
-                onPress={() => setExcludedCardIds(new Set())}
-                style={[styles.chip, excludedCardIds.size === 0 && styles.chipActive]}
-              >
-                <Text style={[styles.chipText, excludedCardIds.size === 0 && styles.chipTextActive]}>
-                  {lang === 'es' ? 'Todas' : 'All'}
-                </Text>
-              </Pressable>
-              {cards.map((c) => {
-                const active = !excludedCardIds.has(c.id);
-                return (
-                  <Pressable
-                    key={c.id}
-                    onPress={() => toggleCard(c.id)}
-                    style={[styles.chip, active && styles.chipActive]}
-                  >
-                    <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>
-                      {c.displayName} {c.last4}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        )}
-
         {!analysis || monthIdx < 0 ? (
+          <>
+          {cardFilter}
           <View style={styles.section}>
             <View style={styles.emptyCard}>
               <Text style={styles.emptyBody}>
@@ -160,6 +188,7 @@ export function InsightsScreen({ navigation }: any) {
               </Text>
             </View>
           </View>
+          </>
         ) : (
           <>
             {/* Month stepper */}
@@ -184,6 +213,8 @@ export function InsightsScreen({ navigation }: any) {
                 </Pressable>
               </View>
             </View>
+
+            {cardFilter}
 
             {/* Spending by week — the primary drill-down control, so it sits first */}
             <View style={styles.section}>
@@ -216,12 +247,12 @@ export function InsightsScreen({ navigation }: any) {
                               styles.weekBar,
                               {
                                 height: `${Math.max((v / analysis.weekMax) * 100, 2)}%`,
-                                backgroundColor: active || isPeak ? colors.accent : colors.line,
+                                backgroundColor: active || isPeak ? colors.accent : analysis.sel ? analysis.sel.color : colors.line,
                               },
                             ]}
                           />
                         </View>
-                        <Text style={styles.weekLabel}>{`${lang === 'es' ? 'S' : 'W'}${i + 1}`}</Text>
+                        <Text style={styles.weekLabel}>{weekTag(i)}</Text>
                       </Pressable>
                     );
                   })}
@@ -265,7 +296,13 @@ export function InsightsScreen({ navigation }: any) {
                     </Text>
                     <Text style={styles.donutSub} numberOfLines={2}>
                       {analysis.sel
-                        ? `${pctText(analysis.sel.share)} ${lang === 'es' ? 'del gasto' : 'of spending'} · ${analysis.sel.count} tx`
+                        ? `${pctText(analysis.sel.share)} ${
+                            selWeek === null ? (lang === 'es' ? 'del mes' : 'of the month') : lang === 'es' ? 'de la semana' : 'of the week'
+                          }${
+                            analysis.selDelta !== null
+                              ? ` · ${analysis.selDelta >= 0 ? '+' : ''}${analysis.selDelta}% ${lang === 'es' ? 'vs. mes anterior' : 'vs. last month'}`
+                              : ''
+                          }`
                         : analysis.delta === null
                           ? t.tapCategoryHint
                           : `${analysis.delta >= 0 ? '+' : ''}${analysis.delta}% ${lang === 'es' ? 'vs. mes anterior' : 'vs. last month'}`}
@@ -284,7 +321,7 @@ export function InsightsScreen({ navigation }: any) {
                 </View>
               ) : (
                 <View style={styles.listCard}>
-                  {analysis.categories.map((c) => (
+                  {(analysis.sel && !showOtherCats ? [analysis.sel] : analysis.categories).map((c) => (
                     <Pressable
                       key={c.name}
                       style={[styles.catRow, selCat === c.name && { backgroundColor: colors.tint }]}
@@ -326,6 +363,23 @@ export function InsightsScreen({ navigation }: any) {
                       <Text style={styles.catAmount}>{fmtMoney(c.amount)}</Text>
                     </Pressable>
                   ))}
+                  {analysis.sel && analysis.categories.length > 1 && (
+                    <Pressable
+                      onPress={() => setShowOtherCats((v) => !v)}
+                      style={styles.otherCatsBtn}
+                      accessibilityRole="button"
+                      accessibilityState={{ expanded: showOtherCats }}
+                    >
+                      <Text style={styles.otherCatsText}>
+                        {showOtherCats
+                          ? lang === 'es' ? 'Ocultar las otras categorías' : 'Hide the other categories'
+                          : lang === 'es'
+                            ? `Ver las otras ${analysis.categories.length - 1} categorías`
+                            : `See the other ${analysis.categories.length - 1} categories`}
+                      </Text>
+                      <Ionicons name={showOtherCats ? 'chevron-up' : 'chevron-down'} size={16} color={colors.ink3} />
+                    </Pressable>
+                  )}
                 </View>
               )}
             </View>
@@ -333,7 +387,7 @@ export function InsightsScreen({ navigation }: any) {
             {/* By card — a second axis on the same month/week, always across every
                 card (not whatever the top filter already narrowed to), so tapping
                 it is always a useful shortcut rather than a no-op. */}
-            {cards.length > 1 && cardBreakdown.length > 0 && (
+            {!selCat && cards.length > 1 && cardBreakdown.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>{sectionTitle(t.byCard)}</Text>
                 <View style={styles.listCard}>
@@ -361,7 +415,7 @@ export function InsightsScreen({ navigation }: any) {
             )}
 
             {/* Installments: what's fixed this month and the plans still running. */}
-            {(activeSeries.length > 0 || analysis.instSpent > 0) && (
+            {!selCat && (activeSeries.length > 0 || analysis.instSpent > 0) && (
               <View style={styles.section}>
                 <View style={styles.sectionHeaderRow}>
                   <Text style={styles.sectionTitle}>{lang === 'es' ? 'Pagos en cuotas' : 'Instalments'}</Text>
@@ -442,7 +496,7 @@ export function InsightsScreen({ navigation }: any) {
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionTitle}>
                   {t.transactions}
-                  {selWeek !== null ? ` · W${selWeek + 1}` : ''}
+                  {selWeek !== null ? ` · ${weekTag(selWeek)}` : ''}
                   {selCat !== null ? ` · ${categoryLabel(selCat, lang)}` : ''}
                 </Text>
                 <Pressable onPress={() => navigation.navigate('Transactions', {})} hitSlop={6}>
@@ -590,6 +644,27 @@ function makeStyles(colors: ColorTokens) {
       alignItems: 'center',
     },
     moreBtnText: { fontSize: 12.5, fontWeight: '500', color: colors.ink },
+    filterCard: {
+      padding: 12,
+      paddingHorizontal: 14,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.line,
+    },
+    filterHead: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 24 },
+    filterLabel: { flex: 1, fontSize: 11, letterSpacing: 1.2, color: colors.ink3 },
+    filterValue: { fontSize: 13.5, fontWeight: '600', color: colors.ink },
+    otherCatsBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 13,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.line,
+    },
+    otherCatsText: { fontSize: 13, fontWeight: '500', color: colors.ink2 },
 
     weekHeadRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 },
     weekAvgNote: { fontSize: 11, color: colors.ink3 },
