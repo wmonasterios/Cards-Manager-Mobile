@@ -118,7 +118,11 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
   caught Play and TestFlight up with `main`; then again 14 Oct (f353bc9,
   workflow_dispatch: 90-day PDF retention + definer-function lockdown); then
   15 Oct (7aef979, run 38832284232: demo advisor + richer demo, Spanish
-  dates/categories, Insights redesign). No native module changes since
+  dates/categories, Insights redesign); then 16 Oct (e120e3e, run
+  38932834199: dedupe payment reminders, localized reminder text — reminders
+  are now cancelled by scanning the OS queue for `data.type ===
+  'payment_reminder'` and runs are serialized, because overlapping runs had
+  orphaned dozens of identical reminders). No native module changes since
   a270c47. `ios.supportsTablet` is now false (iPhone only, 15 Oct): native,
   takes effect with the next `eas build` for the App Store submission.
 - **App Store submission (15 Oct 2026).** Build 8 (1.1.0, iPhone only, new
