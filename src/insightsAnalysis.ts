@@ -50,6 +50,9 @@ export type InsightsAnalysis = {
   avgWeek: number;
   delta: number | null;
   sel: CategorySlice | null;
+  // With a category selected: its change vs. the previous month (null when
+  // the previous month had none of it).
+  selDelta: number | null;
 };
 
 function flattenTx(cards: DecoratedCard[]): DecoratedTransaction[] {
@@ -128,17 +131,21 @@ export function analyseInsights(
       name: c.name,
       color: c.color,
       dash: `${len} ${CIRCUMFERENCE - len}`,
-      offset: -cursor,
-      width: selCat === null || selCat === c.name ? 13 : 8,
-      opacity: selCat === null || selCat === c.name ? 1 : 0.38,
+      // A selected category starts at 12 o'clock, so its share reads at a glance.
+      offset: selCat === c.name ? 0 : -cursor,
+      // A selected category stands alone on the ring: the others hide, so
+      // the track shows the rest of the month as empty.
+      width: selCat === c.name ? 16 : 13,
+      opacity: selCat === null || selCat === c.name ? 1 : 0,
     };
     cursor += (c.share / 100) * CIRCUMFERENCE;
     return arc;
   });
 
-  // Always the whole month, regardless of weekIdx — this drives the week chart itself.
+  // Always the whole month, regardless of weekIdx — this drives the week chart
+  // itself. With a category selected, only that category's spending.
   const weekSums = [0, 0, 0, 0, 0];
-  for (const t of monthSpendTx) {
+  for (const t of selCat === null ? monthSpendTx : monthSpendTx.filter((x) => x.category === selCat)) {
     weekSums[weekOf(t.iso)] += -t.amount;
   }
   const weekMax = Math.max(...weekSums, 1);
@@ -167,10 +174,12 @@ export function analyseInsights(
   const delta = weekIdx === null && prevTx.length >= 3 && prevSpent ? Math.round(((spent - prevSpent) / prevSpent) * 100) : null;
 
   const sel = categories.find((c) => c.name === selCat) ?? null;
+  const prevCat = sel ? prevTx.filter((t) => t.category === sel.name).reduce((n, t) => n - t.amount, 0) : 0;
+  const selDelta = sel && weekIdx === null && prevCat > 0 ? Math.round(((sel.amount - prevCat) / prevCat) * 100) : null;
 
   const instSpent = spendTx.filter(isInstalment).reduce((n, t) => n - t.amount, 0);
 
-  return { txCount: monthSpendTx.length, spent, instSpent, categories, arcs, filteredTx, weekSums, weekMax, avgWeek, delta, sel };
+  return { txCount: monthSpendTx.length, spent, instSpent, categories, arcs, filteredTx, weekSums, weekMax, avgWeek, delta, sel, selDelta };
 }
 
 export type CardSlice = { cardId: string; name: string; amount: number; count: number; share: number };
