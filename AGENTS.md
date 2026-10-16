@@ -121,6 +121,15 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
   dates/categories, Insights redesign). No native module changes since
   a270c47. `ios.supportsTablet` is now false (iPhone only, 15 Oct): native,
   takes effect with the next `eas build` for the App Store submission.
+- **App Store submission (15 Oct 2026).** Build 8 (1.1.0, iPhone only, new
+  icon/splash) submitted for App Store review, manual release. Listing name
+  "Poquet: Credit Card Tracker" / "Poquet: Tarjetas de crédito"; primary
+  language English (U.S.) with Spanish (Mexico); age rating overridden to
+  18+ (Terms require 18); China mainland, Mac and Vision Pro excluded; EU
+  DSA trader declared. Screenshots uploaded at 1206×2622 (ASC's "medium
+  display" slot). Review account `wmonasterios+applereview@gmail.com` has
+  sample data, plan `pro` (`plan_source = 'review'`) and no advisor consent
+  on purpose. Full answers: Drive kit `06-Textos/03`.
 
 # Security: PIN + Face ID (Oct 2026)
 
