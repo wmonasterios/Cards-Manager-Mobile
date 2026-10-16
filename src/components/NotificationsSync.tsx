@@ -82,20 +82,20 @@ export function NotificationsSync() {
   useEffect(() => {
     if (!settingsLoaded || !cardsLoaded || isDemo || !notifPrimerSeen) return;
     if (reminder) {
-      schedulePaymentReminders(cards);
+      schedulePaymentReminders(cards, lang);
     } else {
       cancelPaymentReminders();
     }
-  }, [reminder, cards, isDemo, settingsLoaded, cardsLoaded, notifPrimerSeen]);
+  }, [reminder, cards, lang, isDemo, settingsLoaded, cardsLoaded, notifPrimerSeen]);
 
   useEffect(() => {
     if (!settingsLoaded) return;
     if (weekly) {
-      scheduleWeeklySummary();
+      scheduleWeeklySummary(lang);
     } else {
       cancelWeeklySummary();
     }
-  }, [weekly, settingsLoaded]);
+  }, [weekly, lang, settingsLoaded]);
 
   useEffect(() => {
     if (notifyNew && notifPrimerSeen && session?.user.id) {
