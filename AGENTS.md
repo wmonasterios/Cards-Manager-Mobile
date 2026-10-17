@@ -134,6 +134,19 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
   display" slot). Review account `wmonasterios+applereview@gmail.com` has
   sample data, plan `pro` (`plan_source = 'review'`) and no advisor consent
   on purpose. Full answers: Drive kit `06-Textos/03`.
+- **Google Play production submission (17 Oct 2026).** versionCode 3 (1.1.0,
+  new icon/splash) sent to production review (submission 3) with managed
+  publishing ON — approval doesn't auto-publish; the owner presses Publish.
+  178 countries, listing es-419 + en-US, Data safety updated to 9 data
+  types (all collected, none shared, App functionality), login credentials
+  = the same Apple review account. When it's published, switch poquet-web's
+  `ANDROID_TEST_URL` to `https://play.google.com/store/apps/details?id=com.poquet`
+  and update `public/llms.txt`.
+- **TODO 1.2.0: enable R8 minification for Android release builds**
+  (`expo-build-properties`, `android.enableMinifyInReleaseBuilds`) — Play
+  flags "DEX optimization below threshold" (obfuscation 1%), deadline Feb
+  2027. Native: needs a new build; test sign-in, push and PDF upload after
+  enabling it, since R8 can strip classes reflection-based libraries need.
 
 # Security: PIN + Face ID (Oct 2026)
 
