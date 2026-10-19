@@ -55,3 +55,14 @@ revoke all on function private.invoke_push_journey(boolean) from public, anon, a
 --     $$select private.invoke_push_journey()$$);
 -- Hourly 09:05–20:05 Panama (UTC-5). The function also refuses to send
 -- outside 09:00–20:00 Panama.
+
+-- Tap tracking (added the same day): the push carries its push_log id and
+-- the app calls mark_push_opened() when the person taps it.
+alter table public.push_log add column if not exists opened_at timestamptz;
+create or replace function public.mark_push_opened(p_id bigint)
+returns void language sql security definer set search_path = '' as $$
+  update public.push_log set opened_at = coalesce(opened_at, now())
+  where id = p_id and user_id = (select auth.uid())
+$$;
+revoke all on function public.mark_push_opened(bigint) from public, anon;
+grant execute on function public.mark_push_opened(bigint) to authenticated;
