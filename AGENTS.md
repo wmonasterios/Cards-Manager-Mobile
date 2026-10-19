@@ -419,3 +419,43 @@ shows an alert instead of trying to open a missing file.
 The first real deletions happen ~17 Dec 2026 (oldest PDF: 17 Sep 2026).
 poquetapp.com's privacy page states the 90-day rule — keep both in sync if
 the period changes (`RETENTION_DAYS` in the edge function).
+
+# Push journey (server nudges, 18 Oct 2026)
+
+Server-sent pushes that walk a new user to the main milestones, plus monthly
+reminders. Edge function `push-journey` (in the repo, `verify_jwt: false`,
+auth via `x-cron-secret` + `check_cron_secret` like the PDF purge), migration
+`20261018_push_journey.sql`. **Scheduled 18 Oct 2026**: pg_cron job
+`push-journey`, `5 14-23,0,1 * * *` = hourly 09:05–20:05 Panama; the function
+also refuses to send outside 09–20 Panama. Pause:
+`select cron.unschedule('push-journey');`
+
+- Messages (copy approved by the owner, es/en, no amounts — lock screen):
+  welcome (<2 days old), no_statement_1 (+1d) / no_statement_3 (+3d) without
+  a statement, advisor 💬 (+1d after the first statement, never asked),
+  forwarding 📩 (+2d, no statement ever arrived by email), second_card 💳
+  (one card, 5–21 days old), habit 🎉 (a card got a statement 20+ days after
+  its first one, within the last 7 days — same-day backfills don't count),
+  due_today (due date today, not `paid_this_cycle`), after_cutoff (cutoff +4
+  to +20 days without a newer statement). Monthly ones take priority. Each
+  journey step has a time window so old accounts aren't flooded.
+- Limits: 1 push per ~20 h and 3 per 7 days per user. `push_log` has one row
+  per send, unique per (user_id, kind, ref) — journey steps go out once,
+  monthly ones once per card + date (`ref = cardId:date`). Review accounts
+  (`plan_source = 'review'`) are skipped; `DeviceNotRegistered` clears the
+  token.
+- Opt-out: `profiles.push_reminders` (mirrors the app's "Payment reminders"
+  toggle; gates due_today/after_cutoff) and `profiles.push_updates` ("New
+  statement arrived"; gates journey steps), synced by `NotificationsSync`.
+- Taps: the push data carries `type: 'journey'`, `screen`, `cardId`, `logId`;
+  the app routes the tap and calls `mark_push_opened(logId)`, which sets
+  `push_log.opened_at` (tap rate per kind).
+- Editing copy: it lives in `COPY` in the edge function — edit, commit,
+  redeploy; no app update. Already-sent steps are not re-sent.
+- Testing: POST with `{ "dryRun": true, "ignoreHours": true }` (optionally
+  `"onlyUser": "<uuid>"`) via `net.http_post` with the Vault `cron_secret`,
+  then read `net._http_response`.
+- The local 3-day-before reminder (`src/notifications.ts`) no longer shows
+  amounts either.
+- Next (not built): owner-only manual/mass send page; metrics panel per
+  milestone; email (separate sending subdomain, unsubscribe link).
