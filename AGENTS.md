@@ -122,7 +122,12 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
   38932834199: dedupe payment reminders, localized reminder text — reminders
   are now cancelled by scanning the OS queue for `data.type ===
   'payment_reminder'` and runs are serialized, because overlapping runs had
-  orphaned dozens of identical reminders). No native module changes since
+  orphaned dozens of identical reminders); then 18 Oct (c59a0c4, run
+  39187461437: large amounts single-line with `adjustsFontSizeToFit` and
+  `maxFontSizeMultiplier={1.3}` — the Home total wrapped on a Galaxy S23
+  Ultra; language now follows the device via `Intl` and only an explicit
+  Settings pick is persisted, under `langChoice` — the old `lang` key also
+  saved a wrong auto-detected 'en' on Android, so it's ignored now). No native module changes since
   a270c47. `ios.supportsTablet` is now false (iPhone only, 15 Oct): native,
   takes effect with the next `eas build` for the App Store submission.
 - **App Store submission (15 Oct 2026).** Build 8 (1.1.0, iPhone only, new
@@ -139,9 +144,13 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
   publishing ON — approval doesn't auto-publish; the owner presses Publish.
   178 countries, listing es-419 + en-US, Data safety updated to 9 data
   types (all collected, none shared, App functionality), login credentials
-  = the same Apple review account. When it's published, switch poquet-web's
-  `ANDROID_TEST_URL` to `https://play.google.com/store/apps/details?id=com.poquet`
-  and update `public/llms.txt`.
+  = the same Apple review account. **Published 18 Oct 2026** — live at
+  `https://play.google.com/store/apps/details?id=com.poquet`; poquet-web's
+  `ANDROID_TEST_URL` and `public/llms.txt` now point there (poquet-web
+  e1bb9e9). Open-test users get versionCode 3 too (Play serves the highest
+  versionCode across a user's tracks). versionCode 2 likely predates
+  `expo-secure-store` (8 Oct), so it can't apply current OTAs and falls back
+  to its embedded bundle — anyone still on it must update from the store.
 - **TODO 1.2.0: enable R8 minification for Android release builds**
   (`expo-build-properties`, `android.enableMinifyInReleaseBuilds`) — Play
   flags "DEX optimization below threshold" (obfuscation 1%), deadline Feb
