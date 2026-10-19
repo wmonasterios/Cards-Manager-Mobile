@@ -180,7 +180,7 @@ export function HomeScreen({ navigation, route }: any) {
                 <Ionicons name={hideAmounts ? 'eye-off-outline' : 'eye-outline'} size={16} color={colors.ink3} />
               </Pressable>
             </View>
-            <Text style={styles.total}>{mask(money('US$', totalOwed))}</Text>
+            <Text style={styles.total} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1.3}>{mask(money('US$', totalOwed))}</Text>
             <Text style={styles.totalNote}>
               {cards.length} {isDemo ? (lang === 'es' ? 'tarjetas de ejemplo' : 'sample cards') : t.cardsWord} ·{' '}
               {unpaid.length} {t.withBalance}

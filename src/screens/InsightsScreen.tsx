@@ -284,7 +284,7 @@ export function InsightsScreen({ navigation }: any) {
                     ))}
                   </Svg>
                   <Pressable onPress={() => { setSelCat(null); setShowAllTx(false); }} style={styles.donutCenter}>
-                    <Text style={styles.donutAmount} numberOfLines={1}>
+                    <Text style={styles.donutAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1.3}>
                       {fmtMoney(analysis.sel ? analysis.sel.amount : analysis.spent)}
                     </Text>
                     <Text style={styles.donutLabel} numberOfLines={1}>

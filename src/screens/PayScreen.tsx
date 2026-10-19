@@ -146,7 +146,7 @@ export function PayScreen({ route, navigation }: Props) {
               style={styles.customInput}
             />
           )}
-          <Text style={styles.bigAmount}>{money('US$', payAmount)}</Text>
+          <Text style={styles.bigAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1.3}>{money('US$', payAmount)}</Text>
           <Text style={styles.afterNote}>{t.balanceAfter} {money('US$', afterAmount)}</Text>
 
           <Text style={[styles.label, { marginTop: 22 }]}>{t.dateLabel.toUpperCase()}</Text>
