@@ -4,6 +4,7 @@ import { useAppSettings } from '../context/AppSettingsContext';
 import { useCards } from '../context/CardsContext';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../i18n/LocaleContext';
+import { supabase } from '../supabase/client';
 import {
   navigateToStatementReview,
   navigateToStatementDetail,
@@ -42,6 +43,14 @@ function handleNotificationResponse(response: Notifications.NotificationResponse
       if (typeof cardId === 'string') navigateToCardDetail(cardId);
       return;
     case 'journey':
+      // Tap tracking: push_log.opened_at, so each message's tap rate is known.
+      if (typeof data.logId === 'number') {
+        void (async () => {
+          try {
+            await supabase.rpc('mark_push_opened', { p_id: data.logId });
+          } catch {}
+        })();
+      }
       // Server nudges (push-journey edge function) say where to land.
       if (data.screen === 'card' && typeof cardId === 'string') navigateToCardDetail(cardId);
       else if (data.screen === 'advisor') navigateToAdvisor();

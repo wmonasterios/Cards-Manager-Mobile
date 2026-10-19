@@ -9,7 +9,9 @@
 // Rules: one push per user per ~day (20 h), at most 3 per 7 days, only
 // 09:00–20:00 Panama, never amounts in the text (lock screen). Every send is
 // logged in public.push_log, unique per (user, kind, ref), so each journey
-// step goes out once and monthly ones once per card + date.
+// step goes out once and monthly ones once per card + date. The log id rides
+// in the push data; the app reports taps through mark_push_opened(), which
+// fills push_log.opened_at (tap rate per message).
 //
 // Body (optional JSON): { "dryRun": true } returns what would be sent;
 // { "onlyUser": "<uuid>" } limits the run to one account (testing);
@@ -46,16 +48,16 @@ const COPY: Record<Kind, Record<Lang, { title: string; body: string }>> = {
     en: { title: "No passwords, no fuss", body: "We never ask for bank passwords, and the PDF is deleted after 90 days." },
   },
   forwarding: {
-    es: { title: "Que llegue solo cada mes", body: "Reenvía tus estados desde Gmail una vez y no vuelves a subir nada." },
-    en: { title: "Let it arrive on its own", body: "Set up forwarding from Gmail once and never upload again." },
+    es: { title: "Que llegue solo cada mes 📩", body: "Reenvía tus estados desde Gmail una vez y no vuelves a subir nada." },
+    en: { title: "Let it arrive on its own 📩", body: "Set up forwarding from Gmail once and never upload again." },
   },
   second_card: {
-    es: { title: "¿Tienes otra tarjeta?", body: "Súmala y mira todo lo que debes en un solo lugar." },
-    en: { title: "Got another card?", body: "Add it and see everything you owe in one place." },
+    es: { title: "¿Tienes otra tarjeta? 💳", body: "Súmala y mira todo lo que debes en un solo lugar." },
+    en: { title: "Got another card? 💳", body: "Add it and see everything you owe in one place." },
   },
   advisor: {
-    es: { title: "Pregúntale a tu Asesor", body: "«¿Qué tarjeta pago primero?» Te responde con tus propios números." },
-    en: { title: "Ask your Advisor", body: "\"Which card should I pay first?\" It answers with your own numbers." },
+    es: { title: "Pregúntale a tu Asesor 💬", body: "«¿Qué tarjeta pago primero?» Te responde con tus propios números." },
+    en: { title: "Ask your Advisor 💬", body: "\"Which card should I pay first?\" It answers with your own numbers." },
   },
   due_today: {
     es: { title: "Hoy vence tu {card}", body: "Mejor saberlo hoy. Toca para ver el detalle." },
@@ -240,6 +242,13 @@ Deno.serve(async (req) => {
   const errors: string[] = [];
   for (let i = 0; i < plan.length; i += 100) {
     const batch = plan.slice(i, i + 100);
+    // Log first so the row id can travel in the push (tap tracking).
+    const { data: rows, error: logErr } = await admin.from("push_log").insert(batch.map((m) => ({
+      user_id: m.userId, kind: m.kind, ref: m.ref, title: m.title, body: m.body, status: "pending",
+    }))).select("id, user_id, kind, ref");
+    if (logErr || !rows) { errors.push(logErr?.message ?? "log insert failed"); continue; }
+    const idOf = (m: typeof batch[number]) =>
+      rows.find((r) => r.user_id === m.userId && r.kind === m.kind && r.ref === m.ref)?.id;
     let tickets: any[] = [];
     try {
       const res = await fetch("https://exp.host/--/api/v2/push/send", {
@@ -250,7 +259,7 @@ Deno.serve(async (req) => {
           title: m.title,
           body: m.body,
           sound: "default",
-          data: { type: "journey", kind: m.kind, screen: SCREEN[m.kind], cardId: m.cardId },
+          data: { type: "journey", kind: m.kind, screen: SCREEN[m.kind], cardId: m.cardId, logId: idOf(m) },
         }))),
       });
       tickets = (await res.json())?.data ?? [];
@@ -262,10 +271,9 @@ Deno.serve(async (req) => {
       const t = tickets[j];
       const okSend = t?.status === "ok";
       if (okSend) sent++;
-      await admin.from("push_log").insert({
-        user_id: m.userId, kind: m.kind, ref: m.ref, title: m.title, body: m.body,
+      await admin.from("push_log").update({
         status: okSend ? "sent" : "error", error: okSend ? null : (t?.message ?? "no ticket"),
-      });
+      }).eq("id", idOf(m));
       // Stale token: stop trying that device.
       if (t?.details?.error === "DeviceNotRegistered") {
         await admin.from("profiles").update({ push_token: null }).eq("id", m.userId).eq("push_token", m.token);
