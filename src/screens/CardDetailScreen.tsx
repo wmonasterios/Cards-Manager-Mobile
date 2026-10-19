@@ -218,22 +218,22 @@ export function CardDetailScreen({ route, navigation }: Props) {
         <View style={styles.tiles}>
           <View style={styles.tile}>
             <Text style={styles.tileLabel}>{balanceLabel}</Text>
-            <Text style={styles.tileValue}>{card.balanceText}</Text>
+            <Text style={styles.tileValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1.3}>{card.balanceText}</Text>
             <Text style={styles.tileNote}>{card.paidNote}</Text>
           </View>
           <View style={styles.tile}>
             <Text style={styles.tileLabel}>{t.payDue}</Text>
-            <Text style={styles.tileValue}>{card.dueShort}</Text>
+            <Text style={styles.tileValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1.3}>{card.dueShort}</Text>
             <Text style={[styles.tileNote, { color: card.stateInk }]}>{card.stateText}</Text>
           </View>
           <View style={styles.tile}>
             <Text style={styles.tileLabel}>{t.minPay}</Text>
-            <Text style={styles.tileValue}>{card.minText}</Text>
+            <Text style={styles.tileValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1.3}>{card.minText}</Text>
             <Text style={styles.tileNote}>{t.fullPaymentWord} {card.balanceText}</Text>
           </View>
           <View style={styles.tile}>
             <Text style={styles.tileLabel}>{t.creditUsed}</Text>
-            <Text style={styles.tileValue}>{card.usedPct}%</Text>
+            <Text style={styles.tileValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1.3}>{card.usedPct}%</Text>
             <View style={{ marginTop: 10 }}>
               <ProgressBar pct={card.usedPct} fill={card.barInk} />
             </View>

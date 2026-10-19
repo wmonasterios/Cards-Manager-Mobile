@@ -238,7 +238,7 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
               <Text style={styles.sub}>{tx.sub}</Text>
             </View>
           </View>
-          <Text style={[styles.amount, { color: tx.amountInk }]}>{tx.amountText}</Text>
+          <Text style={[styles.amount, { color: tx.amountInk }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1.3}>{tx.amountText}</Text>
           <Text style={styles.statusNote}>{statusNote}</Text>
         </View>
 
