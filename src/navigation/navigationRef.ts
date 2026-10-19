@@ -38,6 +38,18 @@ export function navigateToCardDetail(cardId: string) {
   });
 }
 
+export function navigateToAdvisor() {
+  navigateWhenReady(() => {
+    navigationRef.navigate('Advisor');
+  });
+}
+
+export function navigateToHome() {
+  navigateWhenReady(() => {
+    navigationRef.navigate('Tabs', { screen: 'Home' });
+  });
+}
+
 export function navigateToNotifPrimer() {
   navigateWhenReady(() => {
     navigationRef.navigate('NotifPrimer');

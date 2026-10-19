@@ -83,7 +83,8 @@ export function schedulePaymentReminders(cards: DecoratedCard[], lang: Lang = 'e
   return enqueue(() => doSchedulePaymentReminders(cards, lang));
 }
 
-function reminderText(lang: Lang, name: string, kind: string, amount: string, balance: string, min: string) {
+// No amounts: notifications show on the lock screen (brand rule, Oct 2026).
+function reminderText(lang: Lang, name: string, kind: string) {
   if (lang === 'es') {
     return {
       title:
@@ -91,8 +92,8 @@ function reminderText(lang: Lang, name: string, kind: string, amount: string, ba
           ? `${name}: pago total vence en 3 días`
           : kind === 'min'
             ? `${name}: pago mínimo vence en 3 días`
-            : `${name} vence en 3 días`,
-      body: kind === 'full' ? `Pago total ${amount}` : `${balance} · mínimo ${min}`,
+            : `Tu ${name} vence en 3 días`,
+      body: 'Toca para ver el detalle.',
     };
   }
   return {
@@ -101,8 +102,8 @@ function reminderText(lang: Lang, name: string, kind: string, amount: string, ba
         ? `${name} full payment due in 3 days`
         : kind === 'min'
           ? `${name} minimum due in 3 days`
-          : `${name} due in 3 days`,
-    body: kind === 'full' ? `Full payment ${amount}` : `${balance} · minimum ${min}`,
+          : `Your ${name} is due in 3 days`,
+    body: 'Tap to see the details.',
   };
 }
 
@@ -121,7 +122,7 @@ async function doSchedulePaymentReminders(cards: DecoratedCard[], lang: Lang) {
       const due = new Date(ev.iso + 'T09:00:00');
       const fireAt = new Date(due.getTime() - 3 * 24 * 60 * 60 * 1000);
       if (fireAt.getTime() <= Date.now()) continue;
-      const text = reminderText(lang, card.displayName, ev.kind, ev.amountText, card.balanceText, card.minText);
+      const text = reminderText(lang, card.displayName, ev.kind);
       const id = await Notifications.scheduleNotificationAsync({
         content: {
           ...text,
@@ -170,6 +171,14 @@ export async function syncProfileLang(userId: string, lang: Lang): Promise<void>
     await supabase.from('profiles').update({ lang }).eq('id', userId);
   } catch {
     // Best-effort — worst case, server-sent notifications fall back to English.
+  }
+}
+
+export async function syncPushPrefs(userId: string, reminders: boolean, updates: boolean): Promise<void> {
+  try {
+    await supabase.from('profiles').update({ push_reminders: reminders, push_updates: updates }).eq('id', userId);
+  } catch {
+    // Best-effort — worst case the server keeps the previous choice until next launch.
   }
 }
 

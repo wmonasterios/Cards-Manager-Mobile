@@ -10,6 +10,8 @@ import {
   navigateToStatements,
   navigateToCardDetail,
   navigateToNotifPrimer,
+  navigateToAdvisor,
+  navigateToHome,
 } from '../navigation/navigationRef';
 import {
   schedulePaymentReminders,
@@ -18,6 +20,7 @@ import {
   cancelWeeklySummary,
   registerPushToken,
   syncProfileLang,
+  syncPushPrefs,
 } from '../notifications';
 
 function handleNotificationResponse(response: Notifications.NotificationResponse) {
@@ -37,6 +40,13 @@ function handleNotificationResponse(response: Notifications.NotificationResponse
       return;
     case 'payment_reminder':
       if (typeof cardId === 'string') navigateToCardDetail(cardId);
+      return;
+    case 'journey':
+      // Server nudges (push-journey edge function) say where to land.
+      if (data.screen === 'card' && typeof cardId === 'string') navigateToCardDetail(cardId);
+      else if (data.screen === 'advisor') navigateToAdvisor();
+      else if (data.screen === 'home') navigateToHome();
+      else navigateToStatements();
       return;
     default:
       // Older/unknown payloads: fall back to whichever id is present.
@@ -96,6 +106,13 @@ export function NotificationsSync() {
       cancelWeeklySummary();
     }
   }, [weekly, lang, settingsLoaded]);
+
+  // The server's journey / due-day pushes respect these two toggles, so it
+  // needs its own copy of them (push-journey reads profiles.push_*).
+  useEffect(() => {
+    if (!settingsLoaded || isDemo || !session?.user.id) return;
+    syncPushPrefs(session.user.id, reminder, notifyNew);
+  }, [settingsLoaded, isDemo, session?.user.id, reminder, notifyNew]);
 
   useEffect(() => {
     if (notifyNew && notifPrimerSeen && session?.user.id) {
