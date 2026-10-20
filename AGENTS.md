@@ -46,8 +46,12 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
   no expiry) — not the owner's personal console account any more. Billing:
   auto-reload, $50/month spend limit, email alert at $20. If testers
   multiply, revisit these numbers before they become a real constraint.
-  Zero Data Retention is requested per organization via Anthropic sales; we
-  only use the Messages API (PDFs inline as base64, no Files/Batch API).
+  Zero Data Retention was **declined by Anthropic sales on 20 Oct 2026**
+  (enterprise-only), so the standard API retention applies: inputs/outputs
+  deleted within 30 days (longer only for usage-policy flags or legal
+  holds), no training on commercial data. poquetapp.com's privacy page states
+  this. We only use the Messages API (PDFs inline as base64, no Files/Batch
+  API), so nothing is stored there on purpose.
 - **A new native module imported from an always-mounted component can crash
   OTA, not just "not work."** `expo-secure-store` (added Oct 2026 for the PIN
   lock) resolves its native binding at JS-*import* time
