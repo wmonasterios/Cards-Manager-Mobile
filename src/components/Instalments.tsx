@@ -74,15 +74,15 @@ export function SeriesCard({
       <View style={s.stats}>
         <View style={s.stat}>
           <Text style={s.statLabel}>{es ? 'Pagado' : 'Paid'}</Text>
-          <Text style={s.statValue}>{fmt(series.paid)}</Text>
+          <Text style={s.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1.3}>{fmt(series.paid)}</Text>
         </View>
         <View style={s.stat}>
           <Text style={s.statLabel}>{es ? 'Falta' : 'Left'}</Text>
-          <Text style={s.statValue}>{fmt(series.left)}</Text>
+          <Text style={s.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1.3}>{fmt(series.left)}</Text>
         </View>
         <View style={s.stat}>
           <Text style={s.statLabel}>{es ? 'Termina' : 'Ends'}</Text>
-          <Text style={s.statValue}>{monthYear(series.endIso, lang)}</Text>
+          <Text style={s.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1.3}>{monthYear(series.endIso, lang)}</Text>
         </View>
       </View>
       {series.original && (
@@ -438,7 +438,7 @@ function makeStyles(colors: ColorTokens) {
     track: { height: 7, borderRadius: 4, backgroundColor: colors.line, marginTop: 12, overflow: 'hidden' },
     fill: { height: 7 },
     stats: { flexDirection: 'row', gap: 8, marginTop: 14 },
-    stat: { flex: 1 },
+    stat: { flex: 1, minWidth: 0 },
     statLabel: { fontSize: 11, color: colors.ink3 },
     statValue: { fontSize: 13.5, fontWeight: '600', color: colors.ink, marginTop: 2 },
     note: { fontSize: 12, color: colors.ink2, lineHeight: 17, marginTop: 12 },

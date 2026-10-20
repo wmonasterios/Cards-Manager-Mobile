@@ -130,15 +130,18 @@ export function HomeScreen({ navigation, route }: any) {
     }
   };
 
+  const NBSP = '\u00a0';
   const renderCardFace = (c: (typeof cards)[number]) => {
     const ink = artInk(c.id, c.colorKey);
     return (
       <>
         <View style={styles.cardTopRow}>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minWidth: 0, paddingRight: 10 }}>
             <Text style={[styles.cardBank, { color: ink.main }]}>{c.displayName}</Text>
+            {/* No product → no leading "·"; non-breaking spaces keep "· •••• 1234"
+                together when a long product wraps. */}
             <Text style={[styles.cardSub, { color: ink.sub }]}>
-              {c.displaySub} · {c.last4}
+              {[c.displaySub, c.last4.replace(/ /g, NBSP)].filter(Boolean).join(`${NBSP}·${NBSP}`)}
             </Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
@@ -182,7 +185,13 @@ export function HomeScreen({ navigation, route }: any) {
             </View>
             <Text style={styles.total} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1.3}>{mask(money('US$', totalOwed))}</Text>
             <Text style={styles.totalNote}>
-              {cards.length} {isDemo ? (lang === 'es' ? 'tarjetas de ejemplo' : 'sample cards') : t.cardsWord} ·{' '}
+              {cards.length}{' '}
+              {isDemo
+                ? lang === 'es'
+                  ? cards.length === 1 ? 'tarjeta de ejemplo' : 'tarjetas de ejemplo'
+                  : cards.length === 1 ? 'sample card' : 'sample cards'
+                : cards.length === 1 ? t.cardWord : t.cardsWord}{' '}
+              ·{' '}
               {unpaid.length} {t.withBalance}
             </Text>
           </View>
