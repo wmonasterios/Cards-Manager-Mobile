@@ -209,6 +209,18 @@ export function analyseByCard(cards: DecoratedCard[], monthIso: string, weekIdx:
     .sort((a, b) => b.amount - a.amount);
 }
 
-export function fmtMoney(n: number): string {
-  return money('US$', n);
+// Insights only ever analyses cards of one currency at a time (the screen's
+// currency selector), so every amount on it takes that currency.
+export function fmtMoney(cur: string, n: number): string {
+  return money(cur, n);
+}
+
+// The currencies the user's cards are in, the one with most cards first
+// (US$ wins a tie). One entry means the screen needs no currency selector.
+export function cardCurrencies(cards: DecoratedCard[]): string[] {
+  const count = new Map<string, number>();
+  for (const c of cards) count.set(c.cur, (count.get(c.cur) ?? 0) + 1);
+  return [...count]
+    .sort(([a, x], [b, y]) => y - x || (a === 'US$' ? -1 : b === 'US$' ? 1 : a.localeCompare(b)))
+    .map(([cur]) => cur);
 }

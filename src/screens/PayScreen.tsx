@@ -61,7 +61,7 @@ export function PayScreen({ route, navigation }: Props) {
   const history = paymentHistory(card.id)
     .slice()
     .reverse()
-    .map((p) => ({ label: t.payment, value: money('US$', p.amount), sub: p.when }));
+    .map((p) => ({ label: t.payment, value: money(card.cur, p.amount), sub: p.when }));
 
   const save = () => {
     if (payAmount <= 0) {
@@ -89,14 +89,14 @@ export function PayScreen({ route, navigation }: Props) {
         kind: 'min',
         title: es ? 'Estás al día' : "You're up to date",
         body: es
-          ? `Cubriste el mínimo de ${card.displayName}, pero te cobrarán intereses sobre el saldo restante de ${money('US$', afterAmount)}.`
-          : `You covered ${card.displayName}'s minimum, but you'll be charged interest on the remaining ${money('US$', afterAmount)}.`,
+          ? `Cubriste el mínimo de ${card.displayName}, pero te cobrarán intereses sobre el saldo restante de ${money(card.cur, afterAmount)}.`
+          : `You covered ${card.displayName}'s minimum, but you'll be charged interest on the remaining ${money(card.cur, afterAmount)}.`,
       });
       return;
     }
     Alert.alert(
       t.paymentRegisteredTemplate
-        .replace('{amount}', money('US$', payAmount))
+        .replace('{amount}', money(card.cur, payAmount))
         .replace('{bank}', card.displayName),
     );
     navigation.goBack();
@@ -146,8 +146,8 @@ export function PayScreen({ route, navigation }: Props) {
               style={styles.customInput}
             />
           )}
-          <Text style={styles.bigAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1.3}>{money('US$', payAmount)}</Text>
-          <Text style={styles.afterNote}>{t.balanceAfter} {money('US$', afterAmount)}</Text>
+          <Text style={styles.bigAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1.3}>{money(card.cur, payAmount)}</Text>
+          <Text style={styles.afterNote}>{t.balanceAfter} {money(card.cur, afterAmount)}</Text>
 
           <Text style={[styles.label, { marginTop: 22 }]}>{t.dateLabel.toUpperCase()}</Text>
           <View style={{ marginTop: 10 }}>

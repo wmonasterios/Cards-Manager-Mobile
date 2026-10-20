@@ -330,7 +330,7 @@ export function CardDetailScreen({ route, navigation }: Props) {
             </View>
           )}
           <Text style={styles.txNote}>
-            {rangeTx.length} {t.transactions.toLowerCase()} · {money('US$', rangeSpend)}
+            {rangeTx.length} {t.transactions.toLowerCase()} · {money(card.cur, rangeSpend)}
           </Text>
           <View style={styles.listCard}>
             {shown.map((tx) => (

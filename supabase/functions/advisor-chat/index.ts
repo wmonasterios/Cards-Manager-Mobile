@@ -95,7 +95,9 @@ function periodOrMonth(input: any): { start: string; end: string } {
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 // ---------- tools ----------
-type Ctx = { db: SupabaseClient; admin: SupabaseClient; userId: string; lang: Lang; cardRefs: Map<string, string> };
+// onlyCards: set while a tool runs for one currency's cards (see runTool) —
+// spending rows and coverage are narrowed to those cards.
+type Ctx = { db: SupabaseClient; admin: SupabaseClient; userId: string; lang: Lang; cardRefs: Map<string, string>; onlyCards?: Set<string> | null };
 
 type CardInfo = {
   ref: string;
@@ -195,7 +197,11 @@ async function spendRows(ctx: Ctx, start: string, end: string, cardId: string | 
     if (category) q = q.eq("category", category);
     return q;
   });
-  return rows.filter((t: any) => !["payment", "transfer"].includes(t.category));
+  return rows.filter((t: any) => !["payment", "transfer"].includes(t.category) && inScope(ctx, t.card_id));
+}
+
+function inScope(ctx: Ctx, cardId: string) {
+  return !ctx.onlyCards || ctx.onlyCards.has(cardId);
 }
 
 // Installments (cuotas) stay in their real category (a club membership paid
@@ -229,9 +235,10 @@ async function cardCoverage(ctx: Ctx, cards: CardInfo[]) {
   }
   return cov;
 }
-function missingData(cards: CardInfo[], cov: Map<string, { first: string | null; last: string | null }>, start: string, end: string, cardId: string | null) {
+function missingData(cards: CardInfo[], cov: Map<string, { first: string | null; last: string | null }>, start: string, end: string, cardId: string | null, ctx?: Ctx) {
   return cards
     .filter((c) => !cardId || c.id === cardId)
+    .filter((c) => !ctx || inScope(ctx, c.id))
     .filter((c) => {
       const e = cov.get(c.id);
       if (!e?.first || !e.last) return false;
@@ -358,7 +365,34 @@ const TOOLS: any[] = [
   },
 ];
 
+// Tools that add amounts across cards. Cards in different currencies (a US$
+// card and a COP card) must never be summed into one figure, so for a user
+// with more than one currency these run once per currency and come back as
+// separate blocks. A user with a single currency gets exactly the old output.
+const SPLIT_BY_CURRENCY = new Set(["spending_by_category", "monthly_spending", "top_merchants", "interest_and_fees"]);
+
 async function runTool(ctx: Ctx, name: string, input: any): Promise<unknown> {
+  if (SPLIT_BY_CURRENCY.has(name)) {
+    const cards = await loadCards(ctx);
+    const currencies = [...new Set(cards.map((c) => c.currency))];
+    // A single card asked for is already one currency.
+    if (currencies.length > 1 && !cardIdFromRef(ctx, input?.card)) {
+      const by_currency: unknown[] = [];
+      for (const currency of currencies) {
+        const onlyCards = new Set(cards.filter((c) => c.currency === currency).map((c) => c.id));
+        const out = await runToolOnce({ ...ctx, onlyCards }, name, input);
+        by_currency.push({ currency, ...(out as Record<string, unknown>) });
+      }
+      return {
+        note: "The user's cards are in more than one currency. Each block covers only the cards in that currency. Never add, average or compare amounts across currencies as one total; report each currency separately.",
+        by_currency,
+      };
+    }
+  }
+  return runToolOnce(ctx, name, input);
+}
+
+async function runToolOnce(ctx: Ctx, name: string, input: any): Promise<unknown> {
   switch (name) {
     case "cards_overview": {
       const cards = await loadCards(ctx);
@@ -431,8 +465,8 @@ async function runTool(ctx: Ctx, name: string, input: any): Promise<unknown> {
           total: r2(inst.reduce((n: number, t: any) => n + Math.abs(Number(t.amount)), 0)),
           items: inst.map((t: any) => ({ merchant: t.merchant, category: t.category, installment: t.plan ?? undefined, amount: r2(Math.abs(Number(t.amount))), date: t.occurred_on })),
         },
-        missing_data: missingData(cards, cov, start, end, cardId),
-        previous_missing_data: missingData(cards, cov, prevStart, prevEnd, cardId),
+        missing_data: missingData(cards, cov, start, end, cardId, ctx),
+        previous_missing_data: missingData(cards, cov, prevStart, prevEnd, cardId, ctx),
       };
     }
     case "monthly_spending": {
@@ -466,7 +500,7 @@ async function runTool(ctx: Ctx, name: string, input: any): Promise<unknown> {
             instCats.set(c, (instCats.get(c) ?? 0) + v);
           }
         }
-        const missing = missingData(cards, cov, `${month}-01`, monthEnd(month), cardId);
+        const missing = missingData(cards, cov, `${month}-01`, monthEnd(month), cardId, ctx);
         return {
           month,
           complete: missing.length === 0 && end === monthEnd(month),
@@ -583,6 +617,7 @@ async function runTool(ctx: Ctx, name: string, input: any): Promise<unknown> {
       let excludedCount = 0;
       let excludedTotal = 0;
       for (const r of data ?? []) {
+        if (!inScope(ctx, r.card_id)) continue;
         const m = String(r.merchant ?? "");
         const amt = Number(r.amount);
         if (amt > 0 && (r.category === "payment" || r.category === "transfer")) continue;
@@ -762,7 +797,8 @@ When a question is out of scope, say so in one sentence and suggest a qualified 
 NUMBERS
 - Every amount, date and percentage you state MUST come from a tool result in this conversation. Never estimate, round loosely or invent figures. If the data isn't there, say what's missing (for example, a statement hasn't been uploaded).
 - Charges are negative in raw data; talk about them as positive spending amounts.
-- Use the card's currency symbol as given (e.g. "US$ 1,234.56").
+- Use the card's currency symbol as given (e.g. "US$ 1,234.56", "COP 850,000.00").
+- Never add, average or compare amounts in different currencies as if they were one: a user with a US$ card and a COP card owes "US$ 500.00 and COP 2,000,000.00", never one sum. When a tool returns by_currency, answer per currency. Don't convert between currencies; you have no exchange rate.
 - Interest rates are usually not in the data; don't assume one. If an answer depends on a rate, say so.
 - Installment payments (cuotas) and financed balances are repayments of principal, never interest or fees — don't add them to costs.
 - Earlier turns only keep the text of your answers, not the tool results behind them. If the user asks where a previous figure came from, call the relevant tool again and check before answering; never claim you invented a number without checking.

@@ -6,7 +6,7 @@ import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { useCards } from '../context/CardsContext';
 import { CalendarMascot } from '../components/Mascot';
-import { money } from '../format';
+import { money, moneyByCur } from '../format';
 import { artGradient } from '../data';
 
 const WEEKDAY_LABELS: Record<'en' | 'es', string[]> = {
@@ -168,12 +168,9 @@ export function CalendarScreen({ navigation }: any) {
   // a payment due that day and what they add up to (per currency).
   const dueToday = dayEvents.filter((e) => e.kind === 'due');
   const dueCards = new Set(dueToday.map((e) => e.cardId ?? e.card)).size;
-  const totalsByCur = new Map<string, number>();
-  for (const e of dueToday) {
-    if (e.value === undefined || !e.cur) continue;
-    totalsByCur.set(e.cur, (totalsByCur.get(e.cur) ?? 0) + e.value);
-  }
-  const totalsText = [...totalsByCur].map(([cur, n]) => money(cur, n)).join(' + ');
+  const totalsText = moneyByCur(
+    dueToday.flatMap((e) => (e.value === undefined || !e.cur ? [] : [{ cur: e.cur, n: e.value }])),
+  );
   const daySummary = dueCards
     ? `${dueCards} ${es ? (dueCards === 1 ? 'tarjeta por pagar' : 'tarjetas por pagar') : dueCards === 1 ? 'card to pay' : 'cards to pay'}${totalsText ? ` · ${totalsText}` : ''}`
     : dayEvents.length
