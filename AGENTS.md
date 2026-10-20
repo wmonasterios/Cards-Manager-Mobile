@@ -232,6 +232,29 @@ before touching any screen's styling:
   already-installed build (including the TestFlight one friends have) until
   the next `eas build --profile production` + `eas submit`.
 
+**Design/motion skills (19 Oct 2026).** `.claude/skills/` holds five skills
+copied from `emilkowalski/skills` (MIT, commit 2d22863, Markdown only):
+`animate-expo`, `break-ui`, `find-animation-opportunities`,
+`review-animations`, `apple-design`. They're one author's taste, so the
+rules above win on any conflict (accent only on controls, `artInk` for card
+text, mascots never next to money, `fonts.display*` without `fontWeight`).
+`apple-design` and the two animation-review skills are written for the web —
+take the principles, not the CSS. `animate-expo` assumes
+`react-native-reanimated` 4 + `react-native-worklets`,
+`react-native-gesture-handler` and `expo-haptics`, **none of which this app
+has yet**. All are native: add them together in one planned `eas build` with
+a `version` bump (see the OTA rules at the top), never as a side effect of a
+UI tweak. Until then, motion stays on what's already linked (core `Animated`).
+Owner's call: no new animations before the 1.3 build.
+
+**Worst-case data (dev only).** `src/worstCase.ts` swaps the demo catalogue
+for stress data built from real DB limits (65-char merchants, US$ 17,500
+charges, 6 cards, 194 lines in a month) when the app runs in dev with
+`?data=worst|empty|one` on web (`npx expo start --web`) or
+`EXPO_PUBLIC_DEMO_DATA` set; then enter the demo. Gated by `__DEV__`, so it
+never reaches an OTA or store bundle. Re-run it after touching any list,
+card face or amount layout.
+
 # Edge functions: versioning is now mixed (Oct 2026)
 
 `supabase/functions/receive-statement-email/index.ts` is now checked into

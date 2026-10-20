@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildDemoCards, Card, Category, DEMO_PAID_DEFAULTS, DEMO_REVIEW_COUNTS } from '../data';
 import { decorateCard, DecoratedCard, Payment } from '../decorate';
+import { buildWorstCaseCards, demoDataset } from '../worstCase';
 import { useT } from '../i18n/LocaleContext';
 import { useColors } from '../theme/ThemeContext';
 import { usePersistedState } from '../storage/usePersistedState';
@@ -184,7 +185,12 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
   // rebuilt whenever the calendar day changes.
   const now = new Date();
   const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const demoCards = useMemo(() => buildDemoCards(todayIso), [todayIso]);
+  const demoCards = useMemo(() => {
+    const cards = buildDemoCards(todayIso);
+    // Dev-only stress data (src/worstCase.ts); __DEV__ is false in every OTA/store bundle.
+    const which = __DEV__ ? demoDataset() : 'demo';
+    return which === 'demo' ? cards : buildWorstCaseCards(cards, which);
+  }, [todayIso]);
 
   const baseCards: Card[] = useMemo(() => {
     if (!isDemo) return dbCards.map((c) => dbCardToCard(c, dbTransactions));
