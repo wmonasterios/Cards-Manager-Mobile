@@ -59,7 +59,7 @@ export type Transaction = {
 
 export type InstalmentPlan = {
   merchant: string;
-  plan: string; // "3 of 12"
+  plan: string; // "3/12"
   rate: string;
   monthly: number;
   remaining: number;
@@ -141,20 +141,20 @@ const DEMO_TEMPLATE: Card[] = [
     plansNote: '2 active',
     cycleNote: '30 Aug – 29 Sep',
     plans: [
-      { merchant: 'Samsung Store', plan: '3 of 12', rate: '0% interest', monthly: 89.9, remaining: 809.1, pct: 25 },
-      { merchant: 'Copa Airlines', plan: '5 of 6', rate: '0% interest', monthly: 142.0, remaining: 142.0, pct: 83 },
+      { merchant: 'Samsung Store', plan: '3/12', rate: '0%', monthly: 89.9, remaining: 809.1, pct: 25 },
+      { merchant: 'Copa Airlines', plan: '5/6', rate: '0%', monthly: 142.0, remaining: 142.0, pct: 83 },
     ],
     tx: [
       tx('Café Unido', 'Panamá', 'Sep 14', -9.75, 'dining'),
       tx('Cinépolis', 'Panamá', 'Sep 13', -24.0, 'entertainment'),
       tx('Riba Smith', 'Panamá', 'Sep 12', -184.22, 'groceries'),
       tx('Zara', 'Panamá', 'Sep 11', -89.0, 'shopping'),
-      tx('Copa Airlines', 'Panamá', 'Sep 10', -142.0, 'travel', { plan: '5 of 6' }),
+      tx('Copa Airlines', 'Panamá', 'Sep 10', -142.0, 'travel', { plan: '5/6' }),
       tx('Cervecería La Rana', 'Panamá', 'Sep 8', -62.4, 'dining'),
       tx('Terpel', 'Panamá', 'Sep 7', -48.0, 'fuel'),
       tx('Uber', 'Panamá', 'Sep 6', -12.4, 'transport'),
       tx('El Trapiche', 'Panamá', 'Sep 5', -38.5, 'dining'),
-      tx('Samsung Store', 'Panamá', 'Sep 4', -89.9, 'home', { plan: '3 of 12' }),
+      tx('Samsung Store', 'Panamá', 'Sep 4', -89.9, 'home', { plan: '3/12' }),
       tx('Delta Fuel', 'Panamá', 'Sep 2', -55.0, 'fuel', { declined: true }),
       tx('Payment received', 'Banco General', 'Aug 31', 900.0, 'payment'),
       tx('Café Unido', 'Panamá', 'Aug 27', -7.9, 'dining'),
@@ -165,10 +165,10 @@ const DEMO_TEMPLATE: Card[] = [
       tx('Terpel', 'Panamá', 'Aug 17', -50.1, 'fuel'),
       tx('Cinépolis', 'Panamá', 'Aug 15', -18.0, 'entertainment'),
       tx('Riba Smith', 'Panamá', 'Aug 12', -166.9, 'groceries'),
-      tx('Copa Airlines', 'Panamá', 'Aug 10', -142.0, 'travel', { plan: '4 of 6' }),
+      tx('Copa Airlines', 'Panamá', 'Aug 10', -142.0, 'travel', { plan: '4/6' }),
       tx('Sushi Itto', 'Panamá', 'Aug 9', -64.0, 'dining'),
       tx('Café Unido', 'Panamá', 'Aug 6', -8.5, 'dining'),
-      tx('Samsung Store', 'Panamá', 'Aug 4', -89.9, 'home', { plan: '2 of 12' }),
+      tx('Samsung Store', 'Panamá', 'Aug 4', -89.9, 'home', { plan: '2/12' }),
       tx('Uber', 'Panamá', 'Aug 4', -9.8, 'transport'),
       tx('Terpel', 'Panamá', 'Aug 3', -52.3, 'fuel'),
       tx('Mercado de Mariscos', 'Panamá', 'Aug 2', -45.2, 'dining'),
@@ -176,9 +176,9 @@ const DEMO_TEMPLATE: Card[] = [
       tx('Maito', 'Panamá', 'Jul 26', -84.0, 'dining'),
       tx('PriceSmart', 'Panamá', 'Jul 22', -241.15, 'groceries'),
       tx('Terpel', 'Panamá', 'Jul 18', -49.6, 'fuel'),
-      tx('Copa Airlines', 'Panamá', 'Jul 10', -142.0, 'travel', { plan: '3 of 6' }),
-      tx('Samsung Store', 'Panamá', 'Jul 4', -89.9, 'home', { plan: '1 of 12' }),
-      tx('Copa Airlines', 'Panamá', 'Jun 10', -142.0, 'travel', { plan: '2 of 6' }),
+      tx('Copa Airlines', 'Panamá', 'Jul 10', -142.0, 'travel', { plan: '3/6' }),
+      tx('Samsung Store', 'Panamá', 'Jul 4', -89.9, 'home', { plan: '1/12' }),
+      tx('Copa Airlines', 'Panamá', 'Jun 10', -142.0, 'travel', { plan: '2/6' }),
     ],
   },
   {
@@ -198,7 +198,7 @@ const DEMO_TEMPLATE: Card[] = [
     plansNote: '1 active',
     cycleNote: '5 Aug – 4 Sep',
     plans: [
-      { merchant: 'Apple Store', plan: '2 of 9', rate: '0% interest', monthly: 78.3, remaining: 548.1, pct: 22 },
+      { merchant: 'Apple Store', plan: '2/9', rate: '0%', monthly: 78.3, remaining: 548.1, pct: 22 },
     ],
     tx: [
       tx('Super 99', 'Panamá', 'Oct 3', -91.4, 'groceries'),
@@ -208,7 +208,7 @@ const DEMO_TEMPLATE: Card[] = [
       tx('Super 99', 'Panamá', 'Sep 18', -88.1, 'groceries'),
       tx('Smart Fit', 'Panamá', 'Sep 15', -35.0, 'health'),
       tx('Super 99', 'Panamá', 'Sep 11', -96.35, 'groceries'),
-      tx('Apple Store', 'Panamá', 'Sep 6', -78.3, 'home', { plan: '2 of 9' }),
+      tx('Apple Store', 'Panamá', 'Sep 6', -78.3, 'home', { plan: '2/9' }),
       tx('Farmacias Arrocha', 'Panamá', 'Sep 3', -41.8, 'pharmacy'),
       tx('Spotify', 'Panamá', 'Sep 2', -10.99, 'subscriptions'),
       tx('Netflix', 'Panamá', 'Sep 1', -15.99, 'subscriptions'),
@@ -218,7 +218,7 @@ const DEMO_TEMPLATE: Card[] = [
       tx('Super 99', 'Panamá', 'Aug 15', -102.3, 'groceries'),
       tx('Smart Fit', 'Panamá', 'Aug 15', -35.0, 'health'),
       tx('Do it Center', 'Panamá', 'Aug 8', -128.4, 'home'),
-      tx('Apple Store', 'Panamá', 'Aug 6', -78.3, 'home', { plan: '1 of 9' }),
+      tx('Apple Store', 'Panamá', 'Aug 6', -78.3, 'home', { plan: '1/9' }),
       tx('Spotify', 'Panamá', 'Aug 2', -10.99, 'subscriptions'),
       tx('Netflix', 'Panamá', 'Aug 1', -15.99, 'subscriptions'),
       tx('Netflix', 'Panamá', 'Jul 1', -15.99, 'subscriptions'),

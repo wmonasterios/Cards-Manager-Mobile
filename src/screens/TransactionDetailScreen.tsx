@@ -439,8 +439,8 @@ function makeStyles(colors: ColorTokens) {
       borderTopWidth: 1,
       borderTopColor: colors.hair,
     },
-    rowLabel: { fontSize: 13, color: colors.ink2b },
-    rowValue: { fontSize: 13, fontWeight: '500', color: colors.ink, textAlign: 'right', flexShrink: 1 },
+    rowLabel: { fontSize: 13, color: colors.ink2b, flexShrink: 0 },
+    rowValue: { fontSize: 13, fontWeight: '500', color: colors.ink, textAlign: 'right', flexShrink: 1, minWidth: 0 },
     noteBanner: {
       marginBottom: 12,
       padding: 12,

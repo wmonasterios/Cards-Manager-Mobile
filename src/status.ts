@@ -165,7 +165,7 @@ export function deriveStatus(cards: DecoratedCard[], todayIso: string, t: Dict, 
     segments,
     actCount,
     title: actCount ? t.needsAttention : t.cardStatus,
-    note: actCount ? `${actCount} ${t.cardsWord} · ${rows.length - actCount} ${t.onTrack}` : t.everythingOnTrack,
+    note: actCount ? `${actCount} ${actCount === 1 ? t.cardWord : t.cardsWord} · ${rows.length - actCount} ${t.onTrack}` : t.everythingOnTrack,
   };
 }
 
