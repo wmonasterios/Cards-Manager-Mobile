@@ -8,14 +8,26 @@ import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { useCards } from '../context/CardsContext';
 import { TxRow } from '../components/TxRow';
-import { getAvailableMonths, analyseInsights, analyseByCard, fmtMoney } from '../insightsAnalysis';
+import { getAvailableMonths, analyseInsights, analyseByCard, fmtMoney, cardCurrencies } from '../insightsAnalysis';
+import { moneyCompact } from '../format';
 import { buildSeries, monthName, monthYear, addMonthsIso } from '../instalments';
 
 export function InsightsScreen({ navigation }: any) {
   const { lang, t } = useLocale();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { cards, isDemo } = useCards();
+  const { cards: allCards, isDemo } = useCards();
+  // Amounts in different currencies can't share one donut or one total, so
+  // the screen analyses one currency at a time. With every card in the same
+  // currency there's no selector and the screen works exactly as before.
+  const currencies = useMemo(() => cardCurrencies(allCards), [allCards]);
+  const [selCur, setSelCur] = useState<string | null>(null);
+  const cur = selCur && currencies.includes(selCur) ? selCur : currencies[0] ?? 'US$';
+  const cards = useMemo(
+    () => (currencies.length > 1 ? allCards.filter((c) => c.cur === cur) : allCards),
+    [allCards, currencies, cur],
+  );
+  const fmt = (n: number) => fmtMoney(cur, n);
   const [excludedCardIds, setExcludedCardIds] = useState<Set<string>>(() => new Set());
   const [selectedMonthIso, setSelectedMonthIso] = useState<string | null>(null);
   const [selCat, setSelCat] = useState<string | null>(null);
@@ -44,8 +56,9 @@ export function InsightsScreen({ navigation }: any) {
     [cards, excludedCardIds],
   );
 
-  // Months come from every card, not the filtered ones: the card chips only
-  // filter inside the month you're on, they never move you to another month.
+  // Months come from every card in the selected currency, not the filtered
+  // ones: the card chips only filter inside the month you're on, they never
+  // move you to another month.
   const months = useMemo(() => getAvailableMonths(cards, lang), [cards, lang]);
   const monthIso = selectedMonthIso && months.some((m) => m.iso === selectedMonthIso)
     ? selectedMonthIso
@@ -94,6 +107,17 @@ export function InsightsScreen({ navigation }: any) {
     }
   };
 
+  // Switching currency is a different set of cards: start that view clean.
+  const pickCurrency = (next: string) => {
+    if (next === cur) return;
+    setSelCur(next);
+    setExcludedCardIds(new Set());
+    setSelCat(null);
+    setSelWeek(null);
+    setShowAllTx(false);
+    setShowOtherCats(false);
+  };
+
   const pickCategory = (name: string) => {
     setSelCat((prev) => (prev === name ? null : name));
     setShowAllTx(false);
@@ -108,6 +132,39 @@ export function InsightsScreen({ navigation }: any) {
   const pctText = (share: number) => `${share < 10 ? share.toFixed(1) : Math.round(share)}%`;
   const weekTag = (i: number) => `${lang === 'es' ? 'S' : 'W'}${i + 1}`;
   const sectionTitle = (base: string) => (selWeek === null ? base : `${base} · ${weekTag(selWeek)}`);
+
+  const showCurrencyFilter = !isDemo && currencies.length > 1;
+  const currencyFilter = showCurrencyFilter ? (
+    <View style={styles.section}>
+      <View style={[styles.filterCard, styles.currencyCard]}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={styles.filterLabel}>{lang === 'es' ? 'MONEDA' : 'CURRENCY'}</Text>
+          <Text style={styles.currencySub} numberOfLines={1}>
+            {lang === 'es'
+              ? `${cards.length} ${cards.length === 1 ? 'tarjeta' : 'tarjetas'} en ${cur}`
+              : `${cards.length} ${cards.length === 1 ? 'card' : 'cards'} in ${cur}`}
+          </Text>
+        </View>
+        <View style={styles.segment} accessibilityRole="radiogroup">
+          {currencies.map((k) => {
+            const active = k === cur;
+            return (
+              <Pressable
+                key={k}
+                onPress={() => pickCurrency(k)}
+                style={[styles.segmentBtn, active && styles.chipActive]}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: active }}
+                hitSlop={4}
+              >
+                <Text style={[styles.segmentText, active && styles.chipTextActive]}>{k}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    </View>
+  ) : null;
 
   const showCardFilter = !isDemo && cards.length > 1;
   const cardFilter = showCardFilter ? (
@@ -178,6 +235,7 @@ export function InsightsScreen({ navigation }: any) {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {!analysis || monthIdx < 0 ? (
           <>
+          {currencyFilter}
           {cardFilter}
           <View style={styles.section}>
             <View style={styles.emptyCard}>
@@ -214,13 +272,14 @@ export function InsightsScreen({ navigation }: any) {
               </View>
             </View>
 
+            {currencyFilter}
             {cardFilter}
 
             {/* Spending by week — the primary drill-down control, so it sits first */}
             <View style={styles.section}>
               <View style={styles.weekHeadRow}>
                 <Text style={styles.sectionTitle}>{t.spendingByWeek}</Text>
-                <Text style={styles.weekAvgNote}>{t.weeklyAverage} {fmtMoney(analysis.avgWeek)}</Text>
+                <Text style={styles.weekAvgNote}>{t.weeklyAverage} {fmt(analysis.avgWeek)}</Text>
               </View>
               <View style={styles.weekCard}>
                 <View style={styles.weekRow}>
@@ -239,7 +298,7 @@ export function InsightsScreen({ navigation }: any) {
                           adjustsFontSizeToFit
                           minimumFontScale={0.7}
                         >
-                          {v ? fmtMoney(v) : ''}
+                          {v ? moneyCompact(cur, v) : ''}
                         </Text>
                         <View style={styles.weekBarTrack}>
                           <View
@@ -285,7 +344,7 @@ export function InsightsScreen({ navigation }: any) {
                   </Svg>
                   <Pressable onPress={() => { setSelCat(null); setShowAllTx(false); }} style={styles.donutCenter}>
                     <Text style={styles.donutAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1.3}>
-                      {fmtMoney(analysis.sel ? analysis.sel.amount : analysis.spent)}
+                      {fmt(analysis.sel ? analysis.sel.amount : analysis.spent)}
                     </Text>
                     <Text style={styles.donutLabel} numberOfLines={1}>
                       {analysis.sel
@@ -355,12 +414,12 @@ export function InsightsScreen({ navigation }: any) {
                           {c.count} {txWord(c.count)}
                           {c.instAmount > 0
                             ? lang === 'es'
-                              ? ` · incluye ${fmtMoney(c.instAmount)} en cuotas`
-                              : ` · ${fmtMoney(c.instAmount)} in instalments`
+                              ? ` · incluye ${fmt(c.instAmount)} en cuotas`
+                              : ` · ${fmt(c.instAmount)} in instalments`
                             : ''}
                         </Text>
                       </View>
-                      <Text style={styles.catAmount}>{fmtMoney(c.amount)}</Text>
+                      <Text style={styles.catAmount}>{fmt(c.amount)}</Text>
                     </Pressable>
                   ))}
                   {analysis.sel && analysis.categories.length > 1 && (
@@ -407,7 +466,7 @@ export function InsightsScreen({ navigation }: any) {
                         </View>
                         <Text style={styles.catCount}>{c.count} {txWord(c.count)}</Text>
                       </View>
-                      <Text style={styles.catAmount}>{fmtMoney(c.amount)}</Text>
+                      <Text style={styles.catAmount}>{fmt(c.amount)}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -431,7 +490,7 @@ export function InsightsScreen({ navigation }: any) {
                       <Text style={styles.cuotaLabel}>
                         {lang === 'es' ? `En ${monthName(`${monthIso}-01`, 'es')}` : `In ${monthName(`${monthIso}-01`, 'en')}`}
                       </Text>
-                      <Text style={styles.cuotaValue}>{fmtMoney(analysis.instSpent)}</Text>
+                      <Text style={styles.cuotaValue}>{fmt(analysis.instSpent)}</Text>
                       {analysis.spent > 0 && (
                         <Text style={styles.cuotaSub}>
                           {Math.round((analysis.instSpent / analysis.spent) * 100)}% {lang === 'es' ? 'de tu gasto' : 'of your spending'}
@@ -441,7 +500,7 @@ export function InsightsScreen({ navigation }: any) {
                     {activeSeries.length > 0 && (
                       <View style={{ flex: 1 }}>
                         <Text style={styles.cuotaLabel}>{lang === 'es' ? 'Te falta pagar' : 'Still to pay'}</Text>
-                        <Text style={styles.cuotaValue}>{fmtMoney(cuotaLeft)}</Text>
+                        <Text style={styles.cuotaValue}>{fmt(cuotaLeft)}</Text>
                       </View>
                     )}
                   </View>
@@ -450,10 +509,10 @@ export function InsightsScreen({ navigation }: any) {
                       <View style={[styles.cuotaDot, { backgroundColor: colors.seg6 }]} />
                       <Text style={styles.cuotaFreedText}>
                         {lang === 'es'
-                          ? `En ${monthName(freed.month, 'es')} se te liberan ${fmtMoney(freed.amount)} al mes: ${
+                          ? `En ${monthName(freed.month, 'es')} se te liberan ${fmt(freed.amount)} al mes: ${
                               freed.ending.length === 1 ? `termina ${freed.ending[0].merchant}` : `terminan ${freed.ending.length} planes`
                             }.`
-                          : `From ${monthName(freed.month, 'en')} you free up ${fmtMoney(freed.amount)} a month: ${
+                          : `From ${monthName(freed.month, 'en')} you free up ${fmt(freed.amount)} a month: ${
                               freed.ending.length === 1 ? `${freed.ending[0].merchant} ends` : `${freed.ending.length} plans end`
                             }.`}
                       </Text>
@@ -470,7 +529,7 @@ export function InsightsScreen({ navigation }: any) {
                       >
                         <View style={styles.catRowHead}>
                           <Text style={[styles.catName, { flex: 1 }]} numberOfLines={1}>{x.merchant}</Text>
-                          <Text style={styles.catAmount}>{fmtMoney(x.monthly)}</Text>
+                          <Text style={styles.catAmount}>{fmt(x.monthly)}</Text>
                         </View>
                         <View style={[styles.catRowHead, { marginTop: 3 }]}>
                           <Text style={styles.catCount} numberOfLines={1}>
@@ -655,6 +714,11 @@ function makeStyles(colors: ColorTokens) {
     filterHead: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 24 },
     filterLabel: { flex: 1, fontSize: 11, letterSpacing: 1.2, color: colors.ink3 },
     filterValue: { fontSize: 13.5, fontWeight: '600', color: colors.ink },
+    currencyCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingRight: 10 },
+    currencySub: { fontSize: 12, color: colors.ink2, marginTop: 4 },
+    segment: { flexDirection: 'row', gap: 4, padding: 3, borderRadius: 999, borderWidth: 1, borderColor: colors.line },
+    segmentBtn: { minWidth: 60, paddingVertical: 9, paddingHorizontal: 14, borderRadius: 999, alignItems: 'center' },
+    segmentText: { fontSize: 12.5, fontWeight: '600', color: colors.ink2 },
     otherCatsBtn: {
       flexDirection: 'row',
       alignItems: 'center',

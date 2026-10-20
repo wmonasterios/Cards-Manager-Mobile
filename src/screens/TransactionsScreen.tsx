@@ -12,7 +12,7 @@ import { BackButton } from '../components/BackButton';
 import { Segmented } from '../components/Segmented';
 import { DateField } from '../components/DateField';
 import { useCards } from '../context/CardsContext';
-import { money } from '../format';
+import { money, moneyByCur } from '../format';
 import { isInstalment } from '../instalments';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Transactions'>;
@@ -129,7 +129,8 @@ export function TransactionsScreen({ route, navigation }: Props) {
     );
   }, [scoped, selCategory, sortKey]);
 
-  const total = results.reduce((n, { tx }) => n + tx.amount, 0);
+  // Per currency: a search across a US$ and a COP card can't add up to one number.
+  const totalText = moneyByCur(results.map(({ tx, card }) => ({ cur: card.cur, n: tx.amount })));
   const selectedCard = selCardId ? cards.find((c) => c.id === selCardId) : undefined;
 
   const chooseCard = (id: string | null) => {
@@ -261,7 +262,7 @@ export function TransactionsScreen({ route, navigation }: Props) {
           <View style={styles.summaryRow}>
             <Text style={styles.note}>
               {results.length} {t.transactions.toLowerCase()}
-              {results.length > 0 ? ` · ${money('US$', total)}` : ''}
+              {results.length > 0 ? ` · ${totalText}` : ''}
             </Text>
             <View style={styles.summaryActions}>
               <Pressable onPress={() => setOnlyCuotas((v) => !v)} hitSlop={6}>

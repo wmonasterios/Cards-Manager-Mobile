@@ -12,7 +12,7 @@ import { DEMO_PERSONA } from '../demo';
 import { CardArt } from '../components/CardArt';
 import { DraggableCardStack } from '../components/DraggableCardStack';
 import { useCards } from '../context/CardsContext';
-import { money } from '../format';
+import { money, sumByCur } from '../format';
 import { Ionicons } from '@expo/vector-icons';
 import { usePersistedState } from '../storage/usePersistedState';
 
@@ -112,7 +112,9 @@ export function HomeScreen({ navigation, route }: any) {
   }
 
   const unpaid = cards.filter((c) => !c.paid);
-  const totalOwed = unpaid.reduce((n, c) => n + c.remaining, 0);
+  // One line per currency: a US$ card and a COP card are never added together.
+  const owedByCur = sumByCur(unpaid.map((c) => ({ cur: c.cur, n: c.remaining })));
+  const owedLines = owedByCur.length > 0 ? owedByCur : ([[cards[0]?.cur ?? 'US$', 0]] as [string, number][]);
   const stackHeight = CARD_HEIGHT + (cards.length - 1) * CARD_STEP;
   // Computed fresh on every render (not memoized against mount time) so a
   // card that crosses a due-date threshold overnight updates without a reload.
@@ -183,7 +185,18 @@ export function HomeScreen({ navigation, route }: any) {
                 <Ionicons name={hideAmounts ? 'eye-off-outline' : 'eye-outline'} size={16} color={colors.ink3} />
               </Pressable>
             </View>
-            <Text style={styles.total} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1.3}>{mask(money('US$', totalOwed))}</Text>
+            {owedLines.map(([cur, n], i) => (
+              <Text
+                key={cur}
+                style={[styles.total, owedLines.length > 1 && styles.totalMulti, i > 0 && { marginTop: 2 }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.6}
+                maxFontSizeMultiplier={1.3}
+              >
+                {mask(money(cur, n))}
+              </Text>
+            ))}
             <Text style={styles.totalNote}>
               {cards.length}{' '}
               {isDemo
@@ -419,6 +432,8 @@ function makeStyles(colors: ColorTokens) {
       textTransform: 'uppercase',
     },
     total: { fontSize: 34, fontFamily: fonts.display, color: colors.ink, marginTop: 8, letterSpacing: -0.5 },
+    // Two or more currencies stack as smaller lines so each still fits whole.
+    totalMulti: { fontSize: 26 },
     totalNote: { fontSize: 12, color: colors.ink3, marginTop: 4 },
     headerActions: { flexDirection: 'row', gap: 8 },
     iconBtn: {
