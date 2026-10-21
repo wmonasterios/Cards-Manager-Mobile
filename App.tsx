@@ -14,6 +14,7 @@ import { NotificationsSync } from './src/components/NotificationsSync';
 import { navigationRef, goToWelcome } from './src/navigation/navigationRef';
 import { DemoRibbon } from './src/components/DemoRibbon';
 import { useLaunchUpdate } from './src/launchUpdate';
+import { UpdateBanner } from './src/components/UpdateBanner';
 import { useFonts } from 'expo-font';
 import {
   BricolageGrotesque_500Medium,
@@ -87,6 +88,7 @@ function AppContent() {
         >
           <RootNavigator />
         </NavigationContainer>
+        <UpdateBanner routeName={routeName} />
         </SafeAreaProvider>
       </View>
     </LockGate>
