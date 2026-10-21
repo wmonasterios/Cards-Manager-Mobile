@@ -511,8 +511,10 @@ build's old embedded bundle first. Two pieces, both JS (OTA-safe:
   `20261021_app_config.sql`; one row, read-only for the app). Shows when a
   downloaded update was created at/after the flag and the running one
   before it, only on Home/Calendar/Insights/Settings (never Statements,
-  Pay, modals, auth). "Actualizar" = `reloadAsync`; "Ahora no" hides it
-  until the next launch. Rechecks quietly on returning to the app after
+  Pay, modals, auth). "Actualizar" = `reloadAsync`, with a reload
+  screen showing the launch-screen logo (`assets/splash-icon*.png`, 220 px,
+  theme background), a small spinner and a fade instead of a blank screen;
+  "Ahora no" hides it until the next launch. Rechecks quietly on returning to the app after
   2+ min in the background. Owner's call: no "what's new" card and no
   in-context tooltips (felt invasive) — fixes stay silent.
 - To flag a release as important, right after publishing it:
