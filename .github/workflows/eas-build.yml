@@ -1,0 +1,57 @@
+name: EAS Build (production)
+
+# Native store builds, launched by hand from the Actions tab (or the API).
+# Only needed when something native changes (a native module, a permission,
+# the icon/splash, a version bump) or to give new TestFlight/Play testers a
+# binary whose embedded bundle is current — every JS change ships OTA via the
+# EAS Update workflows instead. See AGENTS.md (Release workflow) and the OTA
+# rules there before bumping `version`.
+#
+# Runs non-interactively with EXPO_TOKEN: iOS/Android signing credentials
+# must already live on EAS (they do, from earlier builds). `auto_submit`
+# uploads the finished build to App Store Connect / Play Console, which
+# needs submit credentials stored on EAS (an App Store Connect API key for
+# iOS, a Google service account for Android); without them the build still
+# succeeds and only the submit step fails — then run `eas submit` by hand.
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform to build
+        required: true
+        default: ios
+        type: choice
+        options: [ios, android, all]
+      auto_submit:
+        description: Upload to App Store Connect / Play Console when done
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install EAS CLI
+        run: npm install --global eas-cli
+
+      - name: Build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          PLATFORM: ${{ github.event.inputs.platform }}
+          AUTO_SUBMIT: ${{ github.event.inputs.auto_submit }}
+        run: |
+          ARGS="--platform $PLATFORM --profile production --non-interactive"
+          if [ "$AUTO_SUBMIT" = "true" ]; then ARGS="$ARGS --auto-submit"; fi
+          eas build $ARGS
