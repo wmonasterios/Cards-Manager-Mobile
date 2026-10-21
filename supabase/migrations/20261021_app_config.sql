@@ -20,8 +20,9 @@ alter table public.app_config enable row level security;
 
 -- Readable by anyone (it holds no user data); written only by the server
 -- (service role / SQL editor), so no insert/update/delete policies.
-drop policy if exists "app_config readable" on public.app_config;
 create policy "app_config readable" on public.app_config
   for select to anon, authenticated using (true);
 
 grant select on public.app_config to anon, authenticated;
+-- RLS already blocks writes (no write policies); drop the default grants too.
+revoke insert, update, delete, truncate on public.app_config from anon, authenticated;

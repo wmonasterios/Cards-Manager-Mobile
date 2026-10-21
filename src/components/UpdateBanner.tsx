@@ -23,8 +23,10 @@ import { ColorTokens } from '../theme';
 const SHOW_ON = new Set(['Home', 'Calendar', 'Insights', 'Settings']);
 
 // Coming back after this long in the background, quietly look for an update,
-// so one published while the app was left open still gets noticed.
-const RECHECK_AFTER_MS = 30 * 60 * 1000;
+// so one published while the app was left open still gets noticed. Checking
+// on foreground is what expo-updates recommends; the gap just avoids a
+// request on every quick app switch.
+const RECHECK_AFTER_MS = 2 * 60 * 1000;
 
 // FloatingTabBar: 8 top padding + 64 capsule + bottom padding (safe area, min 12).
 const TAB_BAR_BODY = 8 + 64;
