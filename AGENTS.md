@@ -492,3 +492,32 @@ also refuses to send outside 09–20 Panama. Pause:
   amounts either.
 - Next (not built): owner-only manual/mass send page; metrics panel per
   milestone; email (separate sending subdomain, unsubscribe link).
+
+# OTA delivery: apply at launch + "important" banner (20 Oct 2026)
+
+expo-updates by default opens with the bundle it has and applies a
+downloaded OTA only on the next cold start, so a TestFlight tester saw the
+build's old embedded bundle first. Two pieces, both JS (OTA-safe:
+`expo-updates` has been linked in every build since 7fd5125):
+
+- `src/launchUpdate.ts` (`useLaunchUpdate`, used in `AppContent`): at
+  launch, while the app is still on its blank loading view, check + fetch
+  for up to 3 s; if a new update downloads in time, `reloadAsync()` before
+  any screen shows. Otherwise open normally (applies next launch). Once per
+  JS runtime, skipped in dev and on `isEmergencyLaunch`, so it can't loop.
+- `src/components/UpdateBanner.tsx`: "Hay una versión más reciente de
+  Poquet · Actualizar / Ahora no", only for updates flagged as important in
+  `public.app_config.important_update_after` (migration
+  `20261021_app_config.sql`; one row, read-only for the app). Shows when a
+  downloaded update was created at/after the flag and the running one
+  before it, only on Home/Calendar/Insights/Settings (never Statements,
+  Pay, modals, auth). "Actualizar" = `reloadAsync`; "Ahora no" hides it
+  until the next launch. Rechecks quietly on returning to the app after
+  2+ min in the background. Owner's call: no "what's new" card and no
+  in-context tooltips (felt invasive) — fixes stay silent.
+- To flag a release as important, right after publishing it:
+  `update public.app_config set important_update_after = now(), updated_at = now() where id = 1;`
+  Set it back to NULL once everyone has it. The table is shared by the
+  `preview` and `production` channels.
+- Only phones already running a bundle with this code get either behavior;
+  a fresh install of an old binary needs one restart (or a new build).
