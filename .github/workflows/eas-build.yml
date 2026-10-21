@@ -54,4 +54,13 @@ jobs:
         run: |
           ARGS="--platform $PLATFORM --profile production --non-interactive"
           if [ "$AUTO_SUBMIT" = "true" ]; then ARGS="$ARGS --auto-submit"; fi
-          eas build $ARGS
+          set +e
+          eas build $ARGS 2>&1 | tee eas-build.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            # Surface the end of the EAS output as an annotation, so the
+            # reason is readable from the run summary / API without the logs.
+            msg=$(tail -n 40 eas-build.log | sed 's/\x1b\[[0-9;]*m//g' | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
+            echo "::error title=eas build failed::$msg"
+          fi
+          exit $status
