@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
 import { supabase } from '../supabase/client';
-import { useColors } from '../theme/ThemeContext';
+import { useAppTheme } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { ColorTokens } from '../theme';
 
@@ -31,6 +31,13 @@ const RECHECK_AFTER_MS = 2 * 60 * 1000;
 // FloatingTabBar: 8 top padding + 64 capsule + bottom padding (safe area, min 12).
 const TAB_BAR_BODY = 8 + 64;
 
+// The reload after "Actualizar" shows the same logo as the native launch
+// screen (expo-splash-screen in app.json: these images at 220 px on the
+// theme background), so it reads as the app opening, not a blank screen.
+const SPLASH_LIGHT = require('../../assets/splash-icon.png');
+const SPLASH_DARK = require('../../assets/splash-icon-dark.png');
+const SPLASH_SIZE = 220;
+
 async function readImportantAfter(): Promise<Date | null> {
   const { data, error } = await supabase
     .from('app_config')
@@ -45,7 +52,7 @@ async function readImportantAfter(): Promise<Date | null> {
 export function UpdateBanner({ routeName }: { routeName?: string }) {
   const enabled = !__DEV__ && Updates.isEnabled;
   const { currentlyRunning, downloadedUpdate, isUpdatePending } = Updates.useUpdates();
-  const colors = useColors();
+  const { colors, isDark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { lang } = useLocale();
@@ -89,8 +96,14 @@ export function UpdateBanner({ routeName }: { routeName?: string }) {
 
   const update = () => {
     setRestarting(true);
+    const logo = Image.resolveAssetSource(isDark ? SPLASH_DARK : SPLASH_LIGHT);
     Updates.reloadAsync({
-      reloadScreenOptions: { backgroundColor: colors.bg, spinner: { enabled: true, color: colors.ink, size: 'medium' } },
+      reloadScreenOptions: {
+        backgroundColor: colors.bg,
+        ...(logo?.uri ? { image: { url: logo.uri, width: SPLASH_SIZE, height: SPLASH_SIZE }, imageResizeMode: 'contain' as const } : {}),
+        spinner: { enabled: true, color: colors.ink3, size: 'small' },
+        fade: true,
+      },
     }).catch(() => setRestarting(false));
   };
 
