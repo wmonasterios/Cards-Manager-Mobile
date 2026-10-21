@@ -60,6 +60,20 @@ function monthsBetween(a: string, b: string) {
 function sameInstalmentAmount(a: number, b: number) {
   return Math.abs(Math.abs(a) - Math.abs(b)) <= Math.max(1, Math.abs(a) * 0.01);
 }
+// Colombian statements (Scotiabank Colpatria, Oct 2026) print a line status
+// next to the description — "CANCELADA" for a purchase already paid off —
+// and the reader glued it to the merchant ("CANCELADA AVIANCA"), or kept it
+// as the whole name when the description was blank. They also print "1/1"
+// for every one-time purchase and "0/36" on paid-off lines; neither is an
+// installment plan, so they must not show up as cuotas.
+const LINE_STATUS_PREFIX = /^\s*CANCELADA\b\s*/i;
+function cleanStatementLine(tx: ParsedTx): ParsedTx {
+  const merchant = (tx.merchant ?? "").replace(LINE_STATUS_PREFIX, "").trim() || "SIN DESCRIPCIÓN";
+  const m = /^\s*(\d{1,3})\s*(?:\/|de)\s*(\d{1,3})\s*$/i.exec(tx.plan ?? "");
+  const trivialPlan = !!m && (Number(m[2]) <= 1 || Number(m[1]) === 0);
+  return { ...tx, merchant, plan: trivialPlan ? null : tx.plan, plan_rate: trivialPlan ? null : tx.plan_rate };
+}
+
 function planTotal(plan: string): number | null {
   const m = /^\s*(\d{1,3})\s*\/\s*(\d{1,3})\s*$/.exec(plan ?? "");
   return m ? Number(m[2]) : null;
@@ -501,7 +515,9 @@ Deno.serve(async (req: Request) => {
     // Anterior") as if it were a charge. It isn't one — counting it once
     // added US$ 8,230.95 of fake spending to a ConnectMiles month.
     const NOT_A_TRANSACTION = /^\s*(saldo\s+(anterior|inicial|previo)|balance\s+(anterior|forward)|previous\s+balance)\b/i;
-    let incoming = (fields.transactions ?? []).filter((tx) => !NOT_A_TRANSACTION.test(tx.merchant ?? ""));
+    let incoming = (fields.transactions ?? [])
+      .filter((tx) => !NOT_A_TRANSACTION.test(tx.merchant ?? ""))
+      .map(cleanStatementLine);
     if (!created && incoming.length > 0) {
       const dates = incoming.map((tx) => tx.date).filter(Boolean).sort();
       // PostgREST returns at most 1,000 rows per request (.limit can't raise
