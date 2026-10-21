@@ -5,6 +5,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 import { radius, spacing, ColorTokens, fonts } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useAppTheme, ThemeMode } from '../theme/ThemeContext';
@@ -21,6 +23,20 @@ import { buildTransactionsCsv } from '../csv';
 import { cancelPaymentReminders, cancelWeeklySummary, requestNotificationPermission } from '../notifications';
 
 const DEMO_INBOX = 'u-demo7f3a@stmts.poquetapp.com';
+
+// "Versión 1.1.0 · actualización 21 oct · 3f2a9c1e": the app version plus the
+// OTA bundle actually running (its date and the start of its id), so a
+// tester's screenshot tells exactly which code they had. Read from
+// expo-constants/expo-updates (both linked in every build) — never hardcode it.
+function versionLine(es: boolean): string {
+  const v = Constants.expoConfig?.version ?? '';
+  const base = `${es ? 'Versión' : 'Version'} ${v}`.trim();
+  if (__DEV__) return `${base} · dev`;
+  if (!Updates.isEnabled || Updates.isEmbeddedLaunch || !Updates.createdAt) return base;
+  const date = Updates.createdAt.toLocaleDateString(es ? 'es' : 'en', { day: 'numeric', month: 'short' });
+  const id = Updates.updateId ? ` · ${Updates.updateId.slice(0, 8)}` : '';
+  return `${base} · ${es ? 'actualización' : 'update'} ${date}${id}`;
+}
 
 export function SettingsScreen({ navigation }: any) {
   const { lang, t, setLang } = useLocale();
@@ -401,7 +417,24 @@ export function SettingsScreen({ navigation }: any) {
           <Text style={styles.groupLabel}>{t.about.toUpperCase()}</Text>
           <View style={styles.aboutCard}>
             <Text style={styles.aboutNote}>{t.localNote}</Text>
-            <Text style={styles.aboutVersion}>{t.version}</Text>
+            <View style={styles.aboutLinks}>
+              <Pressable
+                onPress={() => Linking.openURL(es ? 'https://poquetapp.com/privacidad/' : 'https://poquetapp.com/en/privacy/').catch(() => {})}
+                accessibilityRole="link"
+                hitSlop={8}
+              >
+                <Text style={styles.aboutLink}>{es ? 'Política de privacidad' : 'Privacy policy'}</Text>
+              </Pressable>
+              <Text style={styles.aboutDot}>·</Text>
+              <Pressable
+                onPress={() => Linking.openURL(es ? 'https://poquetapp.com/terminos/' : 'https://poquetapp.com/en/terms/').catch(() => {})}
+                accessibilityRole="link"
+                hitSlop={8}
+              >
+                <Text style={styles.aboutLink}>{es ? 'Términos' : 'Terms'}</Text>
+              </Pressable>
+            </View>
+            <Text style={styles.aboutVersion} selectable>{versionLine(es)}</Text>
           </View>
         </View>
       </ScrollView>
@@ -529,6 +562,9 @@ function makeStyles(colors: ColorTokens) {
       borderColor: colors.line2,
     },
     aboutNote: { fontSize: 12, color: colors.ink2, lineHeight: 18 },
+    aboutLinks: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+    aboutLink: { fontSize: 12.5, fontWeight: '600', color: colors.ink, textDecorationLine: 'underline' },
+    aboutDot: { fontSize: 12.5, color: colors.ink3 },
     aboutVersion: { fontSize: 11, color: colors.ink3, marginTop: 10 },
   });
 }
