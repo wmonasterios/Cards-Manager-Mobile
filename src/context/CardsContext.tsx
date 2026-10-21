@@ -25,6 +25,7 @@ import {
   TxPatch,
 } from '../supabase/cardsApi';
 import { listNeedsReviewStatements } from '../supabase/statementsApi';
+import { supabase, isAuthError } from '../supabase/client';
 import { DbCard, DbTransaction, DbStatement, NewDbCard } from '../supabase/types';
 
 function shortDate(iso: string) {
@@ -123,13 +124,32 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       }
       await writeCategoryQueue(stillPending);
     }
-    try {
-      const [cardsRows, paymentsRows, transactionRows, statementRows] = await Promise.all([
+    // One failed request used to land straight on "No pudimos cargar tus
+    // tarjetas · Reintentar". Retry twice first (after 1 s and 3 s; the
+    // skeleton stays up meanwhile), and when the failure is the session,
+    // refresh it before the next try. Only a failure that survives all three
+    // shows the error.
+    const fetchAll = () =>
+      Promise.all([
         listCards(userId),
         listPayments(userId),
         listTransactions(userId),
         listNeedsReviewStatements(userId),
       ]);
+    const RETRY_DELAYS_MS = [1000, 3000];
+    const fetchWithRetry = async () => {
+      for (let attempt = 0; ; attempt++) {
+        try {
+          return await fetchAll();
+        } catch (e) {
+          if (attempt >= RETRY_DELAYS_MS.length) throw e;
+          if (isAuthError(e)) await supabase.auth.refreshSession().catch(() => {});
+          await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+        }
+      }
+    };
+    try {
+      const [cardsRows, paymentsRows, transactionRows, statementRows] = await fetchWithRetry();
       setDbCards(cardsRows);
       setDbTransactions(transactionRows);
       setDbStatements(statementRows);
