@@ -20,3 +20,11 @@ Phase 1 stops amounts in different currencies from being added together (Home, I
 - `apply-statement`'s merchant classifier prompt still says "mostly Panama".
 
 Touches: `src/format.ts`, the three statement edge functions, `cards` / `transactions` schema.
+
+## Rolling digits on the Home total (build 1.3, with Reanimated)
+
+Owner's request (20 Oct 2026): when "Total por pagar" changes, each digit rolls to its new value like SwiftUI's `.contentTransition(.numericText())`, in 0.2 s. Not possible natively in React Native; build it per digit column (translateY) with `react-native-reanimated`. Decided to wait for Reanimated rather than ship a core-`Animated` version now.
+
+Native: Reanimated (+ `react-native-worklets`) needs the planned 1.3 `eas build` with a `version` bump — see the OTA rules in AGENTS.md. Respect "Hide amounts" (no animation while masked) and reduced motion.
+
+Touches: `src/screens/HomeScreen.tsx` (total), possibly the card balances too.
