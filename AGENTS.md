@@ -131,7 +131,11 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
   `maxFontSizeMultiplier={1.3}` — the Home total wrapped on a Galaxy S23
   Ultra; language now follows the device via `Intl` and only an explicit
   Settings pick is persisted, under `langChoice` — the old `lang` key also
-  saved a wrong auto-detected 'en' on Android, so it's ignored now). No native module changes since
+  saved a wrong auto-detected 'en' on Android, so it's ignored now); then 20 Oct (dfa0a7e, run
+  39530013442: multi-currency phase 1 — per-currency totals on Home,
+  Transactions and Calendar, Insights currency selector, card currency on Pay
+  and card detail; also shipped the push-journey tap tracking and break-ui
+  fixes that were only on `preview`). No native module changes since
   a270c47. `ios.supportsTablet` is now false (iPhone only, 15 Oct): native,
   takes effect with the next `eas build` for the App Store submission.
 - **App Store submission (15 Oct 2026).** Build 8 (1.1.0, iPhone only, new
@@ -262,7 +266,9 @@ card face or amount layout.
 # Edge functions: versioning is now mixed (Oct 2026)
 
 `supabase/functions/receive-statement-email/index.ts` is now checked into
-this repo (deployed v15). Both `parse-statement` and this function's
+this repo (deployed v17 on 20 Oct 2026, together with `parse-statement` v17
+and `advisor-chat` v12: Latin America prompt, `1.250.000,00`-style amounts,
+advisor tools split `by_currency` for users with more than one currency). Both `parse-statement` and this function's
 in-process parse read `previous_balance` and, when the lines don't
 reconcile, re-read once with the gap and keep the closer reading — keep the
 two copies of the prompt/schema/self-check in sync.
