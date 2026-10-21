@@ -7,12 +7,16 @@
       "developmentClient": true,
       "distribution": "internal",
       "channel": "development",
-      "env": { "APP_VARIANT": "preview" }
+      "env": {
+        "APP_VARIANT": "preview"
+      }
     },
     "preview": {
       "distribution": "internal",
       "channel": "preview",
-      "env": { "APP_VARIANT": "preview" }
+      "env": {
+        "APP_VARIANT": "preview"
+      }
     },
     "production": {
       "autoIncrement": true,
@@ -20,6 +24,10 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6818382358"
+      }
+    }
   }
 }
