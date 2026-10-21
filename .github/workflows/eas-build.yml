@@ -27,6 +27,11 @@ on:
         required: true
         default: true
         type: boolean
+      submit_only:
+        description: Skip the build and only upload the latest finished build
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   build:
@@ -51,16 +56,24 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           PLATFORM: ${{ github.event.inputs.platform }}
           AUTO_SUBMIT: ${{ github.event.inputs.auto_submit }}
+          SUBMIT_ONLY: ${{ github.event.inputs.submit_only }}
         run: |
-          ARGS="--platform $PLATFORM --profile production --non-interactive"
-          if [ "$AUTO_SUBMIT" = "true" ]; then ARGS="$ARGS --auto-submit"; fi
           set +e
-          eas build $ARGS 2>&1 | tee eas-build.log
-          status=${PIPESTATUS[0]}
+          if [ "$SUBMIT_ONLY" = "true" ]; then
+            # Upload the most recent finished build (e.g. after a build whose
+            # submit step failed) without building again.
+            eas submit --platform $PLATFORM --profile production --latest --non-interactive 2>&1 | tee eas-build.log
+            status=${PIPESTATUS[0]}
+          else
+            ARGS="--platform $PLATFORM --profile production --non-interactive"
+            if [ "$AUTO_SUBMIT" = "true" ]; then ARGS="$ARGS --auto-submit"; fi
+            eas build $ARGS 2>&1 | tee eas-build.log
+            status=${PIPESTATUS[0]}
+          fi
           if [ "$status" -ne 0 ]; then
             # Surface the end of the EAS output as an annotation, so the
             # reason is readable from the run summary / API without the logs.
             msg=$(tail -n 40 eas-build.log | sed 's/\x1b\[[0-9;]*m//g' | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
-            echo "::error title=eas build failed::$msg"
+            echo "::error title=eas failed::$msg"
           fi
           exit $status
