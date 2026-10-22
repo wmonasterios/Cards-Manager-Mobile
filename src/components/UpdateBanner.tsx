@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { AppState, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, AppState, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
@@ -106,8 +106,78 @@ export function UpdateBanner({ routeName }: { routeName?: string }) {
   };
 
   return (
-    <View
-      style={[styles.card, { bottom: TAB_BAR_BODY + Math.max(insets.bottom, 12) + 10 }]}
+    <BannerCard
+      bottom={TAB_BAR_BODY + Math.max(insets.bottom, 12) + 10}
+      styles={styles}
+      colors={colors}
+      es={es}
+      restarting={restarting}
+      onUpdate={update}
+      onDismiss={() => setDismissed(true)}
+    />
+  );
+}
+
+// Motion (owner's call, 22 Oct 2026 — core Animated, no new native module):
+// enters from 24 px below with a fade and a soft spring that settles with a
+// slight overshoot (~0.4 s); "Ahora no" slides it down and fades it out
+// (~0.2 s) before it unmounts. With "Reduce Motion" on, it only fades.
+const ENTER_OFFSET = 24;
+
+function BannerCard({
+  bottom,
+  styles,
+  colors,
+  es,
+  restarting,
+  onUpdate,
+  onDismiss,
+}: {
+  bottom: number;
+  styles: ReturnType<typeof makeStyles>;
+  colors: ColorTokens;
+  es: boolean;
+  restarting: boolean;
+  onUpdate: () => void;
+  onDismiss: () => void;
+}) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const offset = useRef(new Animated.Value(ENTER_OFFSET)).current;
+  const reduceMotion = useRef(false);
+  const leaving = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .catch(() => false)
+      .then((reduce) => {
+        if (cancelled) return;
+        reduceMotion.current = !!reduce;
+        if (reduce) offset.setValue(0);
+        Animated.parallel([
+          Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+          reduce
+            ? Animated.delay(0)
+            : Animated.spring(offset, { toValue: 0, stiffness: 260, damping: 18, mass: 1, useNativeDriver: true }),
+        ]).start();
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [opacity, offset]);
+
+  const dismiss = () => {
+    if (leaving.current) return;
+    leaving.current = true;
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+      Animated.timing(offset, { toValue: reduceMotion.current ? 0 : 16, duration: 200, useNativeDriver: true }),
+    ]).start(() => onDismiss());
+  };
+
+  return (
+    <Animated.View
+      style={[styles.card, { bottom, opacity, transform: [{ translateY: offset }] }]}
       accessibilityLiveRegion="polite"
     >
       <View style={styles.iconTile}>
@@ -122,19 +192,19 @@ export function UpdateBanner({ routeName }: { routeName?: string }) {
         </Text>
         <View style={styles.actions}>
           <Pressable
-            onPress={update}
+            onPress={onUpdate}
             disabled={restarting}
             style={[styles.primary, restarting && { opacity: 0.6 }]}
             accessibilityRole="button"
           >
             <Text style={styles.primaryText}>{es ? 'Actualizar' : 'Update'}</Text>
           </Pressable>
-          <Pressable onPress={() => setDismissed(true)} style={styles.secondary} accessibilityRole="button">
+          <Pressable onPress={dismiss} style={styles.secondary} accessibilityRole="button">
             <Text style={styles.secondaryText}>{es ? 'Ahora no' : 'Not now'}</Text>
           </Pressable>
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
