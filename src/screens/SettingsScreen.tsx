@@ -5,8 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import Constants from 'expo-constants';
-import * as Updates from 'expo-updates';
+import { versionLine } from '../appVersion';
 import { radius, spacing, ColorTokens, fonts } from '../theme';
 import { useColors } from '../theme/ThemeContext';
 import { useAppTheme, ThemeMode } from '../theme/ThemeContext';
@@ -23,20 +22,6 @@ import { buildTransactionsCsv } from '../csv';
 import { cancelPaymentReminders, cancelWeeklySummary, requestNotificationPermission } from '../notifications';
 
 const DEMO_INBOX = 'u-demo7f3a@stmts.poquetapp.com';
-
-// "Versión 1.1.0 · actualización 21 oct · 3f2a9c1e": the app version plus the
-// OTA bundle actually running (its date and the start of its id), so a
-// tester's screenshot tells exactly which code they had. Read from
-// expo-constants/expo-updates (both linked in every build) — never hardcode it.
-function versionLine(es: boolean): string {
-  const v = Constants.expoConfig?.version ?? '';
-  const base = `${es ? 'Versión' : 'Version'} ${v}`.trim();
-  if (__DEV__) return `${base} · dev`;
-  if (!Updates.isEnabled || Updates.isEmbeddedLaunch || !Updates.createdAt) return base;
-  const date = Updates.createdAt.toLocaleDateString(es ? 'es' : 'en', { day: 'numeric', month: 'short' });
-  const id = Updates.updateId ? ` · ${Updates.updateId.slice(0, 8)}` : '';
-  return `${base} · ${es ? 'actualización' : 'update'} ${date}${id}`;
-}
 
 export function SettingsScreen({ navigation }: any) {
   const { lang, t, setLang } = useLocale();
@@ -357,7 +342,6 @@ export function SettingsScreen({ navigation }: any) {
               onPress={() => Linking.openURL('mailto:support@poquetapp.com').catch(() => {})}
             />
             <LinkRow icon="bug-outline" title={t.reportBug} onPress={() => navigation.navigate('Report')} />
-            <LinkRow icon="build-outline" title={t.fixParser} onPress={() => navigation.navigate('Fix')} />
           </View>
 
           <Text style={styles.groupLabel}>{t.data.toUpperCase()}</Text>

@@ -17,7 +17,8 @@ export type RootStackParamList = {
   TransactionDetail: { txId: string; cardId: string };
   Pay: { cardId: string };
   Best: undefined;
-  Report: undefined;
+  // statementId: report about that statement (from its review or detail).
+  Report: { statementId?: string; source?: 'review' | 'statement'; label?: string } | undefined;
   Fix: undefined;
   Auth: { fromOnboarding?: boolean; mode?: 'signin' | 'signup' } | undefined;
   DemoIntro: undefined;
