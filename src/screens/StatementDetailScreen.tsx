@@ -416,6 +416,21 @@ export function StatementDetailScreen({ route, navigation }: any) {
             </Text>
           </View>
         )}
+
+        <Pressable
+          onPress={() =>
+            navigation.navigate('Report', {
+              statementId,
+              source: 'statement',
+              label: `${title}${parsed?.last4 ? ` ·· ${parsed.last4}` : ''} · ${es ? 'corte' : 'cutoff'} ${fmtDate(parsed?.cutoff_date, lang, false)}`,
+            })
+          }
+          style={{ marginTop: 18, alignSelf: 'flex-start' }}
+          hitSlop={8}
+          accessibilityRole="link"
+        >
+          <Text style={styles.link}>{es ? '¿Algo se leyó mal? Avísanos' : 'Something read wrong? Tell us'}</Text>
+        </Pressable>
       </ScrollView>
 
       <View style={styles.actions}>

@@ -1148,6 +1148,24 @@ function RealStatementsFlow({ navigation, route }: any) {
                   : "Classifying merchants and saving transactions. This can take up to a minute; if you leave, we'll notify you when it's done."}
               </Text>
             )}
+            {!!statementId && !applying && (
+              <Pressable
+                onPress={() =>
+                  navigation.navigate('Report', {
+                    statementId,
+                    source: 'review',
+                    label: `${fields.bank || (lang === 'es' ? 'Estado de cuenta' : 'Statement')}${fields.last4 ? ` ·· ${fields.last4}` : ''}${fields.cutoff_date ? ` · ${lang === 'es' ? 'corte' : 'cutoff'} ${fields.cutoff_date}` : ''}`,
+                  })
+                }
+                style={[styles.viewPdfLink, { alignSelf: 'center', marginTop: 18 }]}
+                hitSlop={8}
+                accessibilityRole="link"
+              >
+                <Text style={styles.viewPdfLinkText}>
+                  {lang === 'es' ? '¿Algo se leyó mal y no puedes corregirlo? Avísanos' : "Something read wrong that you can't fix? Tell us"}
+                </Text>
+              </Pressable>
+            )}
           </View>
         </ScrollView>
 

@@ -28,3 +28,12 @@ Owner's request (20 Oct 2026): when "Total por pagar" changes, each digit rolls 
 Native: Reanimated (+ `react-native-worklets`) needs the planned 1.3 `eas build` with a `version` bump — see the OTA rules in AGENTS.md. Respect "Hide amounts" (no animation while masked) and reduced motion.
 
 Touches: `src/screens/HomeScreen.tsx` (total), possibly the card balances too.
+
+## Edit a card's statement figures by hand
+
+If a reading gets one figure wrong (balance, minimum payment, due/cutoff
+date, credit limit) and "Volver a leer" doesn't fix it, the user has no way
+to correct it: card detail only edits name and color. Add an "Editar" sheet
+in `CardDetailScreen` for those fields (via `updateCard`), marking them as
+manual so the next statement still overwrites them. Owner's call (22 Oct
+2026): only if testers ask for it. Replaces the old mock "Corregir lectura".

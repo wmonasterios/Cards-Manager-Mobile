@@ -526,3 +526,26 @@ build's old embedded bundle first. Two pieces, both JS (OTA-safe:
   `preview` and `production` channels.
 - Only phones already running a bundle with this code get either behavior;
   a fresh install of an old binary needs one restart (or a new build).
+
+# Support reports (22 Oct 2026)
+
+"Reportar un error" is real now (it used to be a prototype alert with a fake
+ticket number). Entry points: Settings → Soporte (general), the statement
+review screen ("¿Algo se leyó mal y no puedes corregirlo? Avísanos") and the
+statement detail ("¿Algo se leyó mal? Avísanos") — the last two pass that
+statement's id, default the area to PDF reading and the "let us look at this
+statement" switch to on. Edge function `submit-report` (in the repo,
+`verify_jwt: true`) saves to `public.support_reports` (migration
+`20261022_support_reports.sql`; written only with the service role, users
+can read their own) and emails support@poquetapp.com through Mailgun's
+`stmts.poquetapp.com` domain with Reply-To = the user. The email carries the
+statement (bank ·· last4, cutoff, status, whether the PDF still exists, id)
+only when the user allowed it, plus app version/OTA/device from
+`src/appVersion.ts`. 10 reports per user per day. Triage:
+`select * from support_reports where status = 'new' order by created_at desc;`
+then set `status` to 'seen' / 'fixed' / 'wontfix'.
+
+The old "Corregir lectura" (`FixScreen`, a mock that "saved a rule for Banco
+General") is no longer linked from Settings: with AI reading there are no
+per-bank rules to save. "Volver a leer" covers a one-off misread; a bank
+misread every time is fixed in the prompt/apply-statement after a report.
