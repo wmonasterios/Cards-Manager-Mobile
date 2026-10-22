@@ -520,6 +520,11 @@ felt like the app had closed. **Owner's call (22 Oct): replaced both.**
   280×120 pt drawn at 3x in Bricolage 500, transparent middle so the centred
   spinner sits above the centred text — the reload screen can't render text
   itself). Regenerate them if the copy or `ink2` changes.
+- Motion (owner's call, 22 Oct — the one exception to "no new animations
+  before 1.3", done with core `Animated`, no native module): the banner
+  enters from 24 px below with a fade and a soft spring (stiffness 260,
+  damping 18 ≈ 3 px overshoot, ~0.4 s); "Ahora no" slides it down and fades
+  it (~0.2 s). "Reduce Motion" on = fade only.
 - `public.app_config.important_update_after` (migration
   `20261021_app_config.sql`) is no longer read by the app; the table stays.
 - A phone only gets this once it's running a bundle with this code (one
