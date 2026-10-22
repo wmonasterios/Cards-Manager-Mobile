@@ -496,36 +496,34 @@ also refuses to send outside 09–20 Panama. Pause:
 - Next (not built): owner-only manual/mass send page; metrics panel per
   milestone; email (separate sending subdomain, unsubscribe link).
 
-# OTA delivery: apply at launch + "important" banner (20 Oct 2026)
+# OTA delivery: always ask, never apply behind the user's back (22 Oct 2026)
 
-expo-updates by default opens with the bundle it has and applies a
-downloaded OTA only on the next cold start, so a TestFlight tester saw the
-build's old embedded bundle first. Two pieces, both JS (OTA-safe:
-`expo-updates` has been linked in every build since 7fd5125):
+History: on 20 Oct an at-launch auto-apply (`src/launchUpdate.ts`: check +
+fetch for 3 s, then `reloadAsync`) plus a banner only for updates flagged in
+`app_config.important_update_after` were added. In practice the at-launch
+reload never ran when iOS resumed the app from the background (not a
+launch), so the owner still had to force-close; and a launch-logo reload
+felt like the app had closed. **Owner's call (22 Oct): replaced both.**
 
-- `src/launchUpdate.ts` (`useLaunchUpdate`, used in `AppContent`): at
-  launch, while the app is still on its blank loading view, check + fetch
-  for up to 3 s; if a new update downloads in time, `reloadAsync()` before
-  any screen shows. Otherwise open normally (applies next launch). Once per
-  JS runtime, skipped in dev and on `isEmergencyLaunch`, so it can't loop.
-- `src/components/UpdateBanner.tsx`: "Hay una versión más reciente de
-  Poquet · Actualizar / Ahora no", only for updates flagged as important in
-  `public.app_config.important_update_after` (migration
-  `20261021_app_config.sql`; one row, read-only for the app). Shows when a
-  downloaded update was created at/after the flag and the running one
-  before it, only on Home/Calendar/Insights/Settings (never Statements,
-  Pay, modals, auth). "Actualizar" = `reloadAsync`, with a reload
-  screen showing the launch-screen logo (`assets/splash-icon*.png`, 220 px,
-  theme background), a small spinner and a fade instead of a blank screen;
-  "Ahora no" hides it until the next launch. Rechecks quietly on returning to the app after
-  2+ min in the background. Owner's call: no "what's new" card and no
-  in-context tooltips (felt invasive) — fixes stay silent.
-- To flag a release as important, right after publishing it:
-  `update public.app_config set important_update_after = now(), updated_at = now() where id = 1;`
-  Set it back to NULL once everyone has it. The table is shared by the
-  `preview` and `production` channels.
-- Only phones already running a bundle with this code get either behavior;
-  a fresh install of an old binary needs one restart (or a new build).
+- `src/launchUpdate.ts` is gone; the app always opens straight away with
+  the bundle it has.
+- `src/components/UpdateBanner.tsx` looks for an update every time the app
+  is opened — cold start (expo-updates' own on-load check, plus a backup
+  check 5 s in) and every return from the background (at most one request
+  per 30 s) — downloads it, and shows "Hay una versión más reciente de
+  Poquet · Actualizar / Ahora no" for **any** downloaded update, only on
+  Home/Calendar/Insights/Settings. "Ahora no" lasts until the app is next
+  opened; an update never accepted still applies on the next cold start.
+- "Actualizar" = `reloadAsync` with the native reload screen: theme
+  background, a medium spinner and an image reading "Actualizando Poquet…" /
+  "Updating Poquet…" (`assets/2026-10-22-updating-{es,en}-{dark,light}.png`,
+  280×120 pt drawn at 3x in Bricolage 500, transparent middle so the centred
+  spinner sits above the centred text — the reload screen can't render text
+  itself). Regenerate them if the copy or `ink2` changes.
+- `public.app_config.important_update_after` (migration
+  `20261021_app_config.sql`) is no longer read by the app; the table stays.
+- A phone only gets this once it's running a bundle with this code (one
+  last force-close on old bundles).
 
 # Support reports (22 Oct 2026)
 

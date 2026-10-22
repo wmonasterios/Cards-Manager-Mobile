@@ -13,7 +13,6 @@ import { LockGate } from './src/components/LockGate';
 import { NotificationsSync } from './src/components/NotificationsSync';
 import { navigationRef, goToWelcome } from './src/navigation/navigationRef';
 import { DemoRibbon } from './src/components/DemoRibbon';
-import { useLaunchUpdate } from './src/launchUpdate';
 import { UpdateBanner } from './src/components/UpdateBanner';
 import { useFonts } from 'expo-font';
 import {
@@ -48,12 +47,7 @@ function AppContent() {
     BricolageGrotesque_600SemiBold,
   });
 
-  // A newer OTA found at launch is applied before any screen shows, instead
-  // of on the next cold start (see src/launchUpdate.ts). Data keeps loading
-  // in parallel meanwhile.
-  const checkingForUpdate = useLaunchUpdate();
-
-  if (checkingForUpdate || authLoading || !cardsLoaded || !settingsLoaded || (!fontsLoaded && !fontError)) {
+  if (authLoading || !cardsLoaded || !settingsLoaded || (!fontsLoaded && !fontError)) {
     return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
   }
 

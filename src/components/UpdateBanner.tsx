@@ -3,105 +3,103 @@ import { AppState, Image, Pressable, StyleSheet, Text, View } from 'react-native
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
-import { supabase } from '../supabase/client';
 import { useAppTheme } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { ColorTokens } from '../theme';
 
 // "Hay una versión más reciente de Poquet · Actualizar / Ahora no".
 //
-// Most OTAs apply silently: at launch (src/launchUpdate.ts) or on the next
-// cold start. This banner is only for updates flagged as important in
-// public.app_config.important_update_after (set by hand right after
-// publishing; see supabase/migrations/20261021_app_config.sql): it shows once
-// such an update has been downloaded while the phone still runs an older one.
+// Owner's call (22 Oct 2026): updates are never applied behind the user's
+// back. Every time the app opens (cold start, or coming back to it) we look
+// for a new OTA and download it; once one is ready this banner offers it.
+// "Actualizar" reloads into it behind an "Actualizando Poquet…" screen (not
+// the launch logo, which felt like the app had closed); "Ahora no" hides it
+// until the next time the app is opened. An update the user never accepts
+// still applies by itself on the next cold start (expo-updates' default).
 //
 // Only on the main tabs, never mid-task (uploading or reviewing a statement,
-// paying, adding a card, signing in). "Actualizar" reloads into the new
-// bundle (about a second); "Ahora no" hides it until the next launch, when
-// the update applies on its own anyway.
+// paying, adding a card, signing in).
 const SHOW_ON = new Set(['Home', 'Calendar', 'Insights', 'Settings']);
 
-// Coming back after this long in the background, quietly look for an update,
-// so one published while the app was left open still gets noticed. Checking
-// on foreground is what expo-updates recommends; the gap just avoids a
-// request on every quick app switch.
-const RECHECK_AFTER_MS = 2 * 60 * 1000;
+// Coming back to the app counts as opening it, but quick app switches don't
+// each need a request.
+const MIN_CHECK_GAP_MS = 30 * 1000;
 
 // FloatingTabBar: 8 top padding + 64 capsule + bottom padding (safe area, min 12).
 const TAB_BAR_BODY = 8 + 64;
 
-// The reload after "Actualizar" shows the same logo as the native launch
-// screen (expo-splash-screen in app.json: these images at 220 px on the
-// theme background), so it reads as the app opening, not a blank screen.
-const SPLASH_LIGHT = require('../../assets/splash-icon.png');
-const SPLASH_DARK = require('../../assets/splash-icon-dark.png');
-const SPLASH_SIZE = 220;
+// The native reload screen can only show an image, a background colour and a
+// spinner, all centred. These images are "Actualizando Poquet…" set below a
+// transparent middle, so the spinner sits just above the text. 280x120 pt,
+// drawn at 3x in the app's display font.
+const UPDATING_IMG = {
+  es: { dark: require('../../assets/2026-10-22-updating-es-dark.png'), light: require('../../assets/2026-10-22-updating-es-light.png') },
+  en: { dark: require('../../assets/2026-10-22-updating-en-dark.png'), light: require('../../assets/2026-10-22-updating-en-light.png') },
+};
+const UPDATING_W = 280;
+const UPDATING_H = 120;
 
-async function readImportantAfter(): Promise<Date | null> {
-  const { data, error } = await supabase
-    .from('app_config')
-    .select('important_update_after')
-    .eq('id', 1)
-    .maybeSingle();
-  if (error || !data?.important_update_after) return null;
-  const d = new Date(data.important_update_after as string);
-  return Number.isNaN(d.getTime()) ? null : d;
+let lastCheckAt = 0;
+let checking = false;
+
+async function lookForUpdate() {
+  if (checking || Date.now() - lastCheckAt < MIN_CHECK_GAP_MS) return;
+  checking = true;
+  lastCheckAt = Date.now();
+  try {
+    const r = await Updates.checkForUpdateAsync();
+    if (r.isAvailable) await Updates.fetchUpdateAsync();
+  } catch {
+    // Offline, server error, or expo-updates' own startup check is still
+    // running: try again next time the app is opened.
+  } finally {
+    checking = false;
+  }
 }
 
 export function UpdateBanner({ routeName }: { routeName?: string }) {
   const enabled = !__DEV__ && Updates.isEnabled;
-  const { currentlyRunning, downloadedUpdate, isUpdatePending } = Updates.useUpdates();
+  const { downloadedUpdate, isUpdatePending } = Updates.useUpdates();
   const { colors, isDark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { lang } = useLocale();
   const es = lang === 'es';
-  const [importantAfter, setImportantAfter] = useState<Date | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [restarting, setRestarting] = useState(false);
 
   useEffect(() => {
     if (!enabled) return;
-    let backgroundAt = 0;
+    // Cold start: expo-updates checks on load by itself; this is a backup a
+    // few seconds later in case that check was skipped or failed.
+    const t = setTimeout(lookForUpdate, 5000);
+    let wasBackground = false;
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'background') {
-        backgroundAt = Date.now();
-      } else if (state === 'active' && backgroundAt && Date.now() - backgroundAt >= RECHECK_AFTER_MS) {
-        backgroundAt = 0;
-        Updates.checkForUpdateAsync()
-          .then((r) => (r.isAvailable ? Updates.fetchUpdateAsync() : null))
-          .catch(() => {});
+        wasBackground = true;
+      } else if (state === 'active' && wasBackground) {
+        wasBackground = false;
+        setDismissed(false); // "Ahora no" lasts until the next time it's opened
+        lookForUpdate();
       }
     });
-    return () => sub.remove();
+    return () => {
+      clearTimeout(t);
+      sub.remove();
+    };
   }, [enabled]);
 
-  // Read the flag only once an update is actually waiting.
-  const pendingId = downloadedUpdate?.updateId;
-  useEffect(() => {
-    if (!enabled || !isUpdatePending) return;
-    readImportantAfter().then(setImportantAfter).catch(() => {});
-  }, [enabled, isUpdatePending, pendingId]);
-
-  const pendingAt = downloadedUpdate?.type === Updates.UpdateInfoType.NEW ? downloadedUpdate.createdAt : undefined;
-  const runningAt = currentlyRunning.createdAt;
-  const important =
-    !!importantAfter &&
-    !!pendingAt &&
-    pendingAt.getTime() >= importantAfter.getTime() &&
-    (!runningAt || runningAt.getTime() < importantAfter.getTime());
-
-  if (!enabled || !isUpdatePending || !important || dismissed || !routeName || !SHOW_ON.has(routeName)) return null;
+  const isNew = downloadedUpdate?.type === Updates.UpdateInfoType.NEW;
+  if (!enabled || !isUpdatePending || !isNew || dismissed || !routeName || !SHOW_ON.has(routeName)) return null;
 
   const update = () => {
     setRestarting(true);
-    const logo = Image.resolveAssetSource(isDark ? SPLASH_DARK : SPLASH_LIGHT);
+    const img = Image.resolveAssetSource(UPDATING_IMG[es ? 'es' : 'en'][isDark ? 'dark' : 'light']);
     Updates.reloadAsync({
       reloadScreenOptions: {
         backgroundColor: colors.bg,
-        ...(logo?.uri ? { image: { url: logo.uri, width: SPLASH_SIZE, height: SPLASH_SIZE }, imageResizeMode: 'contain' as const } : {}),
-        spinner: { enabled: true, color: colors.ink3, size: 'small' },
+        ...(img?.uri ? { image: { url: img.uri, width: UPDATING_W, height: UPDATING_H }, imageResizeMode: 'contain' as const } : {}),
+        spinner: { enabled: true, color: colors.ink3, size: 'medium' },
         fade: true,
       },
     }).catch(() => setRestarting(false));
@@ -120,7 +118,7 @@ export function UpdateBanner({ routeName }: { routeName?: string }) {
           {es ? 'Hay una versión más reciente de Poquet' : 'A newer version of Poquet is ready'}
         </Text>
         <Text style={styles.body}>
-          {es ? 'Incluye correcciones. Tarda un segundo.' : 'It includes fixes. It takes a second.'}
+          {es ? 'Trae mejoras y correcciones. Tarda un segundo.' : 'It brings improvements and fixes. It takes a second.'}
         </Text>
         <View style={styles.actions}>
           <Pressable
