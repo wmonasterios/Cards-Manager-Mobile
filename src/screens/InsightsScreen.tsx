@@ -46,7 +46,7 @@ export function InsightsScreen({ navigation }: any) {
       // Excluding the last remaining card means "go back to All" instead of
       // silently doing nothing (which is what a plain "never exclude every
       // card" guard would do here).
-      if (next.size === cards.length) return new Set();
+      if (next.size === whoCards.length) return new Set();
       return next;
     });
   };
@@ -61,12 +61,21 @@ export function InsightsScreen({ navigation }: any) {
   const [selWho, setSelWho] = useState<string | null>(null);
   const who = selWho === 'main' || (selWho && memberNames.includes(selWho)) ? selWho : null;
 
-  const includedCards = useMemo(() => {
-    const picked = cards.filter((c) => !excludedCardIds.has(c.id));
-    if (!who) return picked;
+  // Cards in play for the chosen person: an additional holder only has the
+  // cards they're an additional on; "everyone" and the principal have all.
+  // Each card's lines are narrowed to that person too.
+  const whoCards = useMemo(() => {
+    if (!who) return cards;
     const keep = (m?: string) => (who === 'main' ? !m : m === who);
-    return picked.map((c) => ({ ...c, tx: c.tx.filter((t) => keep(t.member)), dtx: c.dtx.filter((t) => keep(t.member)) }));
-  }, [cards, excludedCardIds, who]);
+    return cards
+      .filter((c) => who === 'main' || (c.additionals ?? []).some((a) => a.name === who))
+      .map((c) => ({ ...c, tx: c.tx.filter((t) => keep(t.member)), dtx: c.dtx.filter((t) => keep(t.member)) }));
+  }, [cards, who]);
+
+  const includedCards = useMemo(
+    () => whoCards.filter((c) => !excludedCardIds.has(c.id)),
+    [whoCards, excludedCardIds],
+  );
 
   // Months come from every card in the selected currency, not the filtered
   // ones: the card chips only filter inside the month you're on, they never
@@ -97,8 +106,8 @@ export function InsightsScreen({ navigation }: any) {
   // it's itself a navigation control, so filtering it by the top chips would
   // make it show only whatever's already selected.
   const cardBreakdown = useMemo(
-    () => (monthIso ? analyseByCard(cards, monthIso, selWeek) : []),
-    [cards, monthIso, selWeek],
+    () => (monthIso ? analyseByCard(whoCards, monthIso, selWeek) : []),
+    [whoCards, monthIso, selWeek],
   );
   const isolatedCardId = includedCards.length === 1 ? includedCards[0].id : null;
 
@@ -115,7 +124,7 @@ export function InsightsScreen({ navigation }: any) {
     if (isolatedCardId === cardId) {
       setExcludedCardIds(new Set());
     } else {
-      setExcludedCardIds(new Set(cards.filter((c) => c.id !== cardId).map((c) => c.id)));
+      setExcludedCardIds(new Set(whoCards.filter((c) => c.id !== cardId).map((c) => c.id)));
     }
   };
 
@@ -180,43 +189,51 @@ export function InsightsScreen({ navigation }: any) {
 
   const pickWho = (next: string | null) => {
     setSelWho(next);
+    setExcludedCardIds(new Set());
     setSelCat(null);
     setSelWeek(null);
     setShowAllTx(false);
     setShowOtherCats(false);
   };
+  // Additional cards: "Todos · Principal · <name>…", no label, full width;
+  // more names extend to the right and the row scrolls. Hidden for anyone
+  // without additional cards. It sits above the card filter, which then only
+  // offers the cards where the chosen person has an additional card.
+  const whoOptions = [
+    { key: null as string | null, label: lang === 'es' ? 'Todos' : 'All' },
+    { key: 'main' as string | null, label: lang === 'es' ? 'Principal' : 'Main' },
+    ...memberNames.map((n) => ({ key: n as string | null, label: n })),
+  ];
   const whoFilter = !isDemo && memberNames.length > 0 ? (
     <View style={styles.section}>
-      <View style={[styles.filterCard, styles.currencyCard]}>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={styles.filterLabel}>{lang === 'es' ? 'QUIÉN' : 'WHO'}</Text>
-        </View>
-        <View style={[styles.segment, { flexWrap: 'wrap' }]} accessibilityRole="radiogroup">
-          {[
-            { key: null as string | null, label: lang === 'es' ? 'Todos' : 'All' },
-            { key: 'main', label: lang === 'es' ? 'Principal' : 'Main' },
-            ...memberNames.map((n) => ({ key: n as string | null, label: n })),
-          ].map((o) => {
-            const active = who === o.key;
-            return (
-              <Pressable
-                key={o.key ?? 'all'}
-                onPress={() => pickWho(o.key)}
-                style={[styles.segmentBtn, active && styles.chipActive]}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: active }}
-                hitSlop={4}
-              >
-                <Text style={[styles.segmentText, active && styles.chipTextActive]} numberOfLines={1}>{o.label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.whoTrack}
+        contentContainerStyle={styles.whoTrackContent}
+        accessibilityRole="radiogroup"
+      >
+        {whoOptions.map((o) => {
+          const active = who === o.key;
+          return (
+            <Pressable
+              key={o.key ?? 'all'}
+              onPress={() => pickWho(o.key)}
+              style={[styles.whoBtn, active && styles.chipActive]}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: active }}
+            >
+              <Text style={[styles.whoText, active && styles.chipTextActive]} numberOfLines={1}>
+                {o.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
     </View>
   ) : null;
 
-  const showCardFilter = !isDemo && cards.length > 1;
+  const showCardFilter = !isDemo && (whoCards.length > 1 || (!!who && who !== 'main' && whoCards.length > 0));
   const cardFilter = showCardFilter ? (
     <View style={styles.section}>
       <View style={styles.filterCard}>
@@ -229,8 +246,8 @@ export function InsightsScreen({ navigation }: any) {
           <Text style={styles.filterLabel}>{lang === 'es' ? 'TARJETAS' : 'CARDS'}</Text>
           <Text style={styles.filterValue}>
             {excludedCardIds.size === 0
-              ? `${lang === 'es' ? 'Todas' : 'All'} · ${cards.length}`
-              : `${includedCards.length} ${lang === 'es' ? 'de' : 'of'} ${cards.length}`}
+              ? `${lang === 'es' ? 'Todas' : 'All'} · ${whoCards.length}`
+              : `${includedCards.length} ${lang === 'es' ? 'de' : 'of'} ${whoCards.length}`}
           </Text>
           <Ionicons name={cardsOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.ink3} />
         </Pressable>
@@ -244,7 +261,7 @@ export function InsightsScreen({ navigation }: any) {
                 {lang === 'es' ? 'Todas' : 'All'}
               </Text>
             </Pressable>
-            {cards.map((c) => {
+            {whoCards.map((c) => {
               const active = excludedCardIds.size > 0 && !excludedCardIds.has(c.id);
               return (
                 <Pressable
@@ -286,8 +303,8 @@ export function InsightsScreen({ navigation }: any) {
         {!analysis || monthIdx < 0 ? (
           <>
           {currencyFilter}
-          {cardFilter}
           {whoFilter}
+          {cardFilter}
           <View style={styles.section}>
             <View style={styles.emptyCard}>
               <Text style={styles.emptyBody}>
@@ -324,8 +341,8 @@ export function InsightsScreen({ navigation }: any) {
             </View>
 
             {currencyFilter}
-            {cardFilter}
             {whoFilter}
+            {cardFilter}
 
             {/* Spending by week — the primary drill-down control, so it sits first */}
             <View style={styles.section}>
@@ -769,6 +786,10 @@ function makeStyles(colors: ColorTokens) {
     currencyCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingRight: 10 },
     currencySub: { fontSize: 12, color: colors.ink2, marginTop: 4 },
     segment: { flexDirection: 'row', gap: 4, padding: 3, borderRadius: 999, borderWidth: 1, borderColor: colors.line },
+    whoTrack: { borderRadius: 999, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface },
+    whoTrackContent: { flexGrow: 1, flexDirection: 'row', gap: 4, padding: 4 },
+    whoBtn: { flexGrow: 1, minWidth: 88, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 999, alignItems: 'center' },
+    whoText: { fontSize: 14, fontWeight: '600', color: colors.ink2 },
     segmentBtn: { minWidth: 60, paddingVertical: 9, paddingHorizontal: 14, borderRadius: 999, alignItems: 'center' },
     segmentText: { fontSize: 12.5, fontWeight: '600', color: colors.ink2 },
     otherCatsBtn: {
