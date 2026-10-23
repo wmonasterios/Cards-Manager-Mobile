@@ -51,10 +51,22 @@ export function InsightsScreen({ navigation }: any) {
     });
   };
 
-  const includedCards = useMemo(
-    () => cards.filter((c) => !excludedCardIds.has(c.id)),
-    [cards, excludedCardIds],
-  );
+  // Additional cards ("Quién"): everyone, the principal's lines, or one
+  // additional card holder's (by the name the user gave, across cards).
+  const memberNames = useMemo(() => {
+    const names = new Set<string>();
+    cards.forEach((c) => (c.additionals ?? []).forEach((a) => names.add(a.name)));
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [cards]);
+  const [selWho, setSelWho] = useState<string | null>(null);
+  const who = selWho === 'main' || (selWho && memberNames.includes(selWho)) ? selWho : null;
+
+  const includedCards = useMemo(() => {
+    const picked = cards.filter((c) => !excludedCardIds.has(c.id));
+    if (!who) return picked;
+    const keep = (m?: string) => (who === 'main' ? !m : m === who);
+    return picked.map((c) => ({ ...c, tx: c.tx.filter((t) => keep(t.member)), dtx: c.dtx.filter((t) => keep(t.member)) }));
+  }, [cards, excludedCardIds, who]);
 
   // Months come from every card in the selected currency, not the filtered
   // ones: the card chips only filter inside the month you're on, they never
@@ -166,6 +178,44 @@ export function InsightsScreen({ navigation }: any) {
     </View>
   ) : null;
 
+  const pickWho = (next: string | null) => {
+    setSelWho(next);
+    setSelCat(null);
+    setSelWeek(null);
+    setShowAllTx(false);
+    setShowOtherCats(false);
+  };
+  const whoFilter = !isDemo && memberNames.length > 0 ? (
+    <View style={styles.section}>
+      <View style={[styles.filterCard, styles.currencyCard]}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={styles.filterLabel}>{lang === 'es' ? 'QUIÉN' : 'WHO'}</Text>
+        </View>
+        <View style={[styles.segment, { flexWrap: 'wrap' }]} accessibilityRole="radiogroup">
+          {[
+            { key: null as string | null, label: lang === 'es' ? 'Todos' : 'All' },
+            { key: 'main', label: lang === 'es' ? 'Principal' : 'Main' },
+            ...memberNames.map((n) => ({ key: n as string | null, label: n })),
+          ].map((o) => {
+            const active = who === o.key;
+            return (
+              <Pressable
+                key={o.key ?? 'all'}
+                onPress={() => pickWho(o.key)}
+                style={[styles.segmentBtn, active && styles.chipActive]}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: active }}
+                hitSlop={4}
+              >
+                <Text style={[styles.segmentText, active && styles.chipTextActive]} numberOfLines={1}>{o.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    </View>
+  ) : null;
+
   const showCardFilter = !isDemo && cards.length > 1;
   const cardFilter = showCardFilter ? (
     <View style={styles.section}>
@@ -237,6 +287,7 @@ export function InsightsScreen({ navigation }: any) {
           <>
           {currencyFilter}
           {cardFilter}
+          {whoFilter}
           <View style={styles.section}>
             <View style={styles.emptyCard}>
               <Text style={styles.emptyBody}>
@@ -274,6 +325,7 @@ export function InsightsScreen({ navigation }: any) {
 
             {currencyFilter}
             {cardFilter}
+            {whoFilter}
 
             {/* Spending by week — the primary drill-down control, so it sits first */}
             <View style={styles.section}>

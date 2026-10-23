@@ -42,8 +42,22 @@ const EXTRACT_TOOL = {
             amount: { type: "number", description: "Negative for charges/purchases, positive for payments or credits." },
             plan: { type: "string", description: "If this line is an instalment/cuotas purchase, the progress exactly as printed, e.g. '4/12' or '4 de 12'. Omit entirely for a regular one-time charge." },
             plan_rate: { type: "string", description: "The interest rate for this instalment plan if printed on the same line, e.g. '1.2% mensual' or '0%'. Omit if not printed." },
+            card_last4: { type: "string", description: "Last 4 digits of the card this line belongs to: the card number in the header of the detail section the line is printed under, or the card number printed on the line itself. Omit for lines in an account-level section that is not tied to one card." },
           },
           required: ["date", "merchant", "amount"],
+        },
+      },
+      cards: {
+        type: "array",
+        description: "Every card number that has its own transaction detail section (or appears on transaction lines) in this statement.",
+        items: {
+          type: "object",
+          properties: {
+            last4: { type: "string" },
+            role: { type: "string", description: "As printed, if shown: e.g. 'titular', 'principal', 'adicional'. Omit if not printed. Never a person's name." },
+            subtotal: { type: "number", description: "The subtotal the bank prints for this card's section, if any, with the same sign convention as transactions (charges negative). Omit if not printed." },
+          },
+          required: ["last4"],
         },
       },
       confidence: { type: "string", enum: ["high", "medium", "low"] },
@@ -54,7 +68,7 @@ const EXTRACT_TOOL = {
 };
 
 const EXTRACT_PROMPT_TEXT =
-  "This is a credit card statement, possibly in Spanish, from a bank in Latin America (most often Panama; also Colombia and others). Extract every field and every transaction line using the extract_statement tool. Some statements combine multiple card sub-accounts on a single bill, each with its own transaction detail section (for example, more than one \"DETALLE DE CUENTA\" block under different card numbers) — when that happens, extract the transactions from EVERY section and combine them into one single transactions array; never skip a section, and never leave transactions empty just because there is more than one detail section. A statement can legitimately have 100-300+ individual transactions — that is normal, not a reason to summarize or shorten the list: list every single transaction line individually, in full, no matter how many there are. Never collapse repeated merchants into one entry, never truncate the array for length, and never return an empty transactions array while other fields are filled in — if you can read the balances and dates, you can read the transaction lines too. Amounts: use negative numbers for purchases/charges and positive numbers for payments or credits, regardless of how they're printed on the statement. Some countries print amounts with \".\" for thousands and \",\" for decimals (Colombia: \"1.250.000,00\" means 1250000.00): always return plain numbers with \".\" as the decimal point. If a value is not present, omit it rather than guessing. Do not guess a spending category — that is handled separately. Status words a bank prints next to a description, such as \"CANCELADA\" (a purchase already paid off), are not part of the merchant name: leave them out of merchant. Some banks print \"1/1\" for every one-time purchase and \"0/36\" on paid-off lines: those are not instalment plans, so leave plan out for them. Some lines are instalment/cuotas purchases showing a progress marker next to the merchant, e.g. '4/12', '4 DE 12', or 'CUOTA 04-12', sometimes with a rate like '1.2% MENSUAL' nearby — when you see this, fill the transaction's plan field with the progress exactly as printed and plan_rate with the rate if shown; leave both fields out entirely for a normal one-time charge. Fill previous_balance with the printed previous balance (\"Saldo anterior\") and never list it as a transaction. The numbers must reconcile: previous_balance minus payments and credits plus all charges (purchases, interest, fees, taxes such as ITBMS, insurance, installments) equals balance — if your lines don't add up, look again for the missing ones.";
+  "This is a credit card statement, possibly in Spanish, from a bank in Latin America (most often Panama; also Colombia and others). Extract every field and every transaction line using the extract_statement tool. Some statements combine multiple card sub-accounts on a single bill, each with its own transaction detail section (for example, more than one \"DETALLE DE CUENTA\" block under different card numbers) — when that happens, extract the transactions from EVERY section and combine them into one single transactions array; never skip a section, and never leave transactions empty just because there is more than one detail section. A statement can legitimately have 100-300+ individual transactions — that is normal, not a reason to summarize or shorten the list: list every single transaction line individually, in full, no matter how many there are. Never collapse repeated merchants into one entry, never truncate the array for length, and never return an empty transactions array while other fields are filled in — if you can read the balances and dates, you can read the transaction lines too. Amounts: use negative numbers for purchases/charges and positive numbers for payments or credits, regardless of how they're printed on the statement. Some countries print amounts with \".\" for thousands and \",\" for decimals (Colombia: \"1.250.000,00\" means 1250000.00): always return plain numbers with \".\" as the decimal point. If a value is not present, omit it rather than guessing. Do not guess a spending category — that is handled separately. Status words a bank prints next to a description, such as \"CANCELADA\" (a purchase already paid off), are not part of the merchant name: leave them out of merchant. Some banks print \"1/1\" for every one-time purchase and \"0/36\" on paid-off lines: those are not instalment plans, so leave plan out for them. Some lines are instalment/cuotas purchases showing a progress marker next to the merchant, e.g. '4/12', '4 DE 12', or 'CUOTA 04-12', sometimes with a rate like '1.2% MENSUAL' nearby — when you see this, fill the transaction's plan field with the progress exactly as printed and plan_rate with the rate if shown; leave both fields out entirely for a normal one-time charge. Fill previous_balance with the printed previous balance (\"Saldo anterior\") and never list it as a transaction. The numbers must reconcile: previous_balance minus payments and credits plus all charges (purchases, interest, fees, taxes such as ITBMS, insurance, installments) equals balance — if your lines don't add up, look again for the missing ones. Some accounts have more than one card (the main cardholder plus additional cards, or an old card number that was renewed), each with its own detail section headed by its card number. For EVERY transaction, set card_last4 to the last 4 digits of the card whose section it is printed under (or the card number printed on the line itself). Lines in an account-level section that is not under a specific card get no card_last4. List each such card in cards, with its role and printed subtotal when shown. Never include cardholder names.";
 
 const NOT_A_TRANSACTION = /^\s*(saldo\s+(anterior|inicial|previo)|balance\s+(anterior|forward)|previous\s+balance)\b/i;
 
@@ -81,7 +95,7 @@ async function extract(messages: unknown[]): Promise<{ input: any; content: unkn
     },
     body: JSON.stringify({
       model: "claude-sonnet-5",
-      max_tokens: 16000,
+      max_tokens: 32000,
       output_config: { effort: "medium" },
       tools: [EXTRACT_TOOL],
       tool_choice: { type: "tool", name: "extract_statement" },

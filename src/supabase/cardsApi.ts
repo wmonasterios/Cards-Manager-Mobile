@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './client';
-import { DbCard, DbCardAlias, DbPayment, DbTransaction, NewDbCard } from './types';
-import { ALL_CATEGORIES, Card, Category, InstalmentPlan, Transaction } from '../data';
+import { DbCard, DbCardAlias, DbCardMember, DbPayment, DbTransaction, NewDbCard } from './types';
+import { ALL_CATEGORIES, Card, CardMember, Category, InstalmentPlan, Transaction } from '../data';
 
 function shortDate(iso: string | null): string {
   if (!iso) return '';
@@ -9,7 +9,9 @@ function shortDate(iso: string | null): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function dbTransactionToTransaction(row: DbTransaction): Transaction {
+const ACCOUNT_CATEGORIES = new Set<string>(['fees', 'payment', 'transfer', 'taxes']);
+
+function dbTransactionToTransaction(row: DbTransaction, additionals?: Map<string, string>): Transaction {
   const category = (ALL_CATEGORIES as string[]).includes(row.category ?? '')
     ? (row.category as Category)
     : 'other';
@@ -29,6 +31,10 @@ function dbTransactionToTransaction(row: DbTransaction): Transaction {
     planSource: row.plan_source ?? undefined,
     planGroup: row.plan_group ?? undefined,
     planOriginal: !!row.plan_original,
+    cardLast4: row.card_last4 ?? undefined,
+    // Fees, interest, taxes and payments are the account's (the principal's)
+    // even when the bank prints them inside an additional card's section.
+    member: row.card_last4 && !ACCOUNT_CATEGORIES.has(category) ? additionals?.get(row.card_last4) : undefined,
   };
 }
 
@@ -70,8 +76,12 @@ function buildInstalmentPlans(transactions: DbTransaction[]): InstalmentPlan[] {
   });
 }
 
-export function dbCardToCard(row: DbCard, transactions: DbTransaction[] = []): Card {
+export function dbCardToCard(row: DbCard, transactions: DbTransaction[] = [], members: DbCardMember[] = []): Card {
   const cardTx = transactions.filter((t) => t.card_id === row.id);
+  const additionals: CardMember[] = members
+    .filter((m) => m.card_id === row.id && m.kind === 'additional' && m.name)
+    .map((m) => ({ last4: m.last4, name: m.name! }));
+  const byLast4 = new Map(additionals.map((a) => [a.last4, a.name]));
   return {
     id: row.id,
     bank: row.bank,
@@ -95,7 +105,8 @@ export function dbCardToCard(row: DbCard, transactions: DbTransaction[] = []): C
     plans: buildInstalmentPlans(cardTx),
     nickname: row.nickname ?? undefined,
     colorKey: row.color_key ?? undefined,
-    tx: cardTx.sort((a, b) => (a.occurred_on < b.occurred_on ? 1 : -1)).map(dbTransactionToTransaction),
+    additionals,
+    tx: cardTx.sort((a, b) => (a.occurred_on < b.occurred_on ? 1 : -1)).map((t) => dbTransactionToTransaction(t, byLast4)),
   };
 }
 
@@ -126,6 +137,33 @@ export async function reorderCards(orderedCardIds: string[]): Promise<void> {
 // Every (bank text, last4) combination that has ever been confirmed to
 // belong to each of the user's cards — used to auto-recognize a statement
 // without re-asking, even after a card gets renewed with new last4 digits.
+// Additional cards: what the user said about each card number (card_members).
+export async function listCardMembers(userId: string): Promise<DbCardMember[]> {
+  const { data, error } = await supabase.from('card_members').select('*').eq('user_id', userId);
+  if (error) throw error;
+  return data ?? [];
+}
+
+// Name a card number as an additional card, or mark it as the principal's.
+export async function saveCardMember(
+  userId: string,
+  cardId: string,
+  last4: string,
+  kind: 'principal' | 'additional',
+  name?: string | null,
+): Promise<DbCardMember> {
+  const { data, error } = await supabase
+    .from('card_members')
+    .upsert(
+      { user_id: userId, card_id: cardId, last4, kind, name: kind === 'additional' ? (name ?? '').trim().slice(0, 40) : null, updated_at: new Date().toISOString() },
+      { onConflict: 'card_id,last4' },
+    )
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function listCardAliases(userId: string): Promise<DbCardAlias[]> {
   const { data, error } = await supabase.from('card_aliases').select('*').eq('user_id', userId);
   if (error) throw error;

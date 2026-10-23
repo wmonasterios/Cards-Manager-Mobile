@@ -97,7 +97,30 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 // ---------- tools ----------
 // onlyCards: set while a tool runs for one currency's cards (see runTool) —
 // spending rows and coverage are narrowed to those cards.
-type Ctx = { db: SupabaseClient; admin: SupabaseClient; userId: string; lang: Lang; cardRefs: Map<string, string>; onlyCards?: Set<string> | null };
+type Ctx = { db: SupabaseClient; admin: SupabaseClient; userId: string; lang: Lang; cardRefs: Map<string, string>; onlyCards?: Set<string> | null; holders?: Map<string, string> };
+
+// Additional cards (Oct 2026): "card_id:last4" → the name the user gave that
+// additional card. Lines on any other number are the main cardholder's.
+async function loadHolders(ctx: Ctx): Promise<Map<string, string>> {
+  if (ctx.holders) return ctx.holders;
+  const { data } = await ctx.db.from("card_members").select("card_id, last4, kind, name").eq("kind", "additional");
+  ctx.holders = new Map(((data ?? []) as any[]).filter((m) => m.name).map((m) => [`${m.card_id}:${m.last4}`, m.name]));
+  return ctx.holders;
+}
+// Fees, interest, taxes and payments are the main cardholder's even when the
+// bank prints them inside an additional card's section (same rule as the app).
+const ACCOUNT_CATEGORIES = new Set(["fees", "payment", "transfer", "taxes"]);
+function holderOf(ctx: Ctx, t: any): string | null {
+  if (!t?.card_last4 || ACCOUNT_CATEGORIES.has(t.category)) return null;
+  return ctx.holders?.get(`${t.card_id}:${t.card_last4}`) ?? null;
+}
+// who: "main" = the main cardholder's lines, a name = that additional card's.
+function matchesWho(ctx: Ctx, t: any, who: unknown): boolean {
+  if (typeof who !== "string" || !who.trim()) return true;
+  const h = holderOf(ctx, t);
+  if (who.trim().toLowerCase() === "main") return !h;
+  return !!h && h.toLowerCase() === who.trim().toLowerCase();
+}
 
 type CardInfo = {
   ref: string;
@@ -116,6 +139,7 @@ type CardInfo = {
   full_payment_due_date: string | null;
   full_payment_amount: number;
   is_paid: boolean;
+  additional_cards?: { last4: string; holder: string }[];
 };
 
 async function loadCards(ctx: Ctx): Promise<CardInfo[]> {
@@ -129,6 +153,7 @@ async function loadCards(ctx: Ctx): Promise<CardInfo[]> {
   if (error) throw new Error(error.message);
   const cards: any[] = data ?? [];
   const { data: pays } = await ctx.db.from("payments").select("card_id, amount, paid_on");
+  const holders = await loadHolders(ctx);
   // Short refs (c1, c2…) instead of database ids: fewer tokens, nothing internal leaks.
   ctx.cardRefs.clear();
   return cards.map((c: any, i: number): CardInfo => {
@@ -156,6 +181,12 @@ async function loadCards(ctx: Ctx): Promise<CardInfo[]> {
       full_payment_due_date: c.full_payment_due_date && c.full_payment_due_date !== c.due_date ? c.full_payment_due_date : c.due_date,
       full_payment_amount: c.full_payment_amount != null ? r2(Number(c.full_payment_amount)) : r2(balance),
       is_paid: !!c.paid_this_cycle || remaining <= 0.005,
+      additional_cards: (() => {
+        const list = [...holders.entries()]
+          .filter(([k]) => k.startsWith(`${c.id}:`))
+          .map(([k, holder]) => ({ last4: k.split(":")[1], holder }));
+        return list.length ? list : undefined;
+      })(),
     };
   });
 }
@@ -184,11 +215,12 @@ async function allRows(build: () => any, max = 20000): Promise<any[]> {
   return out;
 }
 
-async function spendRows(ctx: Ctx, start: string, end: string, cardId: string | null, category?: string) {
+async function spendRows(ctx: Ctx, start: string, end: string, cardId: string | null, category?: string, who?: unknown) {
+  await loadHolders(ctx);
   const rows = await allRows(() => {
     let q = ctx.db
       .from("transactions")
-      .select("occurred_on, merchant, amount, category, card_id, plan, plan_source")
+      .select("occurred_on, merchant, amount, category, card_id, plan, plan_source, card_last4")
       .gte("occurred_on", start)
       .lte("occurred_on", end)
       .lt("amount", 0)
@@ -197,7 +229,7 @@ async function spendRows(ctx: Ctx, start: string, end: string, cardId: string | 
     if (category) q = q.eq("category", category);
     return q;
   });
-  return rows.filter((t: any) => !["payment", "transfer"].includes(t.category) && inScope(ctx, t.card_id));
+  return rows.filter((t: any) => !["payment", "transfer"].includes(t.category) && inScope(ctx, t.card_id) && matchesWho(ctx, t, who));
 }
 
 function inScope(ctx: Ctx, cardId: string) {
@@ -256,7 +288,7 @@ const TOOLS: any[] = [
   {
     name: "cards_overview",
     description:
-      "All of the user's cards: name, statement balance, what's left to pay this cycle, credit limit and % used, minimum payment and what's left of it, cutoff date, minimum-payment due date, full-payment due date and amount, and whether it's paid. Use it first for any question about balances, debt or due dates.",
+      "All of the user's cards: name, additional cards (additional_cards: last 4 digits and the holder's name, when the card has any), statement balance, what's left to pay this cycle, credit limit and % used, minimum payment and what's left of it, cutoff date, minimum-payment due date, full-payment due date and amount, and whether it's paid. Use it first for any question about balances, debt or due dates.",
     input_schema: { type: "object", properties: {} },
   },
   {
@@ -278,6 +310,7 @@ const TOOLS: any[] = [
         start_date: { type: "string", description: "YYYY-MM-DD" },
         end_date: { type: "string", description: "YYYY-MM-DD" },
         card: { type: "string", description: "Card ref from cards_overview (c1, c2…), optional." },
+        who: { type: "string", description: "Optional. \"main\" for the main cardholder's purchases only, or an additional card holder's name (additional_cards in cards_overview) for theirs only." },
       },
     },
   },
@@ -290,6 +323,7 @@ const TOOLS: any[] = [
       properties: {
         months: { type: "integer", minimum: 1, maximum: 12, description: "Default 6." },
         card: { type: "string", description: "Card ref from cards_overview (c1, c2…), optional." },
+        who: { type: "string", description: "Optional. \"main\" for the main cardholder's purchases only, or an additional card holder's name (additional_cards in cards_overview) for theirs only." },
       },
     },
   },
@@ -303,6 +337,7 @@ const TOOLS: any[] = [
         end_date: { type: "string" },
         category: { type: "string", description: "Category id, e.g. dining, groceries, travel." },
         card: { type: "string" },
+        who: { type: "string", description: "Optional. \"main\" for the main cardholder's purchases only, or an additional card holder's name (additional_cards in cards_overview) for theirs only." },
         limit: { type: "integer", minimum: 1, maximum: 10 },
       },
     },
@@ -319,6 +354,7 @@ const TOOLS: any[] = [
         min_amount: { type: "number", description: "Absolute amount, e.g. 50." },
         max_amount: { type: "number" },
         card: { type: "string" },
+        who: { type: "string", description: "Optional. \"main\" for the main cardholder's purchases only, or an additional card holder's name (additional_cards in cards_overview) for theirs only." },
       },
     },
   },
@@ -430,8 +466,8 @@ async function runToolOnce(ctx: Ctx, name: string, input: any): Promise<unknown>
       const prevStart = addDays(prevEnd, -(len - 1));
       const cardId = cardIdFromRef(ctx, input?.card);
       const [cur, prev, labels] = await Promise.all([
-        spendRows(ctx, start, end, cardId),
-        spendRows(ctx, prevStart, prevEnd, cardId),
+        spendRows(ctx, start, end, cardId, undefined, input?.who),
+        spendRows(ctx, prevStart, prevEnd, cardId, undefined, input?.who),
         categoryLabels(ctx),
       ]);
       const sum = (rows: any[]) => {
@@ -467,6 +503,17 @@ async function runToolOnce(ctx: Ctx, name: string, input: any): Promise<unknown>
         },
         missing_data: missingData(cards, cov, start, end, cardId, ctx),
         previous_missing_data: missingData(cards, cov, prevStart, prevEnd, cardId, ctx),
+        // Who spent it, when any card has additional cards ("main" = the main cardholder).
+        by_holder: ctx.holders && ctx.holders.size > 0 && !input?.who
+          ? (() => {
+              const m = new Map<string, number>();
+              for (const t of cur) {
+                const h = holderOf(ctx, t) ?? "main";
+                m.set(h, (m.get(h) ?? 0) + Math.abs(Number(t.amount)));
+              }
+              return Object.fromEntries([...m.entries()].map(([h, v]) => [h, r2(v)]));
+            })()
+          : undefined,
       };
     }
     case "monthly_spending": {
@@ -481,7 +528,7 @@ async function runToolOnce(ctx: Ctx, name: string, input: any): Promise<unknown>
       }
       const cardId = cardIdFromRef(ctx, input?.card);
       const [rows, labels, cov] = await Promise.all([
-        spendRows(ctx, `${months[0]}-01`, t, cardId),
+        spendRows(ctx, `${months[0]}-01`, t, cardId, undefined, input?.who),
         categoryLabels(ctx),
         cardCoverage(ctx, cards),
       ]);
@@ -537,7 +584,7 @@ async function runToolOnce(ctx: Ctx, name: string, input: any): Promise<unknown>
     case "top_merchants": {
       await loadCards(ctx);
       const { start, end } = periodOrMonth(input);
-      const rows = await spendRows(ctx, start, end, cardIdFromRef(ctx, input?.card), input?.category);
+      const rows = await spendRows(ctx, start, end, cardIdFromRef(ctx, input?.card), input?.category, input?.who);
       const m = new Map<string, { total: number; count: number }>();
       for (const t of rows) {
         const k = t.merchant.trim();
@@ -560,9 +607,9 @@ async function runToolOnce(ctx: Ctx, name: string, input: any): Promise<unknown>
       const byId = new Map(cards.map((c) => [c.id, c]));
       let q = ctx.db
         .from("transactions")
-        .select("occurred_on, merchant, amount, category, card_id, plan")
+        .select("occurred_on, merchant, amount, category, card_id, plan, card_last4")
         .order("occurred_on", { ascending: false })
-        .limit(20);
+        .limit(input?.who ? 200 : 20);
       if (typeof input?.text === "string" && input.text.trim()) {
         q = q.ilike("merchant", `%${input.text.trim().replace(/[%_,()]/g, " ").slice(0, 60)}%`);
       }
@@ -574,8 +621,9 @@ async function runToolOnce(ctx: Ctx, name: string, input: any): Promise<unknown>
       if (cardId) q = q.eq("card_id", cardId);
       const { data, error } = await q;
       if (error) throw new Error(error.message);
+      await loadHolders(ctx);
       return {
-        transactions: (data ?? []).map((t: any) => ({
+        transactions: (data ?? []).filter((t: any) => matchesWho(ctx, t, input?.who)).slice(0, 20).map((t: any) => ({
           date: t.occurred_on,
           merchant: t.merchant,
           amount: r2(Number(t.amount)),
@@ -583,6 +631,7 @@ async function runToolOnce(ctx: Ctx, name: string, input: any): Promise<unknown>
           category: t.category,
           installment: t.plan ?? undefined,
           card: byId.get(t.card_id)?.ref,
+          additional_card_holder: holderOf(ctx, t) ?? undefined,
         })),
       };
     }
@@ -798,6 +847,7 @@ NUMBERS
 - Every amount, date and percentage you state MUST come from a tool result in this conversation. Never estimate, round loosely or invent figures. If the data isn't there, say what's missing (for example, a statement hasn't been uploaded).
 - Charges are negative in raw data; talk about them as positive spending amounts.
 - Use the card's currency symbol as given (e.g. "US$ 1,234.56", "COP 850,000.00").
+- Additional cards: some cards have additional cards (cards_overview → additional_cards, each with the holder's name the user gave). The card's balance, minimum and due dates are the whole account's, paid together. For "how much did <name> spend" use the spending tools with who=<name>; who="main" is the main cardholder only. Fees, interest, taxes and payments always belong to the main cardholder.
 - Never add, average or compare amounts in different currencies as if they were one: a user with a US$ card and a COP card owes "US$ 500.00 and COP 2,000,000.00", never one sum. When a tool returns by_currency, answer per currency. Don't convert between currencies; you have no exchange rate.
 - Interest rates are usually not in the data; don't assume one. If an answer depends on a rate, say so.
 - Installment payments (cuotas) and financed balances are repayments of principal, never interest or fees — don't add them to costs.

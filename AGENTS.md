@@ -552,3 +552,34 @@ The old "Corregir lectura" (`FixScreen`, a mock that "saved a rule for Banco
 General") is no longer linked from Settings: with AI reading there are no
 per-bank rules to save. "Volver a leer" covers a one-off misread; a bank
 misread every time is fixed in the prompt/apply-statement after a report.
+
+# Additional cards (22 Oct 2026)
+
+A statement can hold several card numbers (main card, additional cards, an
+old number that was renewed — e.g. the owner's BAC: 9052 old/account, 6464
+his, 4546 his wife's). The readers (`parse-statement` v19,
+`receive-statement-email` v19 — keep both prompts/schemas identical) tag every
+line with `card_last4` (the number of the section it's printed under) and list
+`cards`; `max_tokens` went to 32000 for the extra output. `apply-statement`
+(v26) stores `transactions.card_last4` and upserts the user's answers into
+`card_members` (migration `20261023_card_members.sql`: card_id, last4, kind
+'principal'|'additional', name the USER typed — never the printed name).
+
+Owner's rule: everything that isn't an additional card's is the principal's.
+A number with no row = principal; a 'principal' row only records the user
+already answered. Fees, payments, transfers and taxes are always the
+principal's even inside an additional's section (`ACCOUNT_CATEGORIES` in
+`src/supabase/cardsApi.ts` and in `advisor-chat`). The card's balance,
+minimum and dates stay the whole account's.
+
+- Review screen and "Volver a leer": `CardMembersPicker` asks once per new
+  number when a statement has 2+ numbers (default Principal).
+- Card detail: `CardAdditionals` above "Registrar un pago" — latest statement's
+  spend per additional, % of the statement, "Ver las compras de X" →
+  Transactions `{ cardId, member: last4 }`; "Gestionar" sheet to change it.
+- `Transaction.member` (name) → tag in `TxRow`, row in transaction detail,
+  "QUIÉN" chips in Transactions (selected card) and Insights (by name).
+- `advisor-chat` v13: `who` param on spending tools, `by_holder` in
+  spending_by_category, `additional_cards` in cards_overview.
+- Lines read before this have no `card_last4` (count as principal) until the
+  statement is re-read.

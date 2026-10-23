@@ -216,6 +216,9 @@ export function TransactionDetailScreen({ route, navigation }: Props) {
 
   const rows = [
     { label: t.card, value: `${card.displayName} ${card.product}` },
+    ...(tx.member
+      ? [{ label: lang === 'es' ? 'Adicional' : 'Additional card', value: `${tx.member} ·· ${tx.cardLast4}` }]
+      : []),
     { label: t.category, value: categoryLabel(tx.category, lang) },
     { label: t.dateLabel, value: `${tx.date}, ${tx.iso.slice(0, 4)}` },
     { label: t.plan, value: tx.plan ? `${tx.plan}${tx.rate ? ` · ${tx.rate}` : ''}` : t.single },

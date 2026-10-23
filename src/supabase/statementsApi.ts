@@ -3,7 +3,7 @@ import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { decode } from 'base64-arraybuffer';
 import { supabase } from './client';
-import { DbStatement, ParsedStatement } from './types';
+import { DbStatement, MemberChoice, ParsedStatement } from './types';
 
 // There's no static "empty" state for statements that's meaningfully
 // different from "we just can't reach the server" — email-triggered ones can
@@ -66,10 +66,10 @@ export async function applyStatement(
   statementId: string,
   fields: ParsedStatement,
   cardId?: string,
-  opts?: { replace?: boolean },
+  opts?: { replace?: boolean; members?: MemberChoice[] },
 ): Promise<{ cardId: string; created: boolean; transactionsInserted: number; duplicate?: boolean; cutoffDate?: string }> {
   const { data, error } = await supabase.functions.invoke('apply-statement', {
-    body: { statementId, fields, cardId, replace: opts?.replace ?? false },
+    body: { statementId, fields, cardId, replace: opts?.replace ?? false, members: opts?.members },
   });
   if (error) throw error;
   if (data?.error) throw new Error(data.error);

@@ -64,6 +64,8 @@ export function TransactionsScreen({ route, navigation }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [hidePayments, setHidePayments] = useState(false);
   const [onlyCuotas, setOnlyCuotas] = useState(false);
+  // Additional cards: 'main' = the principal's lines, a last4 = that additional's.
+  const [selMember, setSelMember] = useState<string | null>(route.params?.member ?? null);
   const [cardOpen, setCardOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
 
@@ -94,6 +96,8 @@ export function TransactionsScreen({ route, navigation }: Props) {
         if (onlyCuotas && !isInstalment(tx) && !tx.planOriginal) return false;
         if (tx.iso < rangeStart || tx.iso > rangeEnd) return false;
         if (selCardId && card.id !== selCardId) return false;
+        if (selMember === 'main' && tx.member) return false;
+        if (selMember && selMember !== 'main' && !(tx.member && tx.cardLast4 === selMember)) return false;
         if (
           q &&
           !matchesSearch(
@@ -105,7 +109,7 @@ export function TransactionsScreen({ route, navigation }: Props) {
         }
         return true;
       }),
-    [allTx, hidePayments, onlyCuotas, rangeStart, rangeEnd, selCardId, q, lang],
+    [allTx, hidePayments, onlyCuotas, rangeStart, rangeEnd, selCardId, selMember, q, lang],
   );
 
   const availableCategories = useMemo(() => {
@@ -132,6 +136,12 @@ export function TransactionsScreen({ route, navigation }: Props) {
   // Per currency: a search across a US$ and a COP card can't add up to one number.
   const totalText = moneyByCur(results.map(({ tx, card }) => ({ cur: card.cur, n: tx.amount })));
   const selectedCard = selCardId ? cards.find((c) => c.id === selCardId) : undefined;
+  // "Quién" chips: only for a selected card with additional cards.
+  const memberOptions = selectedCard?.additionals ?? [];
+  useEffect(() => {
+    if (selMember && selMember !== 'main' && !memberOptions.some((m) => m.last4 === selMember)) setSelMember(null);
+    if (selMember === 'main' && memberOptions.length === 0) setSelMember(null);
+  }, [selMember, memberOptions]);
 
   const chooseCard = (id: string | null) => {
     setSelCardId((cur) => (cur === id ? null : id));
@@ -220,6 +230,34 @@ export function TransactionsScreen({ route, navigation }: Props) {
                   })}
                 </View>
               )}
+            </>
+          )}
+
+          {memberOptions.length > 0 && (
+            <>
+              <View style={styles.filterHeaderRow}>
+                <Text style={styles.filterLabel}>{lang === 'es' ? 'QUIÉN' : 'WHO'}</Text>
+              </View>
+              <View style={styles.chipRow}>
+                {[
+                  { key: null as string | null, label: lang === 'es' ? 'Todas' : 'All' },
+                  { key: 'main', label: lang === 'es' ? 'Principal' : 'Main' },
+                  ...memberOptions.map((m) => ({ key: m.last4 as string | null, label: `${m.name} ·· ${m.last4}` })),
+                ].map((o) => {
+                  const active = selMember === o.key;
+                  return (
+                    <Pressable
+                      key={o.key ?? 'all'}
+                      onPress={() => setSelMember(o.key)}
+                      style={[styles.chip, active && styles.chipActive]}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                    >
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>{o.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </>
           )}
 

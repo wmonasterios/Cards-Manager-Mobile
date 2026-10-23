@@ -49,6 +49,7 @@ import { DbStatement, DbCardAlias, ParsedStatement } from '../supabase/types';
 import { DecoratedCard } from '../decorate';
 import { reconcileStatements } from '../statementCheck';
 import { money } from '../format';
+import { CardMembersPicker, MemberDraft, cardNumbers, memberChoices, missingName, numbersToAsk } from '../components/CardMembersPicker';
 
 type UploadStage = 'idle' | 'parsing' | 'review';
 type RealStage = 'idle' | 'uploading' | 'parsing' | 'review' | 'error';
@@ -232,7 +233,7 @@ function RealStatementsFlow({ navigation, route }: any) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { session } = useAuth();
-  const { refresh, getCard, cards } = useCards();
+  const { refresh, getCard, cards, cardMembers } = useCards();
   const userId = session?.user.id;
 
   const [emailAddress, setEmailAddress] = useState('');
@@ -310,6 +311,7 @@ function RealStatementsFlow({ navigation, route }: any) {
   // undefined = follow the automatic match; null = user said "it's a new card";
   // a string = a specific card the user picked or confirmed explicitly.
   const [chosenCardId, setChosenCardId] = useState<string | null | undefined>(undefined);
+  const [memberDraft, setMemberDraft] = useState<MemberDraft>({});
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const visibleHistory =
@@ -560,6 +562,7 @@ function RealStatementsFlow({ navigation, route }: any) {
       stopParseTicker(100);
       setFields(recovered.parsed);
       setChosenCardId(undefined);
+      setMemberDraft({});
       setStage('review');
       return true;
     }
@@ -622,6 +625,7 @@ function RealStatementsFlow({ navigation, route }: any) {
       stopParseTicker(100);
       setFields(parsed);
       setChosenCardId(undefined);
+      setMemberDraft({});
       setStage('review');
     } catch (err: any) {
       if ((err instanceof FunctionsFetchError || err instanceof ParseStallError) && currentStatementId) {
@@ -710,6 +714,13 @@ function RealStatementsFlow({ navigation, route }: any) {
     return undefined;
   };
 
+  // Additional cards: numbers in this statement the matched card hasn't had
+  // an answer for (all of them for a new card).
+  const reviewCardId = resolvedCardId();
+  const knownMembers = typeof reviewCardId === 'string' ? cardMembers.filter((m) => m.card_id === reviewCardId) : [];
+  const askedNumbers = numbersToAsk(fields?.transactions, knownMembers);
+  const totalNumbers = cardNumbers(fields?.transactions ?? []).length;
+
   const confirmApply = async () => {
     if (!statementId || !fields) return;
     const cardId = resolvedCardId();
@@ -745,14 +756,25 @@ function RealStatementsFlow({ navigation, route }: any) {
       );
       return;
     }
+    const unnamed = missingName(askedNumbers, memberDraft);
+    if (unnamed) {
+      Alert.alert(
+        lang === 'es' ? 'Falta un nombre' : 'Missing a name',
+        lang === 'es'
+          ? `Escribe de quién es la tarjeta ·· ${unnamed}, o márcala como principal.`
+          : `Type whose card ·· ${unnamed} is, or mark it as main.`,
+      );
+      return;
+    }
     setApplying(true);
     try {
-      const result = await applyStatement(statementId, fields, cardId);
+      const result = await applyStatement(statementId, fields, cardId, { members: memberChoices(askedNumbers, memberDraft) });
       await refresh();
       setStage('idle');
       setStatementId(null);
       setFields(null);
       setChosenCardId(undefined);
+      setMemberDraft({});
       if (result.duplicate) {
         // The server found this card already has a statement with this
         // cutoff and dropped the new copy instead of saving it twice.
@@ -782,6 +804,7 @@ function RealStatementsFlow({ navigation, route }: any) {
     setStatementId(null);
     setFields(null);
     setChosenCardId(undefined);
+    setMemberDraft({});
   };
 
   // The "Discard" button, in contrast, means it: confirms, then actually
@@ -806,6 +829,7 @@ function RealStatementsFlow({ navigation, route }: any) {
               setStatementId(null);
               setFields(null);
               setChosenCardId(undefined);
+              setMemberDraft({});
             } catch (err: any) {
               Alert.alert(
                 lang === 'es' ? 'No se pudo descartar' : 'Could not discard',
@@ -1117,6 +1141,19 @@ function RealStatementsFlow({ navigation, route }: any) {
                     ? 'No encontramos ninguna transacción en este estado de cuenta. Revisa el PDF antes de guardar — es posible que la lectura se haya saltado algo.'
                     : "We didn't find any transactions in this statement. Check the PDF before saving — the reading may have missed something."}
                 </Text>
+              </View>
+            )}
+
+            {askedNumbers.length > 0 && (
+              <View style={{ marginTop: 16 }}>
+                <CardMembersPicker
+                  asked={askedNumbers}
+                  draft={memberDraft}
+                  onChange={setMemberDraft}
+                  cur={fields.currency === 'USD' || !fields.currency ? 'US$' : fields.currency}
+                  lang={lang}
+                  totalNumbers={totalNumbers}
+                />
               </View>
             )}
 

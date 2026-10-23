@@ -73,6 +73,22 @@ export function TxRow({
               <Text style={{ fontSize: 10, fontWeight: '600', color: colors.ink2b }}>{cuota}</Text>
             </View>
           )}
+          {!!tx.member && (
+            // Additional card: whose it is. Neutral, like the cuota badge.
+            <View
+              style={{
+                paddingHorizontal: 7,
+                paddingVertical: 1,
+                borderRadius: 999,
+                backgroundColor: colors.tint,
+                flexShrink: 1,
+              }}
+            >
+              <Text style={{ fontSize: 10, fontWeight: '600', color: colors.ink2b }} numberOfLines={1}>
+                {tx.member}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
       <View style={{ alignItems: 'flex-end' }}>

@@ -93,8 +93,25 @@ export type DbTransaction = {
   plan_group?: string | null;
   plan_original?: boolean;
   excluded_from_spend: boolean;
+  // Last 4 digits of the card section the line was printed under (additional
+  // cards); null for lines read before Oct 2026 or not tied to one card.
+  card_last4?: string | null;
   created_at: string;
 };
+
+// What the user said about one card number on a card (see card_members).
+export type DbCardMember = {
+  id: string;
+  user_id: string;
+  card_id: string;
+  last4: string;
+  kind: 'principal' | 'additional';
+  name: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MemberChoice = { last4: string; kind: 'principal' | 'additional'; name?: string | null };
 
 export type ParsedTransaction = {
   date: string;
@@ -103,6 +120,7 @@ export type ParsedTransaction = {
   category?: string | null;
   plan?: string | null;
   plan_rate?: string | null;
+  card_last4?: string | null;
 };
 
 export type ParsedStatement = {
@@ -122,4 +140,5 @@ export type ParsedStatement = {
   transactions: ParsedTransaction[];
   confidence?: 'high' | 'medium' | 'low';
   notes?: string | null;
+  cards?: { last4: string; role?: string | null; subtotal?: number | null }[];
 };

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CardMembersPicker, MemberDraft, cardNumbers, memberChoices, missingName, numbersToAsk } from '../components/CardMembersPicker';
 import { AppState } from 'react-native';
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Modal, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -58,7 +59,7 @@ export function StatementDetailScreen({ route, navigation }: any) {
   const es = lang === 'es';
   const { session } = useAuth();
   const userId = session?.user.id;
-  const { getCard, refresh } = useCards();
+  const { getCard, refresh, cardMembers } = useCards();
 
   const [mode, setMode] = useState<Mode>('loading');
   const [rows, setRows] = useState<DbStatement[]>([]);
@@ -66,6 +67,7 @@ export function StatementDetailScreen({ route, navigation }: any) {
   const [deleting, setDeleting] = useState(false);
   const [openingPdf, setOpeningPdf] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [memberDraft, setMemberDraft] = useState<MemberDraft>({});
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -93,6 +95,12 @@ export function StatementDetailScreen({ route, navigation }: any) {
   const rereading = st?.reread_status === 'reading' && !rereadStale;
   const newReading = st?.reread_status === 'ready' ? st.reread_parsed ?? null : null;
   const rereadFailed = st?.reread_status === 'failed' || rereadStale;
+  // Additional cards: numbers in the new reading this card has no answer for.
+  const askedNumbers = numbersToAsk(
+    newReading?.transactions,
+    cardMembers.filter((m) => m.card_id === st?.card_id),
+  );
+  const totalNumbers = cardNumbers(newReading?.transactions ?? []).length;
 
   useEffect(() => {
     if (!rereading) return;
@@ -181,9 +189,20 @@ export function StatementDetailScreen({ route, navigation }: any) {
 
   const useNew = async () => {
     if (!newReading || !st) return;
+    const unnamed = missingName(askedNumbers, memberDraft);
+    if (unnamed) {
+      Alert.alert(
+        es ? 'Falta un nombre' : 'Missing a name',
+        es ? `Escribe de quién es la tarjeta ·· ${unnamed}, o márcala como principal.` : `Type whose card ·· ${unnamed} is, or mark it as main.`,
+      );
+      return;
+    }
     setMode('saving');
     try {
-      await applyStatement(statementId, newReading, st.card_id ?? undefined, { replace: true });
+      await applyStatement(statementId, newReading, st.card_id ?? undefined, {
+        replace: true,
+        members: memberChoices(askedNumbers, memberDraft),
+      });
       await clearReread(statementId).catch(() => {});
       await refresh();
       setMode('view');
@@ -326,6 +345,18 @@ export function StatementDetailScreen({ route, navigation }: any) {
           <Text style={[styles.small, { marginTop: 12, textAlign: 'center' }]}>
             {es ? 'Las categorías que corregiste a mano se mantienen.' : 'Categories you fixed by hand are kept.'}
           </Text>
+          {askedNumbers.length > 0 && (
+            <View style={{ marginTop: 18 }}>
+              <CardMembersPicker
+                asked={askedNumbers}
+                draft={memberDraft}
+                onChange={setMemberDraft}
+                cur={cur}
+                lang={lang}
+                totalNumbers={totalNumbers}
+              />
+            </View>
+          )}
         </ScrollView>
         <View style={styles.actions}>
           <Pressable style={[styles.primaryBtn, mode === 'saving' && { opacity: 0.85 }]} onPress={useNew} disabled={mode === 'saving'}>
