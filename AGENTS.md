@@ -138,7 +138,12 @@ Full detail in `DEPLOY.md` — the short version so it's never forgotten:
   fixes that were only on `preview`); then 20 Oct night (5d8479f, run 39546282129:
   apply OTA at launch, important-update banner + `app_config`, reload screen
   with the launch logo, session refresh on foreground + retry before the
-  cards error; the Colpatria reading fixes are backend-only, already live). No native module changes since
+  cards error; the Colpatria reading fixes are backend-only, already live); then 23 Oct
+  (33e41c8, run 40018808271: real app version in About, real support
+  reports, always-ask update banner with spring motion, additional cards —
+  per-line card number, card_members picker, card-detail section,
+  who-filters in Insights/Transactions; owner's ConnectMiles/Rey statements
+  backfilled with card_last4, 1730/3137 marked principal). No native module changes since
   a270c47. `ios.supportsTablet` is now false (iPhone only, 15 Oct): native,
   takes effect with the next `eas build` for the App Store submission.
 - **App Store submission (15 Oct 2026).** Build 8 (1.1.0, iPhone only, new
