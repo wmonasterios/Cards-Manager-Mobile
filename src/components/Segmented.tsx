@@ -42,6 +42,9 @@ export function Segmented<T extends string>({
           >
             <Text
               numberOfLines={1}
+              // Never wrap a label onto two lines: shrink it a little instead.
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
               style={{ fontSize: 11.5, fontWeight: active ? '600' : '500', color: active ? colors.onTint2 : colors.ink2 }}
             >
               {opt.label}

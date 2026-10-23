@@ -64,8 +64,16 @@ export function TransactionsScreen({ route, navigation }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [hidePayments, setHidePayments] = useState(false);
   const [onlyCuotas, setOnlyCuotas] = useState(false);
-  // Additional cards: 'main' = the principal's lines, a last4 = that additional's.
-  const [selMember, setSelMember] = useState<string | null>(route.params?.member ?? null);
+  // Additional cards: 'main' = the principal's lines, a name = that additional
+  // card holder's (across cards). Opening from a card's "Ver las compras de X"
+  // passes that card and the additional's last 4 digits.
+  const [selWho, setSelWho] = useState<string | null>(() => {
+    const m = route.params?.member;
+    if (!m) return null;
+    if (m === 'main') return 'main';
+    return cards.find((c) => c.id === route.params?.cardId)?.additionals?.find((a) => a.last4 === m)?.name ?? null;
+  });
+  const [whoOpen, setWhoOpen] = useState(false);
   const [cardOpen, setCardOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
 
@@ -96,8 +104,8 @@ export function TransactionsScreen({ route, navigation }: Props) {
         if (onlyCuotas && !isInstalment(tx) && !tx.planOriginal) return false;
         if (tx.iso < rangeStart || tx.iso > rangeEnd) return false;
         if (selCardId && card.id !== selCardId) return false;
-        if (selMember === 'main' && tx.member) return false;
-        if (selMember && selMember !== 'main' && !(tx.member && tx.cardLast4 === selMember)) return false;
+        if (selWho === 'main' && tx.member) return false;
+        if (selWho && selWho !== 'main' && tx.member !== selWho) return false;
         if (
           q &&
           !matchesSearch(
@@ -109,7 +117,7 @@ export function TransactionsScreen({ route, navigation }: Props) {
         }
         return true;
       }),
-    [allTx, hidePayments, onlyCuotas, rangeStart, rangeEnd, selCardId, selMember, q, lang],
+    [allTx, hidePayments, onlyCuotas, rangeStart, rangeEnd, selCardId, selWho, q, lang],
   );
 
   const availableCategories = useMemo(() => {
@@ -136,12 +144,25 @@ export function TransactionsScreen({ route, navigation }: Props) {
   // Per currency: a search across a US$ and a COP card can't add up to one number.
   const totalText = moneyByCur(results.map(({ tx, card }) => ({ cur: card.cur, n: tx.amount })));
   const selectedCard = selCardId ? cards.find((c) => c.id === selCardId) : undefined;
-  // "Quién" chips: only for a selected card with additional cards.
-  const memberOptions = selectedCard?.additionals ?? [];
+  // Additional cards, across all cards. Choosing a holder narrows the card
+  // filter to the cards they're an additional on.
+  const memberNames = useMemo(() => {
+    const set = new Set<string>();
+    cards.forEach((c) => (c.additionals ?? []).forEach((a) => set.add(a.name)));
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [cards]);
+  const whoCards = useMemo(
+    () => (selWho && selWho !== 'main' ? cards.filter((c) => (c.additionals ?? []).some((a) => a.name === selWho)) : cards),
+    [cards, selWho],
+  );
   useEffect(() => {
-    if (selMember && selMember !== 'main' && !memberOptions.some((m) => m.last4 === selMember)) setSelMember(null);
-    if (selMember === 'main' && memberOptions.length === 0) setSelMember(null);
-  }, [selMember, memberOptions]);
+    if (selWho && selWho !== 'main' && !memberNames.includes(selWho)) setSelWho(null);
+    if (selWho === 'main' && memberNames.length === 0) setSelWho(null);
+  }, [selWho, memberNames]);
+  useEffect(() => {
+    if (selCardId && !whoCards.some((c) => c.id === selCardId)) setSelCardId(null);
+  }, [selCardId, whoCards]);
+  const whoLabel = selWho === 'main' ? (lang === 'es' ? 'Principal' : 'Main') : selWho;
 
   const chooseCard = (id: string | null) => {
     setSelCardId((cur) => (cur === id ? null : id));
@@ -189,16 +210,66 @@ export function TransactionsScreen({ route, navigation }: Props) {
             </View>
           )}
 
-          {cards.length > 1 && (
+          {memberNames.length > 0 && (
             <>
-              <Pressable onPress={() => setCardOpen((v) => !v)} style={styles.filterHeaderRow}>
+              <Pressable onPress={() => setWhoOpen((v) => !v)} style={styles.filterHeaderRow} accessibilityState={{ expanded: whoOpen }}>
+                <Text style={styles.filterLabel}>{lang === 'es' ? 'ADICIONALES' : 'ADDITIONAL CARDS'}</Text>
+                <View style={styles.filterHeaderRight}>
+                  {!whoOpen &&
+                    (selWho ? (
+                      <View style={styles.activePill}>
+                        <Text style={styles.activePillText} numberOfLines={1}>{whoLabel}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.filterIdle} numberOfLines={1}>{lang === 'es' ? 'Todos' : 'All'}</Text>
+                    ))}
+                  <Ionicons name={whoOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.ink3} />
+                </View>
+              </Pressable>
+              {whoOpen && (
+                <View style={styles.chipRow}>
+                  {[
+                    { key: null as string | null, label: lang === 'es' ? 'Todos' : 'All' },
+                    { key: 'main' as string | null, label: lang === 'es' ? 'Principal' : 'Main' },
+                    ...memberNames.map((n) => ({ key: n as string | null, label: n })),
+                  ].map((o) => {
+                    const active = selWho === o.key;
+                    return (
+                      <Pressable
+                        key={o.key ?? 'all'}
+                        onPress={() => setSelWho(o.key)}
+                        style={[styles.chip, active && styles.chipActive]}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                      >
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{o.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+            </>
+          )}
+
+          {(cards.length > 1 || (!!selWho && selWho !== 'main')) && (
+            <>
+              <Pressable onPress={() => setCardOpen((v) => !v)} style={styles.filterHeaderRow} accessibilityState={{ expanded: cardOpen }}>
                 <Text style={styles.filterLabel}>{t.card.toUpperCase()}</Text>
                 <View style={styles.filterHeaderRight}>
-                  {!cardOpen && (
-                    <Text style={styles.filterSummary} numberOfLines={1}>
-                      {selectedCard ? `${selectedCard.displayName} ${selectedCard.last4}` : t.allWord}
-                    </Text>
-                  )}
+                  {!cardOpen &&
+                    (selectedCard ? (
+                      <View style={styles.activePill}>
+                        <Text style={styles.activePillText} numberOfLines={1}>{`${selectedCard.displayName} ${selectedCard.last4}`}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.filterIdle} numberOfLines={1}>
+                        {selWho && selWho !== 'main'
+                          ? lang === 'es'
+                            ? `Todas las de ${selWho} (${whoCards.length})`
+                            : `All of ${selWho}'s (${whoCards.length})`
+                          : t.allWord}
+                      </Text>
+                    ))}
                   <Ionicons
                     name={cardOpen ? 'chevron-up' : 'chevron-down'}
                     size={16}
@@ -214,7 +285,7 @@ export function TransactionsScreen({ route, navigation }: Props) {
                   >
                     <Text style={[styles.chipText, !selCardId && styles.chipTextActive]}>{t.allWord}</Text>
                   </Pressable>
-                  {cards.map((c) => {
+                  {whoCards.map((c) => {
                     const active = selCardId === c.id;
                     return (
                       <Pressable
@@ -233,44 +304,19 @@ export function TransactionsScreen({ route, navigation }: Props) {
             </>
           )}
 
-          {memberOptions.length > 0 && (
-            <>
-              <View style={styles.filterHeaderRow}>
-                <Text style={styles.filterLabel}>{lang === 'es' ? 'QUIÉN' : 'WHO'}</Text>
-              </View>
-              <View style={styles.chipRow}>
-                {[
-                  { key: null as string | null, label: lang === 'es' ? 'Todas' : 'All' },
-                  { key: 'main', label: lang === 'es' ? 'Principal' : 'Main' },
-                  ...memberOptions.map((m) => ({ key: m.last4 as string | null, label: `${m.name} ·· ${m.last4}` })),
-                ].map((o) => {
-                  const active = selMember === o.key;
-                  return (
-                    <Pressable
-                      key={o.key ?? 'all'}
-                      onPress={() => setSelMember(o.key)}
-                      style={[styles.chip, active && styles.chipActive]}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                    >
-                      <Text style={[styles.chipText, active && styles.chipTextActive]}>{o.label}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </>
-          )}
-
           {availableCategories.length > 0 && (
             <>
               <Pressable onPress={() => setCategoryOpen((v) => !v)} style={styles.filterHeaderRow}>
                 <Text style={styles.filterLabel}>{t.category.toUpperCase()}</Text>
                 <View style={styles.filterHeaderRight}>
-                  {!categoryOpen && selCategory && (
-                    <Text style={styles.filterSummary} numberOfLines={1}>
-                      {categoryLabel(selCategory, lang)}
-                    </Text>
-                  )}
+                  {!categoryOpen &&
+                    (selCategory ? (
+                      <View style={styles.activePill}>
+                        <Text style={styles.activePillText} numberOfLines={1}>{categoryLabel(selCategory, lang)}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.filterIdle} numberOfLines={1}>{lang === 'es' ? 'Todas' : 'All'}</Text>
+                    ))}
                   <Ionicons
                     name={categoryOpen ? 'chevron-up' : 'chevron-down'}
                     size={16}
@@ -380,6 +426,11 @@ function makeStyles(colors: ColorTokens) {
     },
     filterHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, minWidth: 0 },
     filterSummary: { fontSize: 11.5, fontWeight: '500', color: colors.ink, flexShrink: 1 },
+    // Collapsed filter rows: an accent pill when something is chosen (it's a
+    // control state, so accent is allowed), plain grey text when not.
+    filterIdle: { fontSize: 11.5, fontWeight: '500', color: colors.ink3, flexShrink: 1 },
+    activePill: { backgroundColor: colors.accent, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, flexShrink: 1 },
+    activePillText: { fontSize: 11.5, fontWeight: '600', color: colors.onTint2 },
     filterLabel: {
       fontSize: 11,
       fontWeight: '600',

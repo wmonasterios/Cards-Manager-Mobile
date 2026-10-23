@@ -577,8 +577,17 @@ minimum and dates stay the whole account's.
 - Card detail: `CardAdditionals` above "Registrar un pago" — latest statement's
   spend per additional, % of the statement, "Ver las compras de X" →
   Transactions `{ cardId, member: last4 }`; "Gestionar" sheet to change it.
-- `Transaction.member` (name) → tag in `TxRow`, row in transaction detail,
-  "QUIÉN" chips in Transactions (selected card) and Insights (by name).
+- `Transaction.member` (name) → tag in `TxRow`, row in transaction detail.
+- Filters by person (owner's design, 23 Oct): **Insights** = month → a
+  full-width, label-less "Todos · Principal · <names…>" track (scrolls
+  sideways with many names) → the card filter, which then only lists the
+  cards where the chosen holder is an additional ("Principal"/"Todos" keep
+  all cards). **Transactions** keeps it low-key: a fold-out "ADICIONALES"
+  row (chips) above "TARJETA", same narrowing logic. Collapsed filter rows
+  show an accent pill with the chosen value, grey "Todas/Todos" otherwise.
+  Both hidden for users without additional cards. The period segment says
+  "3 meses" (was "Últimos 3 meses", which wrapped); `Segmented` shrinks
+  labels instead of wrapping.
 - `advisor-chat` v13: `who` param on spending tools, `by_holder` in
   spending_by_category, `additional_cards` in cards_overview.
 - Lines read before this have no `card_last4` (count as principal) until the
