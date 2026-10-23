@@ -560,7 +560,11 @@ old number that was renewed — e.g. the owner's BAC: 9052 old/account, 6464
 his, 4546 his wife's). The readers (`parse-statement` v19,
 `receive-statement-email` v19 — keep both prompts/schemas identical) tag every
 line with `card_last4` (the number of the section it's printed under) and list
-`cards`; `max_tokens` went to 32000 for the extra output. `apply-statement`
+`cards`; `max_tokens` went to 32000 for the extra output. Banks place the
+card number either as a header above its lines (BAC) or only in a subtotal
+line at the end of its block ("SUB TOTAL TARJETA: ****0211", Davivienda);
+the prompt names both layouts (`parse-statement` v20,
+`receive-statement-email` v20, 23 Oct). `apply-statement`
 (v26) stores `transactions.card_last4` and upserts the user's answers into
 `card_members` (migration `20261023_card_members.sql`: card_id, last4, kind
 'principal'|'additional', name the USER typed — never the printed name).
