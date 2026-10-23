@@ -601,3 +601,16 @@ minimum and dates stay the whole account's.
   spending_by_category, `additional_cards` in cards_overview.
 - Lines read before this have no `card_last4` (count as principal) until the
   statement is re-read.
+
+**Full line value (23 Oct 2026, `parse-statement` v21 /
+`receive-statement-email` v21).** Colpatria prints per line "Valor
+transacción", "Cuotas", "Pago a capital" and "Saldo pendiente". The reader
+gave paid-off lines (CANCELADA, cuotas 0/1, pago a capital $0) an amount of 0
+and once took "Pago a capital", so 6 of a Colombian tester's 10 months didn't
+reconcile (May: COP 2,108,366 = exactly those lines). The prompt now says a
+line's amount is always its own charged value, CANCELADA/0-1 lines count in
+full (the bank includes them in the period's total and lists the payment that
+covered them), and interest/fees shown only in the payment summary
+("Intereses corrientes", "Otros cargos") are added as a cutoff-dated line.
+Dry run: 9 of 10 Colpatria months reconcile to the peso (March still off by
+COP 45,706); BAC and Davivienda unchanged.
