@@ -23,10 +23,12 @@ import {
   reorderCards as reorderCardsApi,
   patchTransactionRows,
   TxPatch,
+  listCardMembers,
+  saveCardMember,
 } from '../supabase/cardsApi';
 import { listNeedsReviewStatements } from '../supabase/statementsApi';
 import { supabase, isAuthError } from '../supabase/client';
-import { DbCard, DbTransaction, DbStatement, NewDbCard } from '../supabase/types';
+import { DbCard, DbCardMember, DbTransaction, DbStatement, NewDbCard } from '../supabase/types';
 
 function shortDate(iso: string) {
   return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
@@ -74,6 +76,10 @@ type CardsContextValue = {
   setTxExcluded: (txId: string, excluded: boolean) => void;
   patchTxs: (patches: { id: string; patch: TxPatch }[]) => Promise<void>;
   reorderCards: (orderedIds: string[]) => void;
+  // Additional cards: every answer the user gave (to know which numbers were
+  // already asked about), and how to change one.
+  cardMembers: DbCardMember[];
+  setCardMember: (cardId: string, last4: string, kind: 'principal' | 'additional', name?: string | null) => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -99,6 +105,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
   const [dbPayments, setDbPayments] = useState<Record<string, Payment[]>>({});
   const [dbTransactions, setDbTransactions] = useState<DbTransaction[]>([]);
   const [dbStatements, setDbStatements] = useState<DbStatement[]>([]);
+  const [dbMembers, setDbMembers] = useState<DbCardMember[]>([]);
   const [realLoaded, setRealLoaded] = useState(false);
   // Distinguishes "we checked and you genuinely have zero cards" from "the
   // fetch failed" — without this, a network hiccup on someone's very first
@@ -135,6 +142,8 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
         listPayments(userId),
         listTransactions(userId),
         listNeedsReviewStatements(userId),
+        // Additional cards are a nice-to-have: never fail the whole load over them.
+        listCardMembers(userId).catch(() => null),
       ]);
     const RETRY_DELAYS_MS = [1000, 3000];
     const fetchWithRetry = async () => {
@@ -149,8 +158,9 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       }
     };
     try {
-      const [cardsRows, paymentsRows, transactionRows, statementRows] = await fetchWithRetry();
+      const [cardsRows, paymentsRows, transactionRows, statementRows, memberRows] = await fetchWithRetry();
       setDbCards(cardsRows);
+      if (memberRows) setDbMembers(memberRows);
       setDbTransactions(transactionRows);
       setDbStatements(statementRows);
       const byCard: Record<string, Payment[]> = {};
@@ -180,6 +190,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       setDbPayments({});
       setDbTransactions([]);
       setDbStatements([]);
+      setDbMembers([]);
       setRealLoaded(false);
     }
   }, [userId, loadReal]);
@@ -213,13 +224,13 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
   }, [todayIso]);
 
   const baseCards: Card[] = useMemo(() => {
-    if (!isDemo) return dbCards.map((c) => dbCardToCard(c, dbTransactions));
+    if (!isDemo) return dbCards.map((c) => dbCardToCard(c, dbTransactions, dbMembers));
     if (demoOrder.length === 0) return demoCards;
     const byId = new Map(demoCards.map((c) => [c.id, c]));
     const ordered = demoOrder.map((id) => byId.get(id)).filter((c): c is Card => !!c);
     const remaining = demoCards.filter((c) => !demoOrder.includes(c.id));
     return [...ordered, ...remaining];
-  }, [isDemo, dbCards, dbTransactions, demoOrder, demoCards]);
+  }, [isDemo, dbCards, dbTransactions, dbMembers, demoOrder, demoCards]);
 
   const paidMap = useMemo(
     () => (isDemo ? { ...DEMO_PAID_DEFAULTS, ...demoPaid } : Object.fromEntries(dbCards.map((c) => [c.id, c.paid_this_cycle]))),
@@ -368,6 +379,15 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
     [isDemo, loadReal],
   );
 
+  const setCardMember = useCallback(
+    async (cardId: string, last4: string, kind: 'principal' | 'additional', name?: string | null) => {
+      if (isDemo || !userId) return;
+      const row = await saveCardMember(userId, cardId, last4, kind, name);
+      setDbMembers((prev) => [...prev.filter((m) => !(m.card_id === cardId && m.last4 === last4)), row]);
+    },
+    [isDemo, userId],
+  );
+
   const patchTxs = useCallback(
     async (patches: { id: string; patch: TxPatch }[]) => {
       if (isDemo || patches.length === 0) return;
@@ -420,6 +440,8 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       setTxExcluded,
       patchTxs,
       reorderCards,
+      cardMembers: isDemo ? [] : dbMembers,
+      setCardMember,
       refresh: loadReal,
     }),
     [
@@ -443,6 +465,8 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
       setTxExcluded,
       patchTxs,
       reorderCards,
+      dbMembers,
+      setCardMember,
       loadReal,
     ],
   );

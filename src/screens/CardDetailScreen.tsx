@@ -28,6 +28,7 @@ import { BackButton } from '../components/BackButton';
 import { DateField } from '../components/DateField';
 import { useCards } from '../context/CardsContext';
 import { money } from '../format';
+import { CardAdditionals } from '../components/CardAdditionals';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CardDetail'>;
 
@@ -242,6 +243,16 @@ export function CardDetailScreen({ route, navigation }: Props) {
             </Text>
           </View>
         </View>
+
+        {(card.additionals?.length || new Set(card.tx.map((t) => t.cardLast4).filter(Boolean)).size >= 2) ? (
+          <View style={styles.section}>
+            <CardAdditionals
+              card={card}
+              lang={lang}
+              onSeeMember={(last4) => navigation.navigate('Transactions', { cardId: card.id, member: last4 })}
+            />
+          </View>
+        ) : null}
 
         <View style={styles.section}>
           <Pressable

@@ -55,7 +55,15 @@ export type Transaction = {
   planSource?: string;
   planGroup?: string;
   planOriginal?: boolean;
+  // Additional cards: the card number the line was printed under, and the
+  // name the user gave it when that number is an additional card (unset for
+  // the principal's lines).
+  cardLast4?: string;
+  member?: string;
 };
+
+// One additional card on a card (the user named it).
+export type CardMember = { last4: string; name: string };
 
 export type InstalmentPlan = {
   merchant: string;
@@ -91,6 +99,8 @@ export type Card = {
   tx: Transaction[];
   nickname?: string;
   colorKey?: string;
+  // Additional cards the user marked on this card (empty = none).
+  additionals?: CardMember[];
 };
 
 const MON: Record<string, number> = {

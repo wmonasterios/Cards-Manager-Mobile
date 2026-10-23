@@ -10,7 +10,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type ParsedTx = { date: string; merchant: string; amount: number; plan?: string | null; plan_rate?: string | null };
+type ParsedTx = { date: string; merchant: string; amount: number; plan?: string | null; plan_rate?: string | null; card_last4?: string | null };
+// The user's answer for each card number in the statement (review screen):
+// an additional card and whose it is, or the principal's.
+type MemberChoice = { last4: string; kind: "principal" | "additional"; name?: string | null };
 type ParsedFields = {
   bank: string; product?: string | null; network?: string | null; last4?: string | null;
   currency?: string; balance: number; credit_limit?: number | null; minimum_payment: number;
@@ -72,6 +75,12 @@ function cleanStatementLine(tx: ParsedTx): ParsedTx {
   const m = /^\s*(\d{1,3})\s*(?:\/|de)\s*(\d{1,3})\s*$/i.exec(tx.plan ?? "");
   const trivialPlan = !!m && (Number(m[2]) <= 1 || Number(m[1]) === 0);
   return { ...tx, merchant, plan: trivialPlan ? null : tx.plan, plan_rate: trivialPlan ? null : tx.plan_rate };
+}
+
+// "··4546", "4546", "XXXX-4546" → "4546"; anything else → null.
+function last4Of(v: unknown): string | null {
+  const d = String(v ?? "").replace(/\D/g, "");
+  return d.length >= 4 ? d.slice(-4) : null;
 }
 
 function planTotal(plan: string): number | null {
@@ -310,10 +319,11 @@ Deno.serve(async (req: Request) => {
   });
 
   try {
-    const { statementId, fields, cardId: requestedCardId, replace } = (await req.json()) as {
+    const { statementId, fields, cardId: requestedCardId, replace, members: memberChoices } = (await req.json()) as {
       statementId: string;
       fields: ParsedFields;
       cardId?: string;
+      members?: MemberChoice[];
       // "Volver a leer": this statement was already applied and has just been
       // re-read; its old rows are swapped for the new reading.
       replace?: boolean;
@@ -669,6 +679,7 @@ Deno.serve(async (req: Request) => {
         plan_rate: tx.plan_rate ?? null,
         plan_source: tx.plan ? info?.source ?? "statement" : null,
         plan_group: tx.plan ? info?.group ?? null : null,
+        card_last4: last4Of(tx.card_last4),
       };
     });
 
@@ -700,6 +711,19 @@ Deno.serve(async (req: Request) => {
       .from("statements")
       .update({ card_id: cardId, status: "applied", applied_at: new Date().toISOString(), parsed: fields })
       .eq("id", statementId);
+
+    // Additional cards: save what the user said about each number (only the
+    // ones they were asked about; a number with no row counts as principal).
+    if (Array.isArray(memberChoices) && memberChoices.length > 0) {
+      const rows = memberChoices
+        .map((m) => ({ last4: last4Of(m?.last4), kind: m?.kind === "additional" ? "additional" : "principal", name: (m?.name ?? "").trim().slice(0, 40) || null }))
+        .filter((m) => m.last4 && (m.kind === "principal" || m.name))
+        .map((m) => ({ user_id: user.id, card_id: cardId, last4: m.last4, kind: m.kind, name: m.kind === "additional" ? m.name : null, updated_at: new Date().toISOString() }));
+      if (rows.length > 0) {
+        const { error: memErr } = await supabase.from("card_members").upsert(rows, { onConflict: "card_id,last4" });
+        if (memErr) console.error("card_members upsert failed", memErr.message);
+      }
+    }
 
     // A re-read deletes and re-inserts every line, so "inserted" is the whole
     // statement; tell the user what actually changed against the old rows.
