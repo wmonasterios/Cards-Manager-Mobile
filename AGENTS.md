@@ -614,3 +614,16 @@ covered them), and interest/fees shown only in the payment summary
 ("Intereses corrientes", "Otros cargos") are added as a cutoff-dated line.
 Dry run: 9 of 10 Colpatria months reconcile to the peso (March still off by
 COP 45,706); BAC and Davivienda unchanged.
+
+**Previous-periods section (23 Oct 2026, `parse-statement` v22 /
+`receive-statement-email` v22).** Colpatria also prints "Transacciones de
+periodos anteriores": its "1/1" lines are purchases that posted after their
+own period closed (part of this period's "Valor transacciones del periodo",
+so they must be listed), while lines past their first cuota (e.g. Lifemiles
+"2/36" with a COP 46 "Pago a capital") repeat a deferred purchase already
+charged in full on an earlier statement and must be skipped. March was off by
+exactly that Lifemiles line; a first wording made October drop two 1/1 lines
+(COP 104,950), so the rule now says "list the 1/1 lines; skip only those past
+the first cuota". Dry run with the production self-check retry: all 10
+Colpatria months reconcile (August off by COP 2, a bank rounding), BAC and
+Davivienda unchanged.
