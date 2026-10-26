@@ -46,7 +46,8 @@ change touches real user financial data. Edge functions live in
     forged headers, so an unguessable token is no defense for anything the
     function sends *outward*. Emails to an address taken from the message
     (the Gmail confirmation requester) require `sentByGoogle` (envelope on
-    google.com + SPF pass, fails closed); links that are saved, pushed or
+    google.com + Mailgun's own Authentication-Results with DMARC pass for
+    header.from=google.com, fails closed); links that are saved, pushed or
     emailed must pass the exact-host check `isGmailConfirmHost`. Flag any
     loosening of either, and anything that lets mail to one user's address
     affect another user's data.
