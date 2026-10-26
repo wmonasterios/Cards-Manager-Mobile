@@ -370,8 +370,21 @@ day per kind via the service-role-only `claim_ops_alert(kind)` RPC
 - `gmail_fwd_unauthenticated`: parsed, but `sentByGoogle` failed — Google or
   Mailgun changed the envelope/auth headers, or someone forged one to their
   own address. Saved and pushed as before, not emailed.
-The alert carries hosts, Mailgun's Authentication-Results and header names —
-never subject, body, link or requester. `profiles.gmail_fwd_status`
+- `no_pdf_automated`: mail without a PDF from any other automated sender
+  (`isAutomatedSender`: a no-reply/verify/notif-style local part, or
+  Auto-Submitted / Precedence / List-Unsubscribe headers; bounces excluded).
+  Only Gmail's confirmation is understood today, so this is how another
+  provider's forwarding verification (Yahoo, iCloud, Proton…) would surface —
+  and also a bank notice with no PDF. Gated once a day **per sender domain**
+  and at most every 4 h overall, so a user mailing their own address from many
+  domains can't flood support. The profile gets `gmail_fwd_status =
+  'unrecognized'` with the domain in `gmail_fwd_from`, and the card says
+  "Recibimos un correo sin PDF de <dominio>" with "Escribir a soporte". These
+  senders no longer get the "no PDF" auto-reply (they never did if no-reply).
+  When one turns out to be a provider's verification, add a parser for it
+  like the Gmail one.
+The alert carries domains, hosts, Mailgun's Authentication-Results and
+header names — never subject, body, link or requester. `profiles.gmail_fwd_status`
 ('emailed' | 'saved' | 'unreadable') also makes the card and push stop
 saying "we emailed it to you" when we didn't. If an alert arrives: look at
 `no_pdf_mail` in the function logs, adjust `parseGmailForwardingConfirmation`

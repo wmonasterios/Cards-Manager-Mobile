@@ -180,53 +180,108 @@ function authResults(value: string): { method: string; result: string; props: Re
 //
 // Both checks above fail closed, so when Google or Mailgun change how a
 // confirmation looks, nothing breaks loudly: the email back just stops (Oct
-// 2026, Mailgun never sent X-Mailgun-Spf). Two things should never happen on
-// a normal day — mail from google.com that doesn't read as a confirmation, and
-// a confirmation that doesn't authenticate as Google — so either one emails
-// support@poquetapp.com, at most once a day per kind (claim_ops_alert). The
-// alert carries what's needed to see what changed and nothing about the user:
-// no subject, body, requester or link, only hosts and Mailgun's verdict.
-// Someone forging a confirmation to their own address also triggers the
-// second kind, which is worth knowing too.
+// 2026, Mailgun never sent X-Mailgun-Spf). Other providers (Yahoo, iCloud,
+// Proton…) may send their own verification to the forwarding address, which
+// we can't read at all. So three things email support@poquetapp.com
+// (claim_ops_alert gates them):
+// - gmail_fwd_unreadable: mail from google.com that doesn't read as a
+//   confirmation. Once a day.
+// - gmail_fwd_unauthenticated: a confirmation that doesn't authenticate as
+//   Google (or someone forged one to their own address). Once a day.
+// - no_pdf_automated: mail without a PDF from any other automated sender — a
+//   provider's verification we don't know yet, or a bank notice with no PDF.
+//   Once a day per sender domain, and at most one every 4 h overall, so
+//   someone mailing their own address from many domains can't flood support.
+// The alert carries what's needed to see what changed and nothing about the
+// user: no subject, body, requester or link, only domains, hosts and
+// Mailgun's verdict.
 // ---------------------------------------------------------------------------
 const SUPPORT_TO = "support@poquetapp.com";
 
+const ALERT_SUMMARY: Record<string, string> = {
+  gmail_fwd_unreadable:
+    "Mail from google.com reached a forwarding address but didn't parse as a Gmail forwarding confirmation (sender, link host or code format changed?). The user sees a card asking them to contact support.",
+  gmail_fwd_unauthenticated:
+    "A Gmail forwarding confirmation was parsed but didn't authenticate as Google, so it wasn't emailed back (envelope sender or Mailgun's Authentication-Results changed? or someone forged one to their own address). The user still gets the push and the card.",
+  no_pdf_automated:
+    "An automated sender mailed a forwarding address without a PDF. Either another provider's forwarding verification (we can't read those yet: the user is stuck until we add it) or a bank notice that carries no PDF. The user sees a card naming the sender's domain and offering support.",
+};
+
+function addressDomain(address: string | null): string {
+  return (address ?? "").split("@")[1]?.toLowerCase() ?? "";
+}
+
 function isGoogleAddress(address: string | null): boolean {
-  const domain = (address ?? "").split("@")[1] ?? "";
+  const domain = addressDomain(address);
   return domain === "google.com" || domain.endsWith(".google.com");
 }
 
-async function alertOps(admin: ReturnType<typeof createClient>, kind: string, details: Record<string, unknown>) {
-  if (!MAILGUN_API_KEY) return;
+// Bounces aren't anyone's verification; they'd only be noise.
+function isBounceAddress(address: string): boolean {
+  return /^(mailer-daemon|postmaster)@/i.test(address);
+}
+
+// Machine-sent mail: by the headers automated mail carries (RFC 3834
+// Auto-Submitted, Precedence, List-Unsubscribe), or by a local part that
+// people don't use for themselves.
+function isAutomatedSender(address: string, messageHeaders: string): boolean {
+  if (/^[^@]*(no-?reply|do-?not-?reply|no-?responder|notif|alert|verif|confirm|forward|account|security|mailer|bounce)/i.test(address)) return true;
   try {
-    const { data: seen, error } = await admin.rpc("claim_ops_alert", { p_kind: kind });
-    if (error || typeof seen !== "number") return;
+    const headers = JSON.parse(messageHeaders) as [string, string][];
+    return headers.some(([k, v]) => {
+      const name = k.toLowerCase();
+      const value = String(v ?? "").trim().toLowerCase();
+      return (name === "auto-submitted" && value !== "no") ||
+        (name === "precedence" && /^(bulk|list|junk|auto_reply)$/.test(value)) ||
+        name === "list-unsubscribe";
+    });
+  } catch {
+    return false;
+  }
+}
+
+// Each gate is a claim_ops_alert kind (and its period); the alert goes out
+// only if every gate passes. Returns the first gate's count when it did.
+async function alertOps(
+  admin: ReturnType<typeof createClient>,
+  kind: string,
+  gates: [string, string?][],
+  details: Record<string, unknown>,
+): Promise<number | null> {
+  if (!MAILGUN_API_KEY) return null;
+  try {
+    let seen: number | null = null;
+    for (const [gate, every] of gates) {
+      const { data, error } = await admin.rpc("claim_ops_alert", every ? { p_kind: gate, p_every: every } : { p_kind: gate });
+      if (error || typeof data !== "number") return null;
+      seen ??= data;
+    }
     const lines = [
-      `receive-statement-email saw "${kind}" (${seen} time${seen === 1 ? "" : "s"} since the last alert of this kind; next alert in 24 h at the earliest).`,
-      kind === "gmail_fwd_unreadable"
-        ? "Mail from google.com reached a forwarding address but didn't parse as a Gmail forwarding confirmation (sender, link host or code format changed?). The user sees a card asking them to contact support."
-        : "A Gmail forwarding confirmation was parsed but didn't authenticate as Google, so it wasn't emailed back (envelope sender or Mailgun's Authentication-Results changed? or someone forged one to their own address). The user still gets the push and the card.",
+      `receive-statement-email saw "${kind}" (${seen} time${seen === 1 ? "" : "s"} since the last alert for ${gates[0][0]}).`,
+      ALERT_SUMMARY[kind] ?? "",
       "",
       ...Object.entries(details).map(([k, v]) => `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`),
       "",
-      "Code: supabase/functions/receive-statement-email (parseGmailForwardingConfirmation, sentByGoogle).",
+      "Code: supabase/functions/receive-statement-email (parseGmailForwardingConfirmation, sentByGoogle, isAutomatedSender).",
     ];
     const form = new FormData();
     form.append("from", `Poquet <no-responder@${MAILGUN_DOMAIN}>`);
     form.append("to", SUPPORT_TO);
-    form.append("subject", `[Poquet alert] Gmail forwarding: ${kind}`);
+    form.append("subject", `[Poquet alert] Forwarding: ${gates[0][0]}`);
     form.append("text", lines.join("\n"));
     await fetch(`https://api.mailgun.net/v3/${MAILGUN_DOMAIN}/messages`, {
       method: "POST",
       headers: { Authorization: `Basic ${btoa(`api:${MAILGUN_API_KEY}`)}` },
       body: form,
     });
+    return seen;
   } catch {
     // Best-effort: the log line still records it.
+    return null;
   }
 }
 
-// What an alert says about a message: hosts and verdicts, never content.
+// What an alert says about a message: domains, hosts and verdicts, never content.
 function alertDetails(fromHeader: string, envelopeSender: string, subject: string, body: string, messageHeaders: string) {
   let headerNames: string[] = [];
   let mailgunAuth: string | null = null;
@@ -246,7 +301,8 @@ function alertDetails(fromHeader: string, envelopeSender: string, subject: strin
   }).filter(Boolean))].slice(0, 8);
   return {
     from: isGoogleAddress(headerAddress(fromHeader)) ? headerAddress(fromHeader) : "(not google.com)",
-    envelope_domain: (headerAddress(envelopeSender) ?? "").split("@")[1] ?? "(none)",
+    from_domain: addressDomain(headerAddress(fromHeader)) || "(none)",
+    envelope_domain: addressDomain(headerAddress(envelopeSender)) || "(none)",
     subject_has_code: /\(#\d{5,12}\)/.test(subject),
     link_hosts_in_body: hosts,
     mailgun_authentication_results: mailgunAuth ?? "(none)",
@@ -665,7 +721,7 @@ Deno.serve(async (req: Request) => {
     // app rather than leaving them with nothing — unless a readable code/link
     // is already showing, which this mustn't replace.
     if (!fwd && fromGoogleDomain) {
-      await alertOps(admin, "gmail_fwd_unreadable", details());
+      await alertOps(admin, "gmail_fwd_unreadable", [["gmail_fwd_unreadable"]], details());
       if (!profile.gmail_fwd_code && !profile.gmail_fwd_link) {
         await admin
           .from("profiles")
@@ -676,7 +732,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (fwd) {
-      if (!google.ok) await alertOps(admin, "gmail_fwd_unauthenticated", details());
+      if (!google.ok) await alertOps(admin, "gmail_fwd_unauthenticated", [["gmail_fwd_unauthenticated"]], details());
       const willEmail = !!fwd.requester && google.ok;
       // Gmail re-sends the same confirmation if the user clicks "resend"; only
       // notify again after a minute so a burst can't turn us into a mail cannon.
@@ -723,7 +779,29 @@ Deno.serve(async (req: Request) => {
       return new Response("ok", { status: 200 });
     }
 
-    // Never answer automated senders — they can't read it, and it can loop.
+    // Any other machine-sent mail without a PDF: another provider's forwarding
+    // verification we can't read yet, or a bank notice with no PDF. Either
+    // way the user should hear about it and so should support — the sender
+    // can't read a reply, and answering it could loop.
+    const otherAddress = headerAddress(fromHeader) ?? headerAddress(envelopeSender);
+    const otherDomain = addressDomain(otherAddress);
+    if (
+      otherAddress && !isBounceAddress(otherAddress) && isAutomatedSender(otherAddress, messageHeaders) &&
+      /^[a-z0-9.-]{1,100}$/.test(otherDomain) && !/(^|\.)poquetapp\.com$/.test(otherDomain)
+    ) {
+      await alertOps(admin, "no_pdf_automated", [[`no_pdf_automated:${otherDomain}`], ["no_pdf_automated", "4 hours"]], details());
+      if (!profile.gmail_fwd_code && !profile.gmail_fwd_link) {
+        await admin
+          .from("profiles")
+          // gmail_fwd_from holds the sender's domain for this status.
+          .update({ gmail_fwd_code: null, gmail_fwd_link: null, gmail_fwd_from: otherDomain, gmail_fwd_at: new Date().toISOString(), gmail_fwd_status: "unrecognized" })
+          .eq("id", profile.id);
+      }
+      return new Response("ok", { status: 200 });
+    }
+
+    // A person sent it: tell them there was no PDF. Never answer automated
+    // senders — they can't read it, and it can loop.
     if (sender && !isNoReplyAddress(sender)) await sendNoPdfNotice(sender, recipient);
     return new Response("ok", { status: 200 });
   }

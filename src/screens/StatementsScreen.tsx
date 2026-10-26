@@ -1308,7 +1308,11 @@ function RealStatementsFlow({ navigation, route }: any) {
                   <Text style={styles.gmailLabel}>
                     {gmailCode.status === 'unreadable'
                       ? (lang === 'es' ? 'No pudimos leer la confirmación de Gmail' : "We couldn't read Gmail's confirmation")
-                      : (lang === 'es' ? 'Confirma el reenvío de Gmail' : 'Confirm Gmail forwarding')}
+                      : gmailCode.status === 'unrecognized'
+                        ? (lang === 'es'
+                          ? `Recibimos un correo sin PDF${gmailCode.from ? ` de ${gmailCode.from}` : ''}`
+                          : `We got an email with no PDF${gmailCode.from ? ` from ${gmailCode.from}` : ''}`)
+                        : (lang === 'es' ? 'Confirma el reenvío de Gmail' : 'Confirm Gmail forwarding')}
                   </Text>
                   <Pressable onPress={dismissGmailCode} hitSlop={8} accessibilityRole="button" accessibilityLabel={lang === 'es' ? 'Ocultar' : 'Dismiss'}>
                     <Ionicons name="close" size={16} color={colors.ink3} />
@@ -1331,19 +1335,29 @@ function RealStatementsFlow({ navigation, route }: any) {
                     </Pressable>
                   </View>
                 )}
-                {gmailCode.status === 'unreadable' ? (
+                {gmailCode.status === 'unreadable' || gmailCode.status === 'unrecognized' ? (
                   <>
                     <Pressable
-                      onPress={() => Linking.openURL('mailto:support@poquetapp.com?subject=Reenv%C3%ADo%20de%20Gmail').catch(() => {})}
+                      onPress={() =>
+                        Linking.openURL(
+                          `mailto:support@poquetapp.com?subject=${encodeURIComponent(
+                            gmailCode.status === 'unreadable' ? 'Reenvío de Gmail' : `Correo sin PDF${gmailCode.from ? ` de ${gmailCode.from}` : ''}`,
+                          )}`,
+                        ).catch(() => {})
+                      }
                       style={styles.gmailConfirmBtn}
                       accessibilityRole="link"
                     >
                       <Text style={styles.gmailConfirmText}>{lang === 'es' ? 'Escribir a soporte' : 'Email support'}</Text>
                     </Pressable>
                     <Text style={styles.gmailHint}>
-                      {lang === 'es'
-                        ? 'Google nos envió el correo para confirmar el reenvío, pero cambió su formato y no pudimos leerlo. Ya nos llegó el aviso y lo estamos revisando; escríbenos y te ayudamos a terminar.'
-                        : "Google sent us the email to confirm forwarding, but its format changed and we couldn't read it. We've been alerted and are looking into it; email us and we'll help you finish."}
+                      {gmailCode.status === 'unreadable'
+                        ? (lang === 'es'
+                          ? 'Google nos envió el correo para confirmar el reenvío, pero cambió su formato y no pudimos leerlo. Ya nos llegó el aviso y lo estamos revisando; escríbenos y te ayudamos a terminar.'
+                          : "Google sent us the email to confirm forwarding, but its format changed and we couldn't read it. We've been alerted and are looking into it; email us and we'll help you finish.")
+                        : (lang === 'es'
+                          ? 'Si te lo pidieron al activar el reenvío desde otro correo (Yahoo, iCloud, Outlook…), todavía no podemos leer esa confirmación: escríbenos y te ayudamos a terminar. Si era tu estado de cuenta, reenvíalo con el PDF adjunto o súbelo aquí.'
+                          : "If it came when you turned on forwarding from another email provider (Yahoo, iCloud, Outlook…), we can't read that confirmation yet: email us and we'll help you finish. If it was your statement, forward it with the PDF attached or upload it here.")}
                     </Text>
                   </>
                 ) : (

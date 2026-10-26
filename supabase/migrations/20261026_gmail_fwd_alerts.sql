@@ -4,16 +4,21 @@
 -- relied on).
 --
 -- receive-statement-email calls claim_ops_alert() when a mail from google.com
--- can't be read as a confirmation, or a confirmation fails authentication;
--- it emails support@poquetapp.com at most once a day per kind.
+-- can't be read as a confirmation, a confirmation fails authentication, or
+-- any other automated sender mails a forwarding address without a PDF
+-- (another provider's verification, or a bank notice); it emails
+-- support@poquetapp.com at most once a day per kind (per sender domain for
+-- the last one, and at most every 4 h overall).
 
--- What happened to the latest confirmation, so the app's card says the right
--- thing: 'emailed' (sent back to the Gmail that asked), 'saved' (shown in the
--- app only: not authenticated as Google, or no requester), 'unreadable' (mail
--- from Google we couldn't parse). NULL = saved before this column existed.
+-- What happened to the latest forwarding notice, so the app's card says the
+-- right thing: 'emailed' (sent back to the Gmail that asked), 'saved' (shown
+-- in the app only: not authenticated as Google, or no requester),
+-- 'unreadable' (mail from Google we couldn't parse), 'unrecognized' (mail
+-- without a PDF from another automated sender; gmail_fwd_from then holds that
+-- sender's domain). NULL = saved before this column existed.
 alter table public.profiles
   add column if not exists gmail_fwd_status text
-  check (gmail_fwd_status in ('emailed', 'saved', 'unreadable'));
+  check (gmail_fwd_status in ('emailed', 'saved', 'unreadable', 'unrecognized'));
 
 -- One row per alert kind. Server-only: RLS on, no policies, no grants.
 create table if not exists public.ops_alerts (
