@@ -345,11 +345,16 @@ put any victim's address in the subject and a link to e.g. `evilgoogle.com`
 email that victim the link from our domain. Now: the link must parse to
 exactly `mail-settings.google.com` or `mail.google.com` (`isGmailConfirmHost`),
 and the email back only goes out when `sentByGoogle` holds — Mailgun's SMTP
-envelope `sender` is on google.com **and** `X-Mailgun-Spf` is `pass` —
-failing closed otherwise. Saving + push don't depend on it (they only reach
-the address's owner). The `no_pdf_mail` log line records `envelopeGoogle`
-and `spf`, so if a real confirmation ever stops being emailed back, the logs
-show which part failed.
+envelope `sender` is on google.com **and** Mailgun's own
+`Authentication-Results` (`mx*.mailgun.org`, above the first
+`X-Mailgun-Incoming`, so the sender can't inject it) says
+`dmarc=pass … header.from=google.com` — failing closed otherwise. The first
+version read `X-Mailgun-Spf`, which Mailgun doesn't send on routed mail, so
+v23 never emailed anyone back; a real confirmation logged on 26 Oct showed
+the actual headers. Saving + push don't depend on it (they only reach the
+address's owner). The `no_pdf_mail` log line records `envelopeGoogle` and
+`dmarcGoogle`, so if a real confirmation ever stops being emailed back, the
+logs show which part failed.
 
 # Installments ("cuotas", 15 Oct 2026)
 

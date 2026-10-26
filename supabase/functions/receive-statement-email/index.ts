@@ -106,46 +106,39 @@ export function parseGmailForwardingConfirmation(
 
 // Whether Google itself handed this message to Mailgun: the SMTP envelope
 // sender (Mailgun's `sender` field, not the From header) is on google.com and
-// Mailgun's SPF check of it passed. Fails closed. Anyone with a Poquet account
-// can mail their own forwarding address with a forged From, so without this
-// we'd email whatever address their subject names, from our domain. Only the
-// email back to the requester depends on it; saving the code/link and the
-// push only reach the address's owner.
-function sentByGoogle(envelopeSender: string, messageHeaders: string): { ok: boolean; envelopeGoogle: boolean; spf: string | null } {
+// Mailgun's own Authentication-Results says DMARC passed for
+// header.from=google.com (DKIM or SPF aligned with Google's domain). Fails
+// closed. Anyone with a Poquet account can mail their own forwarding address
+// with a forged From, so without this we'd email whatever address their
+// subject names, from our domain. Only the email back to the requester
+// depends on it; saving the code/link and the push only reach the address's
+// owner.
+//
+// Mailgun doesn't send X-Mailgun-Spf on routed mail (checked on a real Gmail
+// confirmation, 26 Oct 2026). It prepends its trace headers — Received,
+// Authentication-Results from mx*.mailgun.org, X-Mailgun-Incoming,
+// X-Envelope-From — above the sender's own, so only an Authentication-Results
+// before the first X-Mailgun-Incoming is Mailgun's; one further down could
+// have been written by the sender.
+function sentByGoogle(envelopeSender: string, messageHeaders: string): { ok: boolean; envelopeGoogle: boolean; dmarcGoogle: boolean } {
   const domain = (headerAddress(envelopeSender) ?? "").split("@")[1] ?? "";
   const envelopeGoogle = domain === "google.com" || domain.endsWith(".google.com");
-  let spf: string | null = null;
+  let dmarcGoogle = false;
   try {
     const headers = JSON.parse(messageHeaders) as [string, string][];
-    spf = headers.find(([k]) => k.toLowerCase() === "x-mailgun-spf")?.[1]?.trim().toLowerCase() ?? null;
+    const mailgunEnd = headers.findIndex(([k]) => k.toLowerCase() === "x-mailgun-incoming");
+    const results = mailgunEnd < 0 ? [] : headers
+      .slice(0, mailgunEnd)
+      .filter(([k, v]) => k.toLowerCase() === "authentication-results" && /^\s*mx[a-z0-9-]*\.mailgun\.org\s*;/i.test(String(v ?? "")));
+    // Comments in parentheses can hold ";" ("dmarc=pass (dkim=pass …; spf=pass …)
+    // header.from=google.com"), so drop them before splitting into results.
+    dmarcGoogle = results.some(([, v]) =>
+      String(v).replace(/\([^()]*\)/g, " ").split(";").some((part) => /^\s*dmarc=pass\b/i.test(part) && /\bheader\.from=google\.com\s*$/i.test(part))
+    );
   } catch {
     // No parsable headers: not provably Google.
   }
-  return { ok: envelopeGoogle && spf === "pass", envelopeGoogle, spf };
-}
-
-// Diagnostic (temporary, Oct 2026): which authentication headers Mailgun
-// actually forwards for a Gmail confirmation, since X-Mailgun-Spf turned out
-// to be absent. Logged only for mail parsed as a Gmail confirmation, whose
-// auth headers carry Google's domains and IPs, not user data. DKIM-Signature
-// is reduced to its d= and s= tags.
-function authHeadersForLog(messageHeaders: string): { names: string[]; auth: [string, string][] } {
-  try {
-    const headers = JSON.parse(messageHeaders) as [string, string][];
-    const auth = headers
-      .filter(([k]) => /spf|dkim|authentication-results|x-mailgun|x-envelope|return-path|x-google-dkim/i.test(k))
-      .map(([k, v]): [string, string] => {
-        const value = String(v ?? "");
-        if (/^dkim-signature$|^x-google-dkim-signature$/i.test(k)) {
-          const tags = ["d", "s"].map((t) => value.match(new RegExp(`(?:^|;)\\s*${t}=([^;]+)`))?.[0]?.replace(/^;?\s*/, "")).filter(Boolean);
-          return [k, tags.join("; ")];
-        }
-        return [k, value.slice(0, 400)];
-      });
-    return { names: headers.map(([k]) => k), auth };
-  } catch {
-    return { names: [], auth: [] };
-  }
+  return { ok: envelopeGoogle && dmarcGoogle, envelopeGoogle, dmarcGoogle };
 }
 
 function isNoReplyAddress(address: string): boolean {
@@ -544,10 +537,9 @@ Deno.serve(async (req: Request) => {
       hasCode: !!fwd?.code,
       hasLink: !!fwd?.link,
       envelopeGoogle: google.envelopeGoogle,
-      spf: google.spf,
+      dmarcGoogle: google.dmarcGoogle,
     }));
     if (fwd) {
-      console.log(JSON.stringify({ event: "gmail_fwd_auth_headers", ...authHeadersForLog(String(form.get("message-headers") ?? "")) }));
       // Gmail re-sends the same confirmation if the user clicks "resend"; only
       // notify again after a minute so a burst can't turn us into a mail cannon.
       const prevAt = profile.gmail_fwd_at ? Date.parse(profile.gmail_fwd_at as string) : 0;
