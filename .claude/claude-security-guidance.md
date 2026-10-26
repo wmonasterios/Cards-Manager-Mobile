@@ -42,10 +42,14 @@ change touches real user financial data. Edge functions live in
   `apply-statement`.
 - `verify_jwt: false` by design:
   - `receive-statement-email` — called by Mailgun. Expected, not a finding.
-    `senderLooksAuthentic` deliberately fails open when SPF/DKIM headers are
-    absent (owner's tradeoff; forwarding tokens are unguessable). Do not flag
-    that by itself, but do flag anything that lets mail to one user's
-    `u-<token>@stmts.poquetapp.com` address affect another user's data.
+    Any user can mail their own `u-<token>@stmts.poquetapp.com` address with
+    forged headers, so an unguessable token is no defense for anything the
+    function sends *outward*. Emails to an address taken from the message
+    (the Gmail confirmation requester) require `sentByGoogle` (envelope on
+    google.com + SPF pass, fails closed); links that are saved, pushed or
+    emailed must pass the exact-host check `isGmailConfirmHost`. Flag any
+    loosening of either, and anything that lets mail to one user's address
+    affect another user's data.
   - `purge-old-statement-pdfs`, `push-journey` — cron jobs. They must reject
     the request unless `x-cron-secret` passes the service-role-only RPC
     `check_cron_secret` (secret in Vault). A new cron-style function without

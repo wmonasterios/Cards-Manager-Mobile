@@ -56,19 +56,40 @@ function extractToken(recipient: string): string | null {
 // ---------------------------------------------------------------------------
 const GMAIL_FWD_SENDER = "forwarding-noreply@google.com";
 const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
-const GOOGLE_LINK_RE = /https:\/\/[a-z0-9.-]*google\.com\/[^\s<>"'\]]+/gi;
+const LINK_RE = /https:\/\/[^\s<>"'\]]+/gi;
+// Only these hosts serve Gmail's forwarding confirmation. Matched exactly on
+// the parsed URL: a pattern like "*google.com/" also accepts evilgoogle.com,
+// and this link is opened from the app and emailed out from our domain.
+const GMAIL_CONFIRM_HOSTS = new Set(["mail-settings.google.com", "mail.google.com"]);
+
+function isGmailConfirmHost(link: string): boolean {
+  try {
+    const u = new URL(link);
+    return u.protocol === "https:" && !u.username && !u.password && !u.port && GMAIL_CONFIRM_HOSTS.has(u.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
 
 function findConfirmationLink(text: string): string | null {
-  const links = (text.replace(/&amp;/g, "&").match(GOOGLE_LINK_RE) ?? []).map((l) => l.replace(/[.,;)]+$/, ""));
+  const links = (text.replace(/&amp;/g, "&").match(LINK_RE) ?? [])
+    .map((l) => l.replace(/[.,;)]+$/, ""))
+    .filter(isGmailConfirmHost);
   return links.find((l) => /\/vf-|vf%2d|confirm/i.test(l)) ?? links.find((l) => /mail-settings\.google\.com/i.test(l)) ?? null;
 }
 
+// The bare address of a header like `Gmail Team <forwarding-noreply@google.com>`.
+function headerAddress(field: string): string | null {
+  const m = field.match(/<([^<>\s]+@[^<>\s]+)>\s*$/) ?? field.match(/^\s*([^<>\s]+@[^<>\s]+)\s*$/);
+  return m ? m[1].toLowerCase() : null;
+}
+
 export function parseGmailForwardingConfirmation(
-  senderFields: string,
+  fromHeader: string,
   subject: string,
   body: string,
 ): { code: string | null; link: string | null; requester: string | null } | null {
-  if (!senderFields.toLowerCase().includes(GMAIL_FWD_SENDER)) return null;
+  if (headerAddress(fromHeader) !== GMAIL_FWD_SENDER) return null;
   const code =
     subject.match(/\(#(\d{5,12})\)/)?.[1] ??
     body.match(/(?:confirmation code|c[oó]digo de confirmaci[oó]n)\s*:?\s*(\d{5,12})/i)?.[1] ??
@@ -83,19 +104,24 @@ export function parseGmailForwardingConfirmation(
   return { code, link, requester };
 }
 
-// Mailgun adds SPF/DKIM results to the forwarded headers. If they are present
-// and both say the message isn't authentic, don't email anyone on its behalf.
-function senderLooksAuthentic(messageHeaders: string): boolean {
+// Whether Google itself handed this message to Mailgun: the SMTP envelope
+// sender (Mailgun's `sender` field, not the From header) is on google.com and
+// Mailgun's SPF check of it passed. Fails closed. Anyone with a Poquet account
+// can mail their own forwarding address with a forged From, so without this
+// we'd email whatever address their subject names, from our domain. Only the
+// email back to the requester depends on it; saving the code/link and the
+// push only reach the address's owner.
+function sentByGoogle(envelopeSender: string, messageHeaders: string): { ok: boolean; envelopeGoogle: boolean; spf: string | null } {
+  const domain = (headerAddress(envelopeSender) ?? "").split("@")[1] ?? "";
+  const envelopeGoogle = domain === "google.com" || domain.endsWith(".google.com");
+  let spf: string | null = null;
   try {
     const headers = JSON.parse(messageHeaders) as [string, string][];
-    const get = (name: string) => headers.find(([k]) => k.toLowerCase() === name)?.[1]?.toLowerCase();
-    const spf = get("x-mailgun-spf");
-    const dkim = get("x-mailgun-dkim-check-result");
-    if (spf === undefined && dkim === undefined) return true;
-    return spf === "pass" || dkim === "pass";
+    spf = headers.find(([k]) => k.toLowerCase() === "x-mailgun-spf")?.[1]?.trim().toLowerCase() ?? null;
   } catch {
-    return true;
+    // No parsable headers: not provably Google.
   }
+  return { ok: envelopeGoogle && spf === "pass", envelopeGoogle, spf };
 }
 
 function isNoReplyAddress(address: string): boolean {
@@ -481,17 +507,20 @@ Deno.serve(async (req: Request) => {
   const pushToken = profile.push_token as string | undefined;
 
   if (pdfAttachments.length === 0) {
-    const senderFields = `${String(form.get("from") ?? "")} ${String(form.get("sender") ?? "")}`;
+    const fromHeader = String(form.get("from") ?? "");
     const subject = String(form.get("subject") ?? "");
     const bodyText = `${String(form.get("body-plain") ?? "")}\n${String(form.get("body-html") ?? "")}`;
-    const fwd = parseGmailForwardingConfirmation(senderFields, subject, bodyText);
+    const fwd = parseGmailForwardingConfirmation(fromHeader, subject, bodyText);
+    const google = sentByGoogle(String(form.get("sender") ?? ""), String(form.get("message-headers") ?? ""));
     // Diagnostic only, no personal data: what kind of no-PDF mail arrived.
     console.log(JSON.stringify({
       event: "no_pdf_mail",
-      fromGoogle: senderFields.toLowerCase().includes(GMAIL_FWD_SENDER),
+      fromGoogle: headerAddress(fromHeader) === GMAIL_FWD_SENDER,
       gmailConfirmation: !!fwd,
       hasCode: !!fwd?.code,
       hasLink: !!fwd?.link,
+      envelopeGoogle: google.envelopeGoogle,
+      spf: google.spf,
     }));
     if (fwd) {
       // Gmail re-sends the same confirmation if the user clicks "resend"; only
@@ -525,7 +554,7 @@ Deno.serve(async (req: Request) => {
               : "We sent the code to your Gmail. Enter it in Gmail to turn on forwarding."),
           { type: "gmail_forwarding_code" },
         );
-        if (fwd.requester && senderLooksAuthentic(String(form.get("message-headers") ?? ""))) {
+        if (fwd.requester && google.ok) {
           await sendGmailConfirmEmail(fwd.requester, recipient, fwd.code, fwd.link, isEs);
         }
       }
