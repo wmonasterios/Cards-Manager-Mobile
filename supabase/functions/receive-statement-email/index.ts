@@ -105,12 +105,12 @@ export function parseGmailForwardingConfirmation(
 }
 
 // Whether Google itself handed this message to Mailgun: the SMTP envelope
-// sender (Mailgun's `sender` field, not the From header) is on google.com and
-// Mailgun's own Authentication-Results says DMARC passed for
-// header.from=google.com (DKIM or SPF aligned with Google's domain). Fails
-// closed. Anyone with a Poquet account can mail their own forwarding address
-// with a forged From, so without this we'd email whatever address their
-// subject names, from our domain. Only the email back to the requester
+// sender (Mailgun's `sender` field, not the From header) is
+// forwarding-noreply@google.com and Mailgun's own Authentication-Results says
+// DMARC passed for header.from=google.com and DKIM passed for
+// header.d=google.com. Fails closed. Anyone with a Poquet account can mail
+// their own forwarding address with a forged From, so without this we'd email
+// whatever address their subject names, from our domain. Only the email back to the requester
 // depends on it; saving the code/link and the push only reach the address's
 // owner.
 //
@@ -121,8 +121,10 @@ export function parseGmailForwardingConfirmation(
 // before the first X-Mailgun-Incoming is Mailgun's; one further down could
 // have been written by the sender.
 function sentByGoogle(envelopeSender: string, messageHeaders: string): { ok: boolean; envelopeGoogle: boolean; dmarcGoogle: boolean } {
-  const domain = (headerAddress(envelopeSender) ?? "").split("@")[1] ?? "";
-  const envelopeGoogle = domain === "google.com" || domain.endsWith(".google.com");
+  // Exactly Google's address, not just its domain: Mailgun echoes the
+  // envelope sender inside its Authentication-Results (smtp.mailfrom="…"),
+  // and a quoted local part could otherwise smuggle text into it.
+  const envelopeGoogle = headerAddress(envelopeSender) === GMAIL_FWD_SENDER;
   let dmarcGoogle = false;
   try {
     const headers = JSON.parse(messageHeaders) as [string, string][];
@@ -130,15 +132,47 @@ function sentByGoogle(envelopeSender: string, messageHeaders: string): { ok: boo
     const results = mailgunEnd < 0 ? [] : headers
       .slice(0, mailgunEnd)
       .filter(([k, v]) => k.toLowerCase() === "authentication-results" && /^\s*mx[a-z0-9-]*\.mailgun\.org\s*;/i.test(String(v ?? "")));
-    // Comments in parentheses can hold ";" ("dmarc=pass (dkim=pass …; spf=pass …)
-    // header.from=google.com"), so drop them before splitting into results.
-    dmarcGoogle = results.some(([, v]) =>
-      String(v).replace(/\([^()]*\)/g, " ").split(";").some((part) => /^\s*dmarc=pass\b/i.test(part) && /\bheader\.from=google\.com\s*$/i.test(part))
-    );
+    dmarcGoogle = results.some(([, v]) => {
+      const res = authResults(String(v));
+      if (!res) return false;
+      // Every result for google.com must pass, not just one: should a
+      // sender-controlled value ever reach this header unquoted, text it
+      // injects still sits next to Mailgun's genuine "dmarc=fail
+      // header.from=google.com" for a forged From, and that one can't be removed.
+      const allPass = (method: string, prop: string, value: string) => {
+        const mine = res.filter((r) => r.method === method && r.props[prop] === value);
+        return mine.length > 0 && mine.every((r) => r.result === "pass");
+      };
+      return allPass("dmarc", "header.from", "google.com") && allPass("dkim", "header.d", "google.com");
+    });
   } catch {
     // No parsable headers: not provably Google.
   }
   return { ok: envelopeGoogle && dmarcGoogle, envelopeGoogle, dmarcGoogle };
+}
+
+// The results in an Authentication-Results value (RFC 8601), or null when it
+// can't be read safely. Quoted strings and (nested) comments are removed
+// first — they hold sender-controlled text such as smtp.mailfrom and
+// smtp.helo, which may contain ";" or "=" — and anything left unbalanced
+// fails closed.
+function authResults(value: string): { method: string; result: string; props: Record<string, string> }[] | null {
+  let s = value.replace(/"(?:[^"\\]|\\.)*"/g, '""');
+  for (let prev = ""; prev !== s;) {
+    prev = s;
+    s = s.replace(/\([^()]*\)/g, " ");
+  }
+  if (/[()\\]/.test(s) || (s.match(/"/g) ?? []).length % 2 !== 0) return null;
+  return s.split(";").slice(1).map((part) => {
+    const [head, ...rest] = part.trim().split(/\s+/);
+    const [method, result] = (head ?? "").toLowerCase().split("=");
+    const props: Record<string, string> = {};
+    for (const kv of rest) {
+      const i = kv.indexOf("=");
+      if (i > 0) props[kv.slice(0, i).toLowerCase()] = kv.slice(i + 1).toLowerCase();
+    }
+    return { method: method ?? "", result: result ?? "", props };
+  });
 }
 
 function isNoReplyAddress(address: string): boolean {
