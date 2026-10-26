@@ -124,6 +124,30 @@ function sentByGoogle(envelopeSender: string, messageHeaders: string): { ok: boo
   return { ok: envelopeGoogle && spf === "pass", envelopeGoogle, spf };
 }
 
+// Diagnostic (temporary, Oct 2026): which authentication headers Mailgun
+// actually forwards for a Gmail confirmation, since X-Mailgun-Spf turned out
+// to be absent. Logged only for mail parsed as a Gmail confirmation, whose
+// auth headers carry Google's domains and IPs, not user data. DKIM-Signature
+// is reduced to its d= and s= tags.
+function authHeadersForLog(messageHeaders: string): { names: string[]; auth: [string, string][] } {
+  try {
+    const headers = JSON.parse(messageHeaders) as [string, string][];
+    const auth = headers
+      .filter(([k]) => /spf|dkim|authentication-results|x-mailgun|x-envelope|return-path|x-google-dkim/i.test(k))
+      .map(([k, v]): [string, string] => {
+        const value = String(v ?? "");
+        if (/^dkim-signature$|^x-google-dkim-signature$/i.test(k)) {
+          const tags = ["d", "s"].map((t) => value.match(new RegExp(`(?:^|;)\\s*${t}=([^;]+)`))?.[0]?.replace(/^;?\s*/, "")).filter(Boolean);
+          return [k, tags.join("; ")];
+        }
+        return [k, value.slice(0, 400)];
+      });
+    return { names: headers.map(([k]) => k), auth };
+  } catch {
+    return { names: [], auth: [] };
+  }
+}
+
 function isNoReplyAddress(address: string): boolean {
   return /(no-?reply|noreply|no-responder|mailer-daemon|postmaster)/i.test(address);
 }
@@ -523,6 +547,7 @@ Deno.serve(async (req: Request) => {
       spf: google.spf,
     }));
     if (fwd) {
+      console.log(JSON.stringify({ event: "gmail_fwd_auth_headers", ...authHeadersForLog(String(form.get("message-headers") ?? "")) }));
       // Gmail re-sends the same confirmation if the user clicks "resend"; only
       // notify again after a minute so a burst can't turn us into a mail cannon.
       const prevAt = profile.gmail_fwd_at ? Date.parse(profile.gmail_fwd_at as string) : 0;
