@@ -150,21 +150,33 @@ export async function getStatementEmail(userId: string): Promise<string> {
 // Gmail won't auto-forward to a new address until the user confirms it with
 // the link (or, on older flows, the code) it emails there; receive-statement-email saves that code on the profile. Only
 // a recent one is useful (Gmail codes are for the setup in progress).
-export type GmailForwardingCode = { code: string | null; link: string | null; from: string | null; at: string };
+// `status`: 'emailed' = also sent to the Gmail that asked; 'saved' = only
+// here (it didn't authenticate as Google); 'unreadable' = mail from Google we
+// couldn't read (format changed?), no code or link; null = saved before the
+// status existed (those were emailed).
+export type GmailForwardingStatus = 'emailed' | 'saved' | 'unreadable' | null;
+export type GmailForwardingCode = { code: string | null; link: string | null; from: string | null; at: string; status: GmailForwardingStatus };
 
 export async function getGmailForwardingCode(userId: string): Promise<GmailForwardingCode | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('gmail_fwd_code, gmail_fwd_link, gmail_fwd_from, gmail_fwd_at, gmail_fwd_dismissed_at')
+    .select('gmail_fwd_code, gmail_fwd_link, gmail_fwd_from, gmail_fwd_at, gmail_fwd_dismissed_at, gmail_fwd_status')
     .eq('id', userId)
     .single();
-  if (error || !data || (!data.gmail_fwd_code && !data.gmail_fwd_link) || !data.gmail_fwd_at) return null;
+  const unreadable = data?.gmail_fwd_status === 'unreadable';
+  if (error || !data || (!data.gmail_fwd_code && !data.gmail_fwd_link && !unreadable) || !data.gmail_fwd_at) return null;
   const ageMs = Date.now() - Date.parse(data.gmail_fwd_at);
   if (!(ageMs >= 0 && ageMs < 7 * 24 * 60 * 60 * 1000)) return null;
   if (data.gmail_fwd_dismissed_at && Date.parse(data.gmail_fwd_dismissed_at) >= Date.parse(data.gmail_fwd_at)) {
     return null;
   }
-  return { code: data.gmail_fwd_code, link: data.gmail_fwd_link, from: data.gmail_fwd_from, at: data.gmail_fwd_at };
+  return {
+    code: data.gmail_fwd_code,
+    link: data.gmail_fwd_link,
+    from: data.gmail_fwd_from,
+    at: data.gmail_fwd_at,
+    status: (data.gmail_fwd_status ?? null) as GmailForwardingStatus,
+  };
 }
 
 // Lets the user dismiss the "confirm Gmail forwarding" nag without actually

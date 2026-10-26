@@ -175,6 +175,85 @@ function authResults(value: string): { method: string; result: string; props: Re
   });
 }
 
+// ---------------------------------------------------------------------------
+// Change alerts
+//
+// Both checks above fail closed, so when Google or Mailgun change how a
+// confirmation looks, nothing breaks loudly: the email back just stops (Oct
+// 2026, Mailgun never sent X-Mailgun-Spf). Two things should never happen on
+// a normal day — mail from google.com that doesn't read as a confirmation, and
+// a confirmation that doesn't authenticate as Google — so either one emails
+// support@poquetapp.com, at most once a day per kind (claim_ops_alert). The
+// alert carries what's needed to see what changed and nothing about the user:
+// no subject, body, requester or link, only hosts and Mailgun's verdict.
+// Someone forging a confirmation to their own address also triggers the
+// second kind, which is worth knowing too.
+// ---------------------------------------------------------------------------
+const SUPPORT_TO = "support@poquetapp.com";
+
+function isGoogleAddress(address: string | null): boolean {
+  const domain = (address ?? "").split("@")[1] ?? "";
+  return domain === "google.com" || domain.endsWith(".google.com");
+}
+
+async function alertOps(admin: ReturnType<typeof createClient>, kind: string, details: Record<string, unknown>) {
+  if (!MAILGUN_API_KEY) return;
+  try {
+    const { data: seen, error } = await admin.rpc("claim_ops_alert", { p_kind: kind });
+    if (error || typeof seen !== "number") return;
+    const lines = [
+      `receive-statement-email saw "${kind}" (${seen} time${seen === 1 ? "" : "s"} since the last alert of this kind; next alert in 24 h at the earliest).`,
+      kind === "gmail_fwd_unreadable"
+        ? "Mail from google.com reached a forwarding address but didn't parse as a Gmail forwarding confirmation (sender, link host or code format changed?). The user sees a card asking them to contact support."
+        : "A Gmail forwarding confirmation was parsed but didn't authenticate as Google, so it wasn't emailed back (envelope sender or Mailgun's Authentication-Results changed? or someone forged one to their own address). The user still gets the push and the card.",
+      "",
+      ...Object.entries(details).map(([k, v]) => `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`),
+      "",
+      "Code: supabase/functions/receive-statement-email (parseGmailForwardingConfirmation, sentByGoogle).",
+    ];
+    const form = new FormData();
+    form.append("from", `Poquet <no-responder@${MAILGUN_DOMAIN}>`);
+    form.append("to", SUPPORT_TO);
+    form.append("subject", `[Poquet alert] Gmail forwarding: ${kind}`);
+    form.append("text", lines.join("\n"));
+    await fetch(`https://api.mailgun.net/v3/${MAILGUN_DOMAIN}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Basic ${btoa(`api:${MAILGUN_API_KEY}`)}` },
+      body: form,
+    });
+  } catch {
+    // Best-effort: the log line still records it.
+  }
+}
+
+// What an alert says about a message: hosts and verdicts, never content.
+function alertDetails(fromHeader: string, envelopeSender: string, subject: string, body: string, messageHeaders: string) {
+  let headerNames: string[] = [];
+  let mailgunAuth: string | null = null;
+  try {
+    const headers = JSON.parse(messageHeaders) as [string, string][];
+    headerNames = headers.map(([k]) => k);
+    mailgunAuth = headers.find(([k, v]) => k.toLowerCase() === "authentication-results" && /mailgun\.org/i.test(String(v)))?.[1]?.slice(0, 600) ?? null;
+  } catch {
+    // Leave them empty.
+  }
+  const hosts = [...new Set((body.replace(/&amp;/g, "&").match(LINK_RE) ?? []).map((l) => {
+    try {
+      return new URL(l).hostname.toLowerCase();
+    } catch {
+      return null;
+    }
+  }).filter(Boolean))].slice(0, 8);
+  return {
+    from: isGoogleAddress(headerAddress(fromHeader)) ? headerAddress(fromHeader) : "(not google.com)",
+    envelope_domain: (headerAddress(envelopeSender) ?? "").split("@")[1] ?? "(none)",
+    subject_has_code: /\(#\d{5,12}\)/.test(subject),
+    link_hosts_in_body: hosts,
+    mailgun_authentication_results: mailgunAuth ?? "(none)",
+    header_names: headerNames,
+  };
+}
+
 function isNoReplyAddress(address: string): boolean {
   return /(no-?reply|noreply|no-responder|mailer-daemon|postmaster)/i.test(address);
 }
@@ -185,8 +264,8 @@ async function sendGmailConfirmEmail(
   code: string | null,
   link: string | null,
   isEs: boolean,
-) {
-  if (!MAILGUN_API_KEY) return;
+): Promise<boolean> {
+  if (!MAILGUN_API_KEY) return false;
   try {
     const es = [
       `Gmail te pidió confirmar el reenvío a tu dirección de Poquet (${recipientAddress}).`,
@@ -212,13 +291,15 @@ async function sendGmailConfirmEmail(
         : code ? `Confirm Gmail forwarding to Poquet (code ${code})` : "Confirm Gmail forwarding to Poquet",
     );
     form.append("text", (isEs ? es : en).filter(Boolean).join("\n\n"));
-    await fetch(`https://api.mailgun.net/v3/${MAILGUN_DOMAIN}/messages`, {
+    const res = await fetch(`https://api.mailgun.net/v3/${MAILGUN_DOMAIN}/messages`, {
       method: "POST",
       headers: { Authorization: `Basic ${btoa(`api:${MAILGUN_API_KEY}`)}` },
       body: form,
     });
+    return res.ok;
   } catch {
     // Best-effort — the confirmation is also saved for the app and pushed.
+    return false;
   }
 }
 
@@ -537,7 +618,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: profile } = await admin
     .from("profiles")
-    .select("id, push_token, lang, gmail_fwd_code, gmail_fwd_link, gmail_fwd_at")
+    .select("id, push_token, lang, gmail_fwd_code, gmail_fwd_link, gmail_fwd_at, gmail_fwd_status")
     .eq("statement_email_token", userToken)
     .maybeSingle();
 
@@ -561,19 +642,42 @@ Deno.serve(async (req: Request) => {
     const fromHeader = String(form.get("from") ?? "");
     const subject = String(form.get("subject") ?? "");
     const bodyText = `${String(form.get("body-plain") ?? "")}\n${String(form.get("body-html") ?? "")}`;
+    const envelopeSender = String(form.get("sender") ?? "");
+    const messageHeaders = String(form.get("message-headers") ?? "");
     const fwd = parseGmailForwardingConfirmation(fromHeader, subject, bodyText);
-    const google = sentByGoogle(String(form.get("sender") ?? ""), String(form.get("message-headers") ?? ""));
+    const google = sentByGoogle(envelopeSender, messageHeaders);
+    const fromGoogleDomain = isGoogleAddress(headerAddress(fromHeader));
     // Diagnostic only, no personal data: what kind of no-PDF mail arrived.
     console.log(JSON.stringify({
       event: "no_pdf_mail",
       fromGoogle: headerAddress(fromHeader) === GMAIL_FWD_SENDER,
+      fromGoogleDomain,
       gmailConfirmation: !!fwd,
       hasCode: !!fwd?.code,
       hasLink: !!fwd?.link,
       envelopeGoogle: google.envelopeGoogle,
       dmarcGoogle: google.dmarcGoogle,
     }));
+    const details = () => alertDetails(fromHeader, envelopeSender, subject, bodyText, messageHeaders);
+
+    // Mail from Google that isn't a confirmation we can read: most likely
+    // Google changed its format. Tell support, and let the user know from the
+    // app rather than leaving them with nothing — unless a readable code/link
+    // is already showing, which this mustn't replace.
+    if (!fwd && fromGoogleDomain) {
+      await alertOps(admin, "gmail_fwd_unreadable", details());
+      if (!profile.gmail_fwd_code && !profile.gmail_fwd_link) {
+        await admin
+          .from("profiles")
+          .update({ gmail_fwd_code: null, gmail_fwd_link: null, gmail_fwd_from: null, gmail_fwd_at: new Date().toISOString(), gmail_fwd_status: "unreadable" })
+          .eq("id", profile.id);
+      }
+      return new Response("ok", { status: 200 });
+    }
+
     if (fwd) {
+      if (!google.ok) await alertOps(admin, "gmail_fwd_unauthenticated", details());
+      const willEmail = !!fwd.requester && google.ok;
       // Gmail re-sends the same confirmation if the user clicks "resend"; only
       // notify again after a minute so a burst can't turn us into a mail cannon.
       const prevAt = profile.gmail_fwd_at ? Date.parse(profile.gmail_fwd_at as string) : 0;
@@ -587,6 +691,9 @@ Deno.serve(async (req: Request) => {
           gmail_fwd_link: fwd.link,
           gmail_fwd_from: fwd.requester,
           gmail_fwd_at: new Date().toISOString(),
+          // A resend within the minute isn't emailed again; it keeps the
+          // status of the one that was.
+          ...(recentlySent ? {} : { gmail_fwd_status: "saved" }),
         })
         .eq("id", profile.id);
 
@@ -596,17 +703,21 @@ Deno.serve(async (req: Request) => {
           fwd.code
             ? (isEs ? `Código de Gmail: ${fwd.code}` : `Gmail code: ${fwd.code}`)
             : (isEs ? "Confirma el reenvío de Gmail" : "Confirm Gmail forwarding"),
-          fwd.link
-            ? (isEs
-              ? "Te enviamos el enlace a tu Gmail. Ábrelo y toca Confirmar para activar el reenvío."
-              : "We sent the link to your Gmail. Open it and tap Confirm to turn on forwarding.")
+          willEmail
+            ? fwd.link
+              ? (isEs
+                ? "Te enviamos el enlace a tu Gmail. Ábrelo y toca Confirmar para activar el reenvío."
+                : "We sent the link to your Gmail. Open it and tap Confirm to turn on forwarding.")
+              : (isEs
+                ? "Te enviamos el código a tu Gmail. Escríbelo en Gmail para activar el reenvío."
+                : "We sent the code to your Gmail. Enter it in Gmail to turn on forwarding.")
             : (isEs
-              ? "Te enviamos el código a tu Gmail. Escríbelo en Gmail para activar el reenvío."
-              : "We sent the code to your Gmail. Enter it in Gmail to turn on forwarding."),
+              ? "Ábrelo en Poquet → Estados de cuenta para activar el reenvío."
+              : "Open it in Poquet → Statements to turn on forwarding."),
           { type: "gmail_forwarding_code" },
         );
-        if (fwd.requester && google.ok) {
-          await sendGmailConfirmEmail(fwd.requester, recipient, fwd.code, fwd.link, isEs);
+        if (willEmail && await sendGmailConfirmEmail(fwd.requester!, recipient, fwd.code, fwd.link, isEs)) {
+          await admin.from("profiles").update({ gmail_fwd_status: "emailed" }).eq("id", profile.id);
         }
       }
       return new Response("ok", { status: 200 });
@@ -654,10 +765,10 @@ Deno.serve(async (req: Request) => {
 
     // A real statement just came through this forwarding alias — proof Gmail's
     // forwarding is active, so the "confirm forwarding" nag can go away.
-    if (profile.gmail_fwd_code || profile.gmail_fwd_link) {
+    if (profile.gmail_fwd_code || profile.gmail_fwd_link || profile.gmail_fwd_status) {
       await admin
         .from("profiles")
-        .update({ gmail_fwd_code: null, gmail_fwd_link: null, gmail_fwd_at: null })
+        .update({ gmail_fwd_code: null, gmail_fwd_link: null, gmail_fwd_at: null, gmail_fwd_status: null })
         .eq("id", profile.id);
     }
   }

@@ -356,6 +356,27 @@ address's owner). The `no_pdf_mail` log line records `envelopeGoogle` and
 `dmarcGoogle`, so if a real confirmation ever stops being emailed back, the
 logs show which part failed.
 
+**Change alerts (26 Oct 2026, migration `20261026_gmail_fwd_alerts.sql`).**
+Both checks fail closed, so a format change at Google or Mailgun breaks
+silently. Two things should never happen on a normal day, and each emails
+support@poquetapp.com ("[Poquet alert] Gmail forwarding: …"), at most once a
+day per kind via the service-role-only `claim_ops_alert(kind)` RPC
+(`public.ops_alerts`, RLS on, no policies):
+- `gmail_fwd_unreadable`: mail from any google.com address that doesn't parse
+  as a confirmation (new sender, link host or code format). The profile gets
+  `gmail_fwd_status = 'unreadable'` and the Statements card says "No pudimos
+  leer la confirmación de Gmail" with an "Escribir a soporte" button (it
+  doesn't replace a readable code/link already showing).
+- `gmail_fwd_unauthenticated`: parsed, but `sentByGoogle` failed — Google or
+  Mailgun changed the envelope/auth headers, or someone forged one to their
+  own address. Saved and pushed as before, not emailed.
+The alert carries hosts, Mailgun's Authentication-Results and header names —
+never subject, body, link or requester. `profiles.gmail_fwd_status`
+('emailed' | 'saved' | 'unreadable') also makes the card and push stop
+saying "we emailed it to you" when we didn't. If an alert arrives: look at
+`no_pdf_mail` in the function logs, adjust `parseGmailForwardingConfirmation`
+or `sentByGoogle`, and test against the headers in the alert.
+
 # Installments ("cuotas", 15 Oct 2026)
 
 A cuota is a **mark on a transaction, not a category**: the club paid in 24

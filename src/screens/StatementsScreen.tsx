@@ -1306,7 +1306,9 @@ function RealStatementsFlow({ navigation, route }: any) {
               <View style={styles.gmailBox}>
                 <View style={styles.gmailHeaderRow}>
                   <Text style={styles.gmailLabel}>
-                    {lang === 'es' ? 'Confirma el reenvío de Gmail' : 'Confirm Gmail forwarding'}
+                    {gmailCode.status === 'unreadable'
+                      ? (lang === 'es' ? 'No pudimos leer la confirmación de Gmail' : "We couldn't read Gmail's confirmation")
+                      : (lang === 'es' ? 'Confirma el reenvío de Gmail' : 'Confirm Gmail forwarding')}
                   </Text>
                   <Pressable onPress={dismissGmailCode} hitSlop={8} accessibilityRole="button" accessibilityLabel={lang === 'es' ? 'Ocultar' : 'Dismiss'}>
                     <Ionicons name="close" size={16} color={colors.ink3} />
@@ -1329,11 +1331,28 @@ function RealStatementsFlow({ navigation, route }: any) {
                     </Pressable>
                   </View>
                 )}
-                <Text style={styles.gmailHint}>
-                  {lang === 'es'
-                    ? `${gmailCode.link ? 'Abre el enlace y confirma' : 'Escríbelo en Gmail → Configuración → Reenvío y correo POP/IMAP'} para activar el reenvío${gmailCode.from ? ` desde ${gmailCode.from}` : ''}. También te lo enviamos a ese correo.`
-                    : `${gmailCode.link ? 'Open the link and confirm' : 'Enter it in Gmail → Settings → Forwarding and POP/IMAP'} to turn on forwarding${gmailCode.from ? ` from ${gmailCode.from}` : ''}. We also emailed it to that address.`}
-                </Text>
+                {gmailCode.status === 'unreadable' ? (
+                  <>
+                    <Pressable
+                      onPress={() => Linking.openURL('mailto:support@poquetapp.com?subject=Reenv%C3%ADo%20de%20Gmail').catch(() => {})}
+                      style={styles.gmailConfirmBtn}
+                      accessibilityRole="link"
+                    >
+                      <Text style={styles.gmailConfirmText}>{lang === 'es' ? 'Escribir a soporte' : 'Email support'}</Text>
+                    </Pressable>
+                    <Text style={styles.gmailHint}>
+                      {lang === 'es'
+                        ? 'Google nos envió el correo para confirmar el reenvío, pero cambió su formato y no pudimos leerlo. Ya nos llegó el aviso y lo estamos revisando; escríbenos y te ayudamos a terminar.'
+                        : "Google sent us the email to confirm forwarding, but its format changed and we couldn't read it. We've been alerted and are looking into it; email us and we'll help you finish."}
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={styles.gmailHint}>
+                    {lang === 'es'
+                      ? `${gmailCode.link ? 'Abre el enlace y confirma' : 'Escríbelo en Gmail → Configuración → Reenvío y correo POP/IMAP'} para activar el reenvío${gmailCode.from ? ` desde ${gmailCode.from}` : ''}.${gmailCode.status === 'saved' ? '' : ' También te lo enviamos a ese correo.'}`
+                      : `${gmailCode.link ? 'Open the link and confirm' : 'Enter it in Gmail → Settings → Forwarding and POP/IMAP'} to turn on forwarding${gmailCode.from ? ` from ${gmailCode.from}` : ''}.${gmailCode.status === 'saved' ? '' : ' We also emailed it to that address.'}`}
+                  </Text>
+                )}
               </View>
             )}
           </AddStatementOptions>
