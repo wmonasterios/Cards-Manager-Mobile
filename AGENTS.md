@@ -329,16 +329,27 @@ handling: Gmail won't start forwarding to a user's `u-<token>@stmts.
 poquetapp.com` address until confirmed, and sends that confirmation (a
 numeric code on older flows, a link on current ones) to that same address
 — which, before this, the function silently treated as "no PDF" and
-dropped. It now recognizes mail from `forwarding-noreply@google.com`,
-saves the code/link to `profiles.gmail_fwd_*` (7-day display window,
-client-side in `getGmailForwardingCode`), pushes the user, and emails the
-code/link back to the Gmail account that requested it (only once a
-Mailgun SPF/DKIM check suggests the triggering email is genuinely from
-Google — see `senderLooksAuthentic`, which fails open if those headers are
-absent, a deliberate tradeoff favoring not breaking the real flow over
-hardening a low-severity edge case, since forwarding tokens aren't
-guessable). Shown in Statements as a card with a "Confirm in Gmail" button
-(link flow) or a copyable code (older flow).
+dropped. It now recognizes mail whose From address is exactly
+`forwarding-noreply@google.com`, saves the code/link to
+`profiles.gmail_fwd_*` (7-day display window, client-side in
+`getGmailForwardingCode`), pushes the user, and emails the code/link back to
+the Gmail account that requested it. Shown in Statements as a card with a
+"Confirm in Gmail" button (link flow) or a copyable code (older flow).
+
+**Hardened 25 Oct 2026 (security audit).** This used to fail open (send the
+email whenever SPF/DKIM headers were absent or either passed), on the
+premise that forwarding tokens aren't guessable. That premise doesn't hold:
+anyone can sign up, mail their *own* `u-<token>` address with a forged From,
+put any victim's address in the subject and a link to e.g. `evilgoogle.com`
+(the old link pattern accepted any host ending in `google.com/`), and we'd
+email that victim the link from our domain. Now: the link must parse to
+exactly `mail-settings.google.com` or `mail.google.com` (`isGmailConfirmHost`),
+and the email back only goes out when `sentByGoogle` holds — Mailgun's SMTP
+envelope `sender` is on google.com **and** `X-Mailgun-Spf` is `pass` —
+failing closed otherwise. Saving + push don't depend on it (they only reach
+the address's owner). The `no_pdf_mail` log line records `envelopeGoogle`
+and `spf`, so if a real confirmation ever stops being emailed back, the logs
+show which part failed.
 
 # Installments ("cuotas", 15 Oct 2026)
 
