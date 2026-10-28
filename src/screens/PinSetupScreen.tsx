@@ -9,6 +9,7 @@ import { useLocale } from '../i18n/LocaleContext';
 import { PinPad } from '../components/PinPad';
 import { PIN_LENGTH, setPin } from '../pin';
 import { enterApp } from '../navigation/navigationRef';
+import { track } from '../analytics';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PinSetup'>;
 
@@ -23,6 +24,8 @@ export function PinSetupScreen({ navigation, route }: Props) {
 
   const finishAfterSetting = () => {
     if (route.params?.thenFinishAuth) {
+      // Only the signup security step, not a PIN set later from Settings.
+      track('security_setup_done', { choice: 'pin' });
       if (route.params?.fromOnboarding) {
         enterApp('Statements');
       } else {

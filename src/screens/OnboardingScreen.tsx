@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
+import { track } from '../analytics';
 import { View, Text, ScrollView, Pressable, StyleSheet, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -45,6 +46,11 @@ export function OnboardingScreen({ navigation }: Props) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { completeOnboarding } = useAppSettings();
+
+  // Analytics: the welcome is a single screen today (step 1).
+  useEffect(() => {
+    track('onboarding_viewed', { step: 1 });
+  }, []);
 
   const start = () => {
     completeOnboarding();

@@ -174,7 +174,7 @@ export function CardDetailScreen({ route, navigation }: Props) {
               </Pressable>
             )}
             <Pressable
-              onPress={() => navigation.navigate('Tabs', { screen: 'Statements', params: { cardId: card.id } })}
+              onPress={() => navigation.navigate('Tabs', { screen: 'Statements', params: { cardId: card.id, from: 'card_detail' } })}
               style={styles.pillBtn}
             >
               <Text style={styles.pillBtnText}>{t.statements}</Text>
@@ -249,7 +249,7 @@ export function CardDetailScreen({ route, navigation }: Props) {
             <CardAdditionals
               card={card}
               lang={lang}
-              onSeeMember={(last4) => navigation.navigate('Transactions', { cardId: card.id, member: last4 })}
+              onSeeMember={(last4) => navigation.navigate('Transactions', { cardId: card.id, member: last4, from: 'card_member' })}
             />
           </View>
         ) : null}
@@ -303,7 +303,7 @@ export function CardDetailScreen({ route, navigation }: Props) {
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>{t.transactions}</Text>
             <Pressable
-              onPress={() => navigation.navigate('Transactions', { cardId: card.id })}
+              onPress={() => navigation.navigate('Transactions', { cardId: card.id, from: 'card_detail' })}
               hitSlop={6}
             >
               <Text style={styles.seeAll}>{t.seeAll}</Text>

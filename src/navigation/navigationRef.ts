@@ -16,7 +16,7 @@ function navigateWhenReady(action: () => void, attemptsLeft = 20) {
 
 export function navigateToStatementReview(statementId: string) {
   navigateWhenReady(() => {
-    navigationRef.navigate('Tabs', { screen: 'Statements', params: { statementId } });
+    navigationRef.navigate('Tabs', { screen: 'Statements', params: { statementId, from: 'push' } });
   });
 }
 
@@ -28,7 +28,7 @@ export function navigateToStatementDetail(statementId: string) {
 
 export function navigateToStatements() {
   navigateWhenReady(() => {
-    navigationRef.navigate('Tabs', { screen: 'Statements' });
+    navigationRef.navigate('Tabs', { screen: 'Statements', params: { from: 'push' } });
   });
 }
 

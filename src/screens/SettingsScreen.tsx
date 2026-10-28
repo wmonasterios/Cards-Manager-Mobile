@@ -266,7 +266,7 @@ export function SettingsScreen({ navigation }: any) {
               icon="cloud-upload-outline"
               title={es ? 'Agregar un estado de cuenta' : 'Add a statement'}
               sub={es ? 'Sube el PDF o reenvía el correo · historial' : 'Upload the PDF or forward the email · history'}
-              onPress={() => navigation.navigate('Statements', { cardId: undefined })}
+              onPress={() => navigation.navigate('Statements', { cardId: undefined, from: 'settings' })}
             />
           </View>
 

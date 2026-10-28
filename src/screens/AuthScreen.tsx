@@ -13,7 +13,8 @@ import { Segmented } from '../components/Segmented';
 import { PasswordInput } from '../components/PasswordInput';
 import { useAuth } from '../context/AuthContext';
 import { enterApp } from '../navigation/navigationRef';
-import { friendlyAuthError } from '../authErrors';
+import { authErrorCode, friendlyAuthError } from '../authErrors';
+import { track } from '../analytics';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Auth'>;
 type Mode = 'signin' | 'signup';
@@ -69,6 +70,11 @@ export function AuthScreen({ navigation, route }: Props) {
   const [googleBusy, setGoogleBusy] = useState(false);
   const [appleAvailable, setAppleAvailable] = useState(false);
 
+  // Analytics: which side of the screen people look at (sign up / sign in).
+  useEffect(() => {
+    track('auth_viewed', { mode });
+  }, [mode]);
+
   useEffect(() => {
     if (Platform.OS !== 'ios') return;
     AppleAuthentication.isAvailableAsync().then(setAppleAvailable).catch(() => setAppleAvailable(false));
@@ -76,9 +82,11 @@ export function AuthScreen({ navigation, route }: Props) {
 
   const handleGoogle = async () => {
     setGoogleBusy(true);
+    if (mode === 'signup') track('signup_started', { method: 'google' });
     const { error } = await signInWithGoogle();
     setGoogleBusy(false);
     if (error) {
+      if (mode === 'signup') track('signup_failed', { method: 'google', reason: authErrorCode(error) });
       Alert.alert(lang === 'es' ? 'No se pudo iniciar sesión con Google' : 'Could not sign in with Google', err(error));
       return;
     }
@@ -86,8 +94,10 @@ export function AuthScreen({ navigation, route }: Props) {
   };
 
   const handleApple = async () => {
+    if (mode === 'signup') track('signup_started', { method: 'apple' });
     const { error } = await signInWithApple();
     if (error) {
+      if (mode === 'signup') track('signup_failed', { method: 'apple', reason: authErrorCode(error) });
       Alert.alert(lang === 'es' ? 'No se pudo iniciar sesión con Apple' : 'Could not sign in with Apple', err(error));
       return;
     }
@@ -109,9 +119,11 @@ export function AuthScreen({ navigation, route }: Props) {
       return;
     }
     setBusy(true);
+    if (mode === 'signup') track('signup_started', { method: 'email' });
     const result = mode === 'signin' ? await signIn(email.trim(), password) : await signUp(email.trim(), password);
     setBusy(false);
     if (result.error) {
+      if (mode === 'signup') track('signup_failed', { method: 'email', reason: authErrorCode(result.error) });
       Alert.alert(
         mode === 'signin'
           ? es ? 'No se pudo iniciar sesión' : 'Could not sign in'

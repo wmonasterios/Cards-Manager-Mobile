@@ -14,6 +14,7 @@ import { DateField } from '../components/DateField';
 import { useCards } from '../context/CardsContext';
 import { money, moneyByCur } from '../format';
 import { isInstalment } from '../instalments';
+import { track } from '../analytics';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Transactions'>;
 
@@ -55,6 +56,11 @@ export function TransactionsScreen({ route, navigation }: Props) {
   const { lang, t } = useLocale();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  // Analytics: how people get here (the Home magnifier, Insights, a card).
+  useEffect(() => {
+    if (route.params?.from) track('transactions_viewed', { from: route.params.from });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [query, setQuery] = useState(route.params?.initialQuery ?? '');
   const [range, setRange] = useState<RangeKey>('3months');
   const [fromDate, setFromDate] = useState(new Date(2026, 6, 1));

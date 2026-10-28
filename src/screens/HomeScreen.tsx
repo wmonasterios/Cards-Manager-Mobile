@@ -124,7 +124,7 @@ export function HomeScreen({ navigation, route }: any) {
 
   const goToAction = (r: StatusRow) => {
     if (r.action === 'upload' || r.action === 'review') {
-      navigation.navigate('Statements', { cardId: r.card.id });
+      navigation.navigate('Statements', { cardId: r.card.id, from: 'home_card_cta' });
     } else if (r.action === 'pay') {
       navigation.navigate('Pay', { cardId: r.card.id });
     } else {
@@ -216,7 +216,7 @@ export function HomeScreen({ navigation, route }: any) {
             ) : (
               <>
                 <Pressable
-                  onPress={() => navigation.navigate('Transactions', {})}
+                  onPress={() => navigation.navigate('Transactions', { from: 'home_search' })}
                   style={styles.iconBtn}
                   hitSlop={6}
                 >
@@ -228,7 +228,7 @@ export function HomeScreen({ navigation, route }: any) {
                   </Pressable>
                 )}
                 <Pressable
-                  onPress={() => navigation.navigate('Statements')}
+                  onPress={() => navigation.navigate('Statements', { from: 'home_plus' })}
                   style={[styles.iconBtn, styles.iconBtnAccent]}
                   hitSlop={6}
                 >

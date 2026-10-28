@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import { track } from '../analytics';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
@@ -248,6 +249,7 @@ function RealStatementsFlow({ navigation, route }: any) {
 
   const copyInbox = async () => {
     if (!emailAddress) return;
+    track('forwarding_guide_opened', { action: 'copy' });
     await Clipboard.setStringAsync(emailAddress);
     setEmailCopied(true);
     setTimeout(() => setEmailCopied(false), 2600);
@@ -266,6 +268,7 @@ function RealStatementsFlow({ navigation, route }: any) {
   }, [userId]);
   const copyGmailCode = async () => {
     if (!gmailCode?.code) return;
+    track('fwd_card_action', { status: gmailCode.status ?? 'legacy', action: 'copy' });
     await Clipboard.setStringAsync(gmailCode.code);
     setGmailCopied(true);
     setTimeout(() => setGmailCopied(false), 2600);
@@ -284,6 +287,7 @@ function RealStatementsFlow({ navigation, route }: any) {
           style: 'destructive',
           onPress: () => {
             const at = gmailCode.at;
+            track('fwd_card_action', { status: gmailCode.status ?? 'legacy', action: 'dismiss' });
             setGmailCode(null);
             dismissGmailForwardingCode(userId, at).catch(() => {});
           },
@@ -297,6 +301,27 @@ function RealStatementsFlow({ navigation, route }: any) {
   const filterCard = filterCardId ? getCard(filterCardId) : undefined;
 
   const [stage, setStage] = useState<RealStage>('idle');
+
+  // Analytics: a review left without applying — by discarding, going back or
+  // leaving the screen — counts once per review, with how long it was open.
+  const reviewStartedAt = useRef<number | null>(null);
+  const reviewApplied = useRef(false);
+  const endReview = useCallback(() => {
+    if (reviewStartedAt.current === null) return;
+    if (!reviewApplied.current) {
+      track('review_abandoned', { seconds: Math.round((Date.now() - reviewStartedAt.current) / 1000) });
+    }
+    reviewStartedAt.current = null;
+  }, []);
+  useEffect(() => {
+    if (stage === 'review' && reviewStartedAt.current === null) {
+      reviewStartedAt.current = Date.now();
+      reviewApplied.current = false;
+    } else if (stage !== 'review') {
+      endReview();
+    }
+  }, [stage, endReview]);
+  useFocusEffect(useCallback(() => endReview, [endReview]));
   const [statementId, setStatementId] = useState<string | null>(null);
   const [fields, setFields] = useState<ParsedStatement | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
@@ -461,6 +486,16 @@ function RealStatementsFlow({ navigation, route }: any) {
     }, [userId, loadGmailCode]),
   );
 
+  // Analytics: where this visit came from. Tab params stick around, so the
+  // origin is cleared once counted (a later tap on the tab bar = 'tab').
+  useFocusEffect(
+    useCallback(() => {
+      track('statements_viewed', { from: route.params?.from ?? 'tab', has_cards: cards.length > 0 });
+      if (route.params?.from) navigation.setParams({ from: undefined });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [route.params?.from]),
+  );
+
   // While a background "Volver a leer" is running, keep the history pill fresh.
   const anyRereading = history.some(
     (s) => s.reread_status === 'reading' && !!s.reread_started_at && Date.now() - Date.parse(s.reread_started_at) < 6 * 60 * 1000,
@@ -587,11 +622,15 @@ function RealStatementsFlow({ navigation, route }: any) {
 
   const pickAndUpload = async () => {
     if (!userId) return;
+    track('upload_started');
     const result = await DocumentPicker.getDocumentAsync({
       type: 'application/pdf',
       copyToCacheDirectory: true,
     });
-    if (result.canceled || !result.assets?.[0]) return;
+    if (result.canceled || !result.assets?.[0]) {
+      track('upload_canceled');
+      return;
+    }
     const asset = result.assets[0];
 
     setStage('uploading');
@@ -769,6 +808,7 @@ function RealStatementsFlow({ navigation, route }: any) {
     setApplying(true);
     try {
       const result = await applyStatement(statementId, fields, cardId, { members: memberChoices(askedNumbers, memberDraft) });
+      reviewApplied.current = true;
       await refresh();
       setStage('idle');
       setStatementId(null);
@@ -1320,7 +1360,11 @@ function RealStatementsFlow({ navigation, route }: any) {
                 </View>
                 {gmailCode.link && (
                   <Pressable
-                    onPress={() => gmailCode.link && Linking.openURL(gmailCode.link)}
+                    onPress={() => {
+                      if (!gmailCode.link) return;
+                      track('fwd_card_action', { status: gmailCode.status ?? 'legacy', action: 'confirm' });
+                      Linking.openURL(gmailCode.link);
+                    }}
                     style={styles.gmailConfirmBtn}
                     accessibilityRole="link"
                   >
@@ -1338,13 +1382,14 @@ function RealStatementsFlow({ navigation, route }: any) {
                 {gmailCode.status === 'unreadable' || gmailCode.status === 'unrecognized' ? (
                   <>
                     <Pressable
-                      onPress={() =>
+                      onPress={() => {
+                        track('fwd_card_action', { status: gmailCode.status ?? 'legacy', action: 'support' });
                         Linking.openURL(
                           `mailto:support@poquetapp.com?subject=${encodeURIComponent(
                             gmailCode.status === 'unreadable' ? 'Reenvío de Gmail' : `Correo sin PDF${gmailCode.from ? ` de ${gmailCode.from}` : ''}`,
                           )}`,
-                        ).catch(() => {})
-                      }
+                        ).catch(() => {});
+                      }}
                       style={styles.gmailConfirmBtn}
                       accessibilityRole="link"
                     >
@@ -1844,7 +1889,10 @@ function AddStatementOptions({
                 : 'set an auto-forward rule once and forget about it. '}
               <Text
                 style={styles.tipLink}
-                onPress={() => WebBrowser.openBrowserAsync(FORWARD_GUIDE_URL).catch(() => {})}
+                onPress={() => {
+                  track('forwarding_guide_opened', { action: 'guide' });
+                  WebBrowser.openBrowserAsync(FORWARD_GUIDE_URL).catch(() => {});
+                }}
                 accessibilityRole="link"
                 suppressHighlighting
               >

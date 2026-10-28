@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
@@ -11,6 +12,7 @@ import { TxRow } from '../components/TxRow';
 import { getAvailableMonths, analyseInsights, analyseByCard, fmtMoney, cardCurrencies } from '../insightsAnalysis';
 import { moneyCompact } from '../format';
 import { buildSeries, monthName, monthYear, addMonthsIso } from '../instalments';
+import { track } from '../analytics';
 
 export function InsightsScreen({ navigation }: any) {
   const { lang, t } = useLocale();
@@ -39,6 +41,7 @@ export function InsightsScreen({ navigation }: any) {
   const [showOtherCats, setShowOtherCats] = useState(false);
 
   const toggleCard = (id: string) => {
+    track('insights_filter_changed', { filter: 'card' });
     setExcludedCardIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -85,11 +88,20 @@ export function InsightsScreen({ navigation }: any) {
     ? selectedMonthIso
     : months[months.length - 1]?.iso ?? null;
   const monthIdx = monthIso ? months.findIndex((m) => m.iso === monthIso) : -1;
+
+  // Analytics: how much there is to look at (counts only, never which).
+  useFocusEffect(
+    useCallback(() => {
+      track('insights_viewed', { months_with_data: months.length, currencies: currencies.length });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []),
+  );
   const prevMonthIso = monthIdx > 0 ? months[monthIdx - 1].iso : null;
 
   const goMonth = (delta: number) => {
     const next = monthIdx + delta;
     if (next < 0 || next >= months.length) return;
+    track('insights_month_changed', { direction: delta < 0 ? 'back' : 'forward' });
     setSelectedMonthIso(months[next].iso);
     setSelCat(null);
     setSelWeek(null);
@@ -121,6 +133,7 @@ export function InsightsScreen({ navigation }: any) {
     return { month: addMonthsIso(`${soonest}-01`, 1), amount: ending.reduce((n, x) => n + x.monthly, 0), ending };
   }, [activeSeries]);
   const pickCard = (cardId: string) => {
+    track('insights_filter_changed', { filter: 'card' });
     if (isolatedCardId === cardId) {
       setExcludedCardIds(new Set());
     } else {
@@ -131,6 +144,7 @@ export function InsightsScreen({ navigation }: any) {
   // Switching currency is a different set of cards: start that view clean.
   const pickCurrency = (next: string) => {
     if (next === cur) return;
+    track('insights_filter_changed', { filter: 'currency' });
     setSelCur(next);
     setExcludedCardIds(new Set());
     setSelCat(null);
@@ -139,12 +153,14 @@ export function InsightsScreen({ navigation }: any) {
     setShowOtherCats(false);
   };
 
-  const pickCategory = (name: string) => {
+  const pickCategory = (name: string, via: 'donut' | 'list') => {
+    if (selCat !== name) track('insights_category_selected', { category: name, via });
     setSelCat((prev) => (prev === name ? null : name));
     setShowAllTx(false);
     setShowOtherCats(false);
   };
   const pickWeek = (idx: number) => {
+    if (selWeek !== idx) track('insights_week_selected');
     setSelWeek((prev) => (prev === idx ? null : idx));
     setShowAllTx(false);
   };
@@ -188,6 +204,7 @@ export function InsightsScreen({ navigation }: any) {
   ) : null;
 
   const pickWho = (next: string | null) => {
+    track('insights_filter_changed', { filter: 'holder' });
     setSelWho(next);
     setExcludedCardIds(new Set());
     setSelCat(null);
@@ -407,7 +424,7 @@ export function InsightsScreen({ navigation }: any) {
                         strokeDasharray={arc.dash}
                         strokeDashoffset={arc.offset}
                         opacity={arc.opacity}
-                        onPress={() => pickCategory(arc.name)}
+                        onPress={() => pickCategory(arc.name, 'donut')}
                       />
                     ))}
                   </Svg>
@@ -453,7 +470,7 @@ export function InsightsScreen({ navigation }: any) {
                     <Pressable
                       key={c.name}
                       style={[styles.catRow, selCat === c.name && { backgroundColor: colors.tint }]}
-                      onPress={() => pickCategory(c.name)}
+                      onPress={() => pickCategory(c.name, 'list')}
                     >
                       <View style={[styles.catBadge, { backgroundColor: c.bg }]}>
                         <Ionicons name={c.icon as any} size={16} color={c.ink} />
@@ -493,7 +510,10 @@ export function InsightsScreen({ navigation }: any) {
                   ))}
                   {analysis.sel && analysis.categories.length > 1 && (
                     <Pressable
-                      onPress={() => setShowOtherCats((v) => !v)}
+                      onPress={() => {
+                        if (!showOtherCats) track('insights_more_opened', { what: 'categories' });
+                        setShowOtherCats((v) => !v);
+                      }}
                       style={styles.otherCatsBtn}
                       accessibilityRole="button"
                       accessibilityState={{ expanded: showOtherCats }}
@@ -594,7 +614,10 @@ export function InsightsScreen({ navigation }: any) {
                       <Pressable
                         key={x.key}
                         style={styles.cuotaRow}
-                        onPress={() => navigation.navigate('TransactionDetail', { txId: x.latest.id, cardId: x.cardId })}
+                        onPress={() => {
+                          track('insights_tx_opened');
+                          navigation.navigate('TransactionDetail', { txId: x.latest.id, cardId: x.cardId });
+                        }}
                       >
                         <View style={styles.catRowHead}>
                           <Text style={[styles.catName, { flex: 1 }]} numberOfLines={1}>{x.merchant}</Text>
@@ -627,7 +650,7 @@ export function InsightsScreen({ navigation }: any) {
                   {selWeek !== null ? ` · ${weekTag(selWeek)}` : ''}
                   {selCat !== null ? ` · ${categoryLabel(selCat, lang)}` : ''}
                 </Text>
-                <Pressable onPress={() => navigation.navigate('Transactions', {})} hitSlop={6}>
+                <Pressable onPress={() => navigation.navigate('Transactions', { from: 'insights' })} hitSlop={6}>
                   <Text style={styles.seeAll}>{t.seeAll}</Text>
                 </Pressable>
               </View>
@@ -643,12 +666,21 @@ export function InsightsScreen({ navigation }: any) {
                         key={tx.id}
                         tx={tx}
                         showCard
-                        onPress={() => navigation.navigate('TransactionDetail', { txId: tx.id, cardId })}
+                        onPress={() => {
+                          track('insights_tx_opened');
+                          navigation.navigate('TransactionDetail', { txId: tx.id, cardId });
+                        }}
                       />
                     ))}
                   </View>
                   {analysis.filteredTx.length > 5 && (
-                    <Pressable onPress={() => setShowAllTx((v) => !v)} style={styles.moreBtn}>
+                    <Pressable
+                      onPress={() => {
+                        if (!showAllTx) track('insights_more_opened', { what: 'transactions' });
+                        setShowAllTx((v) => !v);
+                      }}
+                      style={styles.moreBtn}
+                    >
                       <Text style={styles.moreBtnText}>
                         {showAllTx ? t.showLess : `${t.showAll} ${analysis.filteredTx.length}`}
                       </Text>
