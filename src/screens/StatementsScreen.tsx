@@ -49,7 +49,7 @@ import { DbStatement, DbCardAlias, ParsedStatement } from '../supabase/types';
 import { DecoratedCard } from '../decorate';
 import { reconcileStatements } from '../statementCheck';
 import { money } from '../format';
-import { CardMembersPicker, MemberDraft, cardNumbers, memberChoices, missingName, numbersToAsk } from '../components/CardMembersPicker';
+import { CardMembersPicker, MemberDraft, cardNumbers, knownNumbers, memberChoices, missingName, numbersToAsk } from '../components/CardMembersPicker';
 
 type UploadStage = 'idle' | 'parsing' | 'review';
 type RealStage = 'idle' | 'uploading' | 'parsing' | 'review' | 'error';
@@ -719,6 +719,7 @@ function RealStatementsFlow({ navigation, route }: any) {
   const reviewCardId = resolvedCardId();
   const knownMembers = typeof reviewCardId === 'string' ? cardMembers.filter((m) => m.card_id === reviewCardId) : [];
   const askedNumbers = numbersToAsk(fields?.transactions, knownMembers);
+  const knownInStatement = knownNumbers(fields?.transactions, knownMembers);
   const totalNumbers = cardNumbers(fields?.transactions ?? []).length;
 
   const confirmApply = async () => {
@@ -1144,10 +1145,11 @@ function RealStatementsFlow({ navigation, route }: any) {
               </View>
             )}
 
-            {askedNumbers.length > 0 && (
+            {(askedNumbers.length > 0 || knownInStatement.length > 0) && (
               <View style={{ marginTop: 16 }}>
                 <CardMembersPicker
                   asked={askedNumbers}
+                  known={knownInStatement}
                   draft={memberDraft}
                   onChange={setMemberDraft}
                   cur={fields.currency === 'USD' || !fields.currency ? 'US$' : fields.currency}
