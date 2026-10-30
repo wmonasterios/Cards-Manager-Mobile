@@ -10,7 +10,10 @@ import { DbCardMember, MemberChoice, ParsedTransaction } from '../supabase/types
 // reader tags every line with its section's number (card_last4). The first
 // time a number shows up on a card, the review screen asks whether it's an
 // additional card and whose; everything not marked as additional counts as
-// the principal's. Numbers already answered on this card aren't asked again.
+// the principal's. Numbers already answered on this card aren't asked again,
+// but they're still listed (read-only) so the user can see every number the
+// reader found — hiding them read as "it didn't detect my additional card"
+// (support report, 29 Oct 2026).
 
 export type MemberDraft = Record<string, { kind: 'principal' | 'additional'; name: string }>;
 
@@ -40,6 +43,19 @@ export function numbersToAsk(transactions: ParsedTransaction[] | undefined, know
   return all.filter((n) => !answered.has(n.last4));
 }
 
+// Numbers in this statement that already have an answer on this card, shown
+// read-only next to the ones being asked about.
+export type KnownNumber = NumberSummary & { kind: 'principal' | 'additional'; name: string | null };
+export function knownNumbers(transactions: ParsedTransaction[] | undefined, known: DbCardMember[]): KnownNumber[] {
+  const all = cardNumbers(transactions ?? []);
+  if (all.length < 2) return [];
+  const byLast4 = new Map(known.map((m) => [m.last4, m]));
+  return all.flatMap((n) => {
+    const m = byLast4.get(n.last4);
+    return m ? [{ ...n, kind: m.kind, name: m.kind === 'additional' ? m.name : null }] : [];
+  });
+}
+
 // What to send to apply-statement: every asked number (principal ones too,
 // so they aren't asked again). An additional without a name stays principal.
 export function memberChoices(asked: NumberSummary[], draft: MemberDraft): MemberChoice[] {
@@ -60,6 +76,7 @@ export function missingName(asked: NumberSummary[], draft: MemberDraft): string 
 
 export function CardMembersPicker({
   asked,
+  known = [],
   draft,
   onChange,
   cur,
@@ -67,6 +84,7 @@ export function CardMembersPicker({
   totalNumbers,
 }: {
   asked: NumberSummary[];
+  known?: KnownNumber[];
   draft: MemberDraft;
   onChange: (next: MemberDraft) => void;
   cur: string;
@@ -76,7 +94,11 @@ export function CardMembersPicker({
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const es = lang === 'es';
-  if (asked.length === 0) return null;
+  if (asked.length === 0 && known.length === 0) return null;
+  const lineSummary = (n: NumberSummary) =>
+    es
+      ? `${n.lines} ${n.lines === 1 ? 'línea' : 'líneas'} · ${money(cur, n.charges)} en cargos`
+      : `${n.lines} ${n.lines === 1 ? 'line' : 'lines'} · ${money(cur, n.charges)} in charges`;
 
   const set = (last4: string, patch: Partial<{ kind: 'principal' | 'additional'; name: string }>) => {
     const prev = draft[last4] ?? { kind: 'principal' as const, name: '' };
@@ -89,10 +111,29 @@ export function CardMembersPicker({
         {es ? `ESTE ESTADO TRAE ${totalNumbers} TARJETAS` : `THIS STATEMENT HAS ${totalNumbers} CARDS`}
       </Text>
       <Text style={styles.intro}>
-        {es
-          ? 'Marca cuál es una adicional. Lo demás se suma a tu tarjeta principal. Solo te lo preguntamos esta vez.'
-          : "Mark which one is an additional card. Everything else counts as your main card. We only ask this once."}
+        {asked.length > 0
+          ? es
+            ? 'Marca cuál es una adicional. Lo demás se suma a tu tarjeta principal. Solo te lo preguntamos esta vez.'
+            : 'Mark which one is an additional card. Everything else counts as your main card. We only ask this once.'
+          : es
+            ? 'Ya las conocemos: cada compra queda con su tarjeta. Puedes cambiarlo desde la tarjeta, en Gestionar.'
+            : 'We already know them: each purchase stays with its card. You can change this from the card, under Manage.'}
       </Text>
+      {known.map((n) => (
+        <View key={n.last4} style={styles.row}>
+          <View style={styles.rowTop}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.number}>·· {n.last4}</Text>
+              <Text style={styles.sub}>{lineSummary(n)}</Text>
+            </View>
+            <Text style={styles.knownTag} numberOfLines={1}>
+              {n.kind === 'additional'
+                ? `${es ? 'Adicional' : 'Additional'}${n.name ? ` · ${n.name}` : ''}`
+                : es ? 'Principal' : 'Main'}
+            </Text>
+          </View>
+        </View>
+      ))}
       {asked.map((n) => {
         const d = draft[n.last4] ?? { kind: 'principal', name: '' };
         const extra = d.kind === 'additional';
@@ -101,11 +142,7 @@ export function CardMembersPicker({
             <View style={styles.rowTop}>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={styles.number}>·· {n.last4}</Text>
-                <Text style={styles.sub}>
-                  {es
-                    ? `${n.lines} ${n.lines === 1 ? 'línea' : 'líneas'} · ${money(cur, n.charges)} en cargos`
-                    : `${n.lines} ${n.lines === 1 ? 'line' : 'lines'} · ${money(cur, n.charges)} in charges`}
-                </Text>
+                <Text style={styles.sub}>{lineSummary(n)}</Text>
               </View>
               <View style={styles.segment} accessibilityRole="radiogroup">
                 <Pressable
@@ -162,6 +199,7 @@ function makeStyles(colors: ColorTokens) {
     rowTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     number: { fontSize: 15, fontWeight: '600', color: colors.ink },
     sub: { fontSize: 11.5, color: colors.ink3, marginTop: 2 },
+    knownTag: { fontSize: 12.5, fontWeight: '500', color: colors.ink2, maxWidth: '55%' },
     segment: {
       flexDirection: 'row',
       padding: 3,

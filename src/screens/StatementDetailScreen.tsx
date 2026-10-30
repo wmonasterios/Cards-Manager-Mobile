@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CardMembersPicker, MemberDraft, cardNumbers, memberChoices, missingName, numbersToAsk } from '../components/CardMembersPicker';
+import { CardMembersPicker, MemberDraft, cardNumbers, knownNumbers, memberChoices, missingName, numbersToAsk } from '../components/CardMembersPicker';
 import { AppState } from 'react-native';
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Modal, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -96,10 +96,9 @@ export function StatementDetailScreen({ route, navigation }: any) {
   const newReading = st?.reread_status === 'ready' ? st.reread_parsed ?? null : null;
   const rereadFailed = st?.reread_status === 'failed' || rereadStale;
   // Additional cards: numbers in the new reading this card has no answer for.
-  const askedNumbers = numbersToAsk(
-    newReading?.transactions,
-    cardMembers.filter((m) => m.card_id === st?.card_id),
-  );
+  const cardKnownMembers = cardMembers.filter((m) => m.card_id === st?.card_id);
+  const askedNumbers = numbersToAsk(newReading?.transactions, cardKnownMembers);
+  const knownInStatement = knownNumbers(newReading?.transactions, cardKnownMembers);
   const totalNumbers = cardNumbers(newReading?.transactions ?? []).length;
 
   useEffect(() => {
@@ -345,10 +344,11 @@ export function StatementDetailScreen({ route, navigation }: any) {
           <Text style={[styles.small, { marginTop: 12, textAlign: 'center' }]}>
             {es ? 'Las categorías que corregiste a mano se mantienen.' : 'Categories you fixed by hand are kept.'}
           </Text>
-          {askedNumbers.length > 0 && (
+          {(askedNumbers.length > 0 || knownInStatement.length > 0) && (
             <View style={{ marginTop: 18 }}>
               <CardMembersPicker
                 asked={askedNumbers}
+                known={knownInStatement}
                 draft={memberDraft}
                 onChange={setMemberDraft}
                 cur={cur}
