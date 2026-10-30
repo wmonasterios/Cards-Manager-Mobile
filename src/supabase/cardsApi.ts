@@ -72,6 +72,7 @@ function buildInstalmentPlans(transactions: DbTransaction[]): InstalmentPlan[] {
       monthly,
       remaining: remainingInstalments * monthly,
       pct: progress ? Math.round((progress.current / progress.total) * 100) : 0,
+      txId: String(row.id),
     };
   });
 }
