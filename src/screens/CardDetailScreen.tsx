@@ -272,8 +272,18 @@ export function CardDetailScreen({ route, navigation }: Props) {
               </Text>
             </View>
             <View style={{ marginTop: 10, gap: 8 }}>
-              {card.plans.map((p) => (
-                <View key={p.merchant + p.plan} style={styles.planCard}>
+              {card.plans.map((p) => {
+                // Opens the latest cuota, whose detail shows the whole series.
+                // Demo plans have no txId: match their cuota line instead.
+                const txId = p.txId ?? card.tx.find((x) => x.plan === p.plan && x.merchant === p.merchant)?.id;
+                return (
+                <Pressable
+                  key={p.merchant + p.plan}
+                  disabled={!txId}
+                  onPress={() => txId && navigation.navigate('TransactionDetail', { txId, cardId: card.id })}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.planCard, pressed && { opacity: 0.7 }]}
+                >
                   <View style={styles.planTopRow}>
                     <Text style={styles.planMerchant}>{p.merchant}</Text>
                     <Text style={styles.planMonthly}>
@@ -288,13 +298,15 @@ export function CardDetailScreen({ route, navigation }: Props) {
                     </Text>
                     <Text style={styles.planSub}>
                       {money(card.cur, p.remaining)} {t.leftWord}
+                      {txId ? '  ›' : ''}
                     </Text>
                   </View>
                   <View style={{ marginTop: 9 }}>
                     <ProgressBar pct={p.pct} fill={colors.bar} />
                   </View>
-                </View>
-              ))}
+                </Pressable>
+                );
+              })}
             </View>
           </View>
         )}

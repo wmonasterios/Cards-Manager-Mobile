@@ -72,6 +72,8 @@ export type InstalmentPlan = {
   monthly: number;
   remaining: number;
   pct: number;
+  // The plan's most recent cuota, so tapping the plan opens its series.
+  txId?: string;
 };
 
 export type Card = {
