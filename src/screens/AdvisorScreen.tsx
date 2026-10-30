@@ -12,6 +12,7 @@ import {
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { track } from '../analytics';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { radius, ColorTokens, fonts } from '../theme';
@@ -60,6 +61,18 @@ export function AdvisorScreen({ navigation }: any) {
   const { cards, isDemo } = useCards();
 
   const [mode, setMode] = useState<Mode>('loading');
+
+  // Analytics: what people find when they open the advisor (once per
+  // visit), and every time they reach the monthly limit.
+  const viewTracked = useRef(false);
+  useEffect(() => {
+    if (mode === 'loading' || mode === 'error') return;
+    if (!viewTracked.current) {
+      viewTracked.current = true;
+      track('advisor_viewed', { mode });
+    }
+    if (mode === 'limit') track('advisor_limit_hit', { limit: 'monthly' });
+  }, [mode]);
   const [status, setStatus] = useState<AdvisorStatus | null>(null);
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [messages, setMessages] = useState<AdvisorMessage[]>([]);
@@ -128,6 +141,7 @@ export function AdvisorScreen({ navigation }: any) {
 
   const errorText = (e: unknown): string => {
     const code = e instanceof AdvisorError ? e.code : 'network';
+    if (code === 'daily_limit') track('advisor_limit_hit', { limit: 'daily' });
     switch (code) {
       case 'daily_limit':
         return es ? 'Llegaste al límite de preguntas de hoy. Vuelve mañana.' : "You've reached today's question limit. Come back tomorrow.";
@@ -202,6 +216,10 @@ export function AdvisorScreen({ navigation }: any) {
   };
 
   const goBack = () => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Tabs'));
+  const declineConsent = () => {
+    track('advisor_consent_declined');
+    goBack();
+  };
 
   // ——— Header (chat + limit) ———
   const header = (
@@ -311,7 +329,7 @@ export function AdvisorScreen({ navigation }: any) {
     return (
       <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
         <View style={styles.simpleTop}>
-          <BackButton onPress={goBack} />
+          <BackButton onPress={declineConsent} />
         </View>
         <ScrollView contentContainerStyle={styles.consentScroll} showsVerticalScrollIndicator={false}>
           <View style={styles.consentIcon}>
@@ -368,7 +386,7 @@ export function AdvisorScreen({ navigation }: any) {
               <Text style={styles.primaryBtnText}>{es ? 'Aceptar y continuar' : 'Accept and continue'}</Text>
             )}
           </Pressable>
-          <Pressable style={styles.ghostBtn} onPress={goBack} accessibilityRole="button">
+          <Pressable style={styles.ghostBtn} onPress={declineConsent} accessibilityRole="button">
             <Text style={styles.ghostBtnText}>{es ? 'Ahora no' : 'Not now'}</Text>
           </Pressable>
         </View>

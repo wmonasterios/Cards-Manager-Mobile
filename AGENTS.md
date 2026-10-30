@@ -677,3 +677,37 @@ exactly that Lifemiles line; a first wording made October drop two 1/1 lines
 the first cuota". Dry run with the production self-check retry: all 10
 Colpatria months reconcile (August off by COP 2, a bank rounding), BAC and
 Davivienda unchanged.
+
+# Product analytics: app_events (27 Oct 2026)
+
+Owner's call: first-party events in Supabase now (ships OTA, measures the
+free launch window), PostHog maybe in 1.3 — event names already follow its
+style, so moving means changing `send` in `src/analytics.ts` only.
+
+- `track(event, props)` in `src/analytics.ts`: every event and its props are
+  typed in `EventProps` — nothing outside that list can be sent, and never
+  amounts, merchants, banks, last4 or text the user typed (Insights sends the
+  fixed category key, filters send only *which kind* of filter). Queued and
+  sent in batches every 10 s and on backgrounding; failures are dropped.
+  Off in `__DEV__` unless `EXPO_PUBLIC_TRACK_IN_DEV=1` (the `web-analytics`
+  launch config sets it).
+- Table `public.app_events` (migration `20261027_app_events.sql`): insert-only
+  from the app (column grants; `user_id` comes from `auth.uid()` by default,
+  can't be set), nobody reads it from the app, 500-byte props cap, cascade on
+  account deletion, rows deleted after 12 months by pg_cron job
+  `purge-old-app-events` (03:30 Panama).
+- Signed out (`isDemo = !session`) only `onboarding_viewed`, `auth_viewed`,
+  `signup_started`, `signup_failed`, `demo_entered`, `demo_exited` go out,
+  with no user and the device's `anon_id` (AsyncStorage); the anon RLS policy
+  refuses anything else. `anon_id` joins pre-signup steps to the account.
+- Origins: `Statements` and `Transactions` routes take `from`
+  (`home_plus`, `home_card_cta`, `card_detail`, `settings`, `push` /
+  `home_search`, `insights`, `card_detail`, `card_member`); a Statements visit
+  with no `from` is the tab bar, and the param is cleared once counted
+  because tab params stick.
+- Not tracked on purpose: what the database already knows (statements,
+  applies, email arrivals, advisor questions, cards, pushes) — join on
+  `user_id` instead.
+- Legal: Play Data safety needs "App interactions → Analytics", App Store
+  App Privacy "Product Interaction → Analytics, linked to the user, no
+  tracking"; poquetapp.com's privacy page must mention it.

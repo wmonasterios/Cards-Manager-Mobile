@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { track } from '../analytics';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -54,13 +55,23 @@ export function DemoExitScreen({ navigation }: Props) {
       </View>
 
       <Pressable
-        onPress={() => navigation.replace('Auth', { fromOnboarding: true, mode: 'signup' })}
+        onPress={() => {
+          track('demo_exited', { exit_to: 'signup' });
+          navigation.replace('Auth', { fromOnboarding: true, mode: 'signup' });
+        }}
         style={styles.primaryBtn}
         accessibilityRole="button"
       >
         <Text style={styles.primaryBtnText}>{c.create}</Text>
       </Pressable>
-      <Pressable onPress={() => navigation.goBack()} style={styles.secondaryBtn} accessibilityRole="button">
+      <Pressable
+        onPress={() => {
+          track('demo_exited', { exit_to: 'close' });
+          navigation.goBack();
+        }}
+        style={styles.secondaryBtn}
+        accessibilityRole="button"
+      >
         <Text style={styles.secondaryBtnText}>{c.keep}</Text>
       </Pressable>
       <View style={styles.signInRow}>

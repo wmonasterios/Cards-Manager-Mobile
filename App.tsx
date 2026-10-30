@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { AppState, View } from 'react-native';
+import { setAnalyticsSignedIn, track } from './src/analytics';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -39,6 +40,31 @@ function AppContent() {
     if (hadSession.current && !session) goToWelcome();
     hadSession.current = !!session;
   }, [session]);
+
+  // Analytics: which events may go out depends on being signed in (see
+  // src/analytics.ts). app_opened counts the cold start once the session is
+  // known, then every return from the background.
+  const coldTracked = useRef(false);
+  useEffect(() => {
+    setAnalyticsSignedIn(!!session);
+    if (!authLoading && session && !coldTracked.current) {
+      coldTracked.current = true;
+      track('app_opened', { cold: true });
+    }
+  }, [session, authLoading]);
+  useEffect(() => {
+    let last = AppState.currentState;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && last !== 'active') track('app_opened', { cold: false });
+      last = state;
+    });
+    return () => sub.remove();
+  }, []);
+  useEffect(() => {
+    if (routeName === 'Home') track('screen_viewed', { screen: 'home' });
+    else if (routeName === 'Calendar') track('screen_viewed', { screen: 'calendar' });
+    else if (routeName === 'Insights') track('screen_viewed', { screen: 'insights' });
+  }, [routeName]);
   const { loaded: settingsLoaded } = useAppSettings();
   // Display font for titles/amounts. If it fails to load, carry on with the
   // system font rather than blocking the app.

@@ -10,6 +10,7 @@ import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { useAppSettings } from '../context/AppSettingsContext';
 import { enterApp } from '../navigation/navigationRef';
+import { track } from '../analytics';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SecuritySetup'>;
 
@@ -41,6 +42,7 @@ export function SecuritySetupScreen({ navigation, route }: Props) {
       const result = await LocalAuthentication.authenticateAsync({ promptMessage: t.unlockPrompt });
       if (result.success) {
         if (!faceLock) toggleFaceLock();
+        track('security_setup_done', { choice: 'faceid' });
         finish();
       }
     } finally {
@@ -77,7 +79,13 @@ export function SecuritySetupScreen({ navigation, route }: Props) {
             <Text style={styles.primaryBtnText}>{t.securitySetupSetPin}</Text>
           </Pressable>
         )}
-        <Pressable onPress={finish} style={styles.skipBtn}>
+        <Pressable
+          onPress={() => {
+            track('security_setup_done', { choice: 'skipped' });
+            finish();
+          }}
+          style={styles.skipBtn}
+        >
           <Text style={styles.skipBtnText}>{t.securitySetupSkip}</Text>
         </Pressable>
       </View>

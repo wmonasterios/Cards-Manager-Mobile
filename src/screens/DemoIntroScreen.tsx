@@ -8,6 +8,7 @@ import { useColors } from '../theme/ThemeContext';
 import { useLocale } from '../i18n/LocaleContext';
 import { SheetFrame } from '../components/SheetFrame';
 import { enterApp } from '../navigation/navigationRef';
+import { track } from '../analytics';
 import { DEMO_PERSONA } from '../demo';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DemoIntro'>;
@@ -75,7 +76,14 @@ export function DemoIntroScreen({ navigation }: Props) {
         ))}
       </View>
 
-      <Pressable onPress={() => enterApp('Home', true)} style={styles.primaryBtn} accessibilityRole="button">
+      <Pressable
+        onPress={() => {
+          track('demo_entered');
+          enterApp('Home', true);
+        }}
+        style={styles.primaryBtn}
+        accessibilityRole="button"
+      >
         <Text style={styles.primaryBtnText}>{c.explore}</Text>
       </Pressable>
       <Pressable

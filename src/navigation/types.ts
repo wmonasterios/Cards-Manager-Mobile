@@ -1,10 +1,12 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
+import type { StatementsFrom, TransactionsFrom } from '../analytics';
 
 export type TabParamList = {
   Home: { tour?: boolean } | undefined;
   Calendar: undefined;
   Insights: undefined;
-  Statements: { cardId?: string; statementId?: string } | undefined;
+  // from: where the user came from, for analytics (absent = the tab bar).
+  Statements: { cardId?: string; statementId?: string; from?: StatementsFrom } | undefined;
   Settings: undefined;
   More: undefined;
 };
@@ -14,7 +16,7 @@ export type RootStackParamList = {
   Onboarding: undefined;
   CardDetail: { cardId: string };
   // member: an additional card's last 4 digits, or 'main' for the principal's lines.
-  Transactions: { initialQuery?: string; cardId?: string; member?: string };
+  Transactions: { initialQuery?: string; cardId?: string; member?: string; from?: TransactionsFrom };
   TransactionDetail: { txId: string; cardId: string };
   Pay: { cardId: string };
   Best: undefined;
